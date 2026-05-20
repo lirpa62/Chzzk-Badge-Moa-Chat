@@ -1,0 +1,122 @@
+(() => {
+  const ns = (window.__chzzkBadgeMoa = window.__chzzkBadgeMoa || {});
+  const constants = ns.constants;
+  if (!constants || typeof constants !== "object") {
+    console.error("[badge-moa] constants module not loaded");
+    return;
+  }
+  if (ns.state && typeof ns.createDefaultSettingsState === "function") return;
+
+  const { DEFAULT_POPUP_HEIGHT, DEFAULT_POPUP_FONT_SCALE } = constants;
+
+  function createDefaultSettingsState() {
+    return {
+      hiddenPillNicknames: new Set(),
+      hiddenPillNicknamesByScope: {},
+      excludedCollectNicknames: new Set(),
+      excludedCollectNicknamesByScope: {},
+      trackedScopedNicknames: new Set(),
+      trackedNicknames: new Set(),
+      trackedTargetsByScope: {},
+      nicknameFilterSelected: new Set(),
+      nicknameFilterAutoSelectNew: true,
+      nicknameFilterKnownNicknames: new Set(),
+      nicknameFiltersByScope: {},
+      hideChatBackground: false,
+      hideChatBorder: false,
+      hidePopupBackground: false,
+      hidePopupBorder: false,
+      hidePopupTime: false,
+      popupFontScale: DEFAULT_POPUP_FONT_SCALE,
+      deleteWithoutConfirm: false,
+      hidePillButton: false,
+      pillGlowEnabled: true,
+      enableSessionCache: false,
+    };
+  }
+
+  ns.createDefaultSettingsState = createDefaultSettingsState;
+  ns.state = {
+    entries: [],
+    dedupeKeys: new Set(),
+    unseenCount: 0,
+    unseenActors: new Map(),
+    nicknameRoleBadgesByNickname: new Map(),
+    nicknameFilter: {
+      selected: new Set(),
+      autoSelectNew: true,
+      knownNicknames: new Set(),
+      pendingTrackedNicknames: new Set(),
+    },
+    popupHeight: DEFAULT_POPUP_HEIGHT,
+    displayStyle: "block",
+    settings: createDefaultSettingsState(),
+    tabId: null,
+    resolvedChannelId: "",
+    chatChannelId: "",
+    settingsScopeKey: "home",
+    isOpen: false,
+    popupPinned: false,
+    isSettingsOpen: false,
+    locationKey: "home",
+    sequence: 0,
+    attentionTimer: null,
+    closeTimer: null,
+    confirmDialog: {
+      open: false,
+      resolver: null,
+      lastFocused: null,
+      keyHandler: null,
+    },
+    chatListContainer: null,
+    pillCycle: {
+      timer: null,
+      index: 0,
+      signature: "",
+      lockUntil: 0,
+    },
+    resize: {
+      active: false,
+      startY: 0,
+      startHeight: DEFAULT_POPUP_HEIGHT,
+    },
+    cache: {
+      saveTimer: null,
+      restoreToken: 0,
+      resolvedRestoreChannelId: "",
+      resolvedRestoreInFlight: "",
+    },
+    incoming: {
+      queue: [],
+      flushQueued: false,
+      pauseProcessing: false,
+    },
+    filterBarCollapsed: true,
+    ui: {
+      header: null,
+      root: null,
+      pill: null,
+      iconWrap: null,
+      text: null,
+      count: null,
+      popup: null,
+      settingsButton: null,
+      settingsPanel: null,
+      filterToggleButton: null,
+      filterBar: null,
+      list: null,
+      empty: null,
+      inlineButton: null,
+      blockButton: null,
+      pinButton: null,
+      closeButton: null,
+      resizer: null,
+      confirmModal: null,
+      confirmDialog: null,
+      confirmTitle: null,
+      confirmMessage: null,
+      confirmCancelButton: null,
+      confirmDeleteButton: null,
+    },
+  };
+})();

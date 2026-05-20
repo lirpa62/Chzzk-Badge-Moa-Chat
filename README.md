@@ -1,0 +1,135 @@
+# 배지 모아 챗 - 치지직 배지 채팅 모아보기
+
+<div align="center">
+
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-설치하기-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/%EB%B0%B0%EC%A7%80-%EB%AA%A8%EC%95%84-%EC%B1%97-%EC%B9%98%EC%A7%80%EC%A7%81-%EB%B0%B0%EC%A7%80-%EC%B1%84%ED%8C%85-%EB%AA%A8%EC%95%84%EB%B3%B4%EA%B8%B0/elfbgpccophooginnjagaginhhddpdlh)
+[![Edge Add-ons](https://img.shields.io/badge/Edge-설치하기-0078D7?style=for-the-badge&logo=microsoftedge&logoColor=white)](https://microsoftedge.microsoft.com/addons/detail/jppebepeengcpfebpcbkepbmbgelobnn)
+[![Naver Whale Store](https://img.shields.io/badge/Whale-설치하기-00C73C?style=for-the-badge&logo=naver&logoColor=white)](https://store.whale.naver.com/detail/gmckhhgndbbhbfojemhkhlkpilakhboo)
+[![Firefox Add-ons](https://img.shields.io/badge/Firefox-설치하기-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/ko/firefox/addon/%EB%B0%B0%EC%A7%80-%EB%AA%A8%EC%95%84-%EC%B1%97-%EC%B9%98%EC%A7%80%EC%A7%81-%EB%B0%B0%EC%A7%80-%EC%B1%84%ED%8C%85-%EB%AA%A8%EC%95%84%EB%B3%B4%EA%B8%B0)
+
+<br>
+
+![Chrome Web Store Users](https://img.shields.io/chrome-web-store/users/elfbgpccophooginnjagaginhhddpdlh?style=for-the-badge&logo=googlechrome&logoColor=white&color=4285F4&label=Chrome%20Users)
+[![Edge Add-on Users](https://img.shields.io/badge/dynamic/json?style=for-the-badge&logo=microsoftedge&label=Edge%20Users&query=%24.activeInstallCount&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fjppebepeengcpfebpcbkepbmbgelobnn)](https://microsoftedge.microsoft.com/addons/detail/jppebepeengcpfebpcbkepbmbgelobnn)
+[![Naver Whale Users](https://img.shields.io/endpoint?style=for-the-badge&logo=naver&logoColor=white&url=https%3A%2F%2Fgist.githubusercontent.com%2Flirpa62%2F4140740118cdaa1e02c0863b310b07e2%2Fraw%2FChzzk-Badge-Moa-Chat-Whale-Users.json)](https://store.whale.naver.com/detail/gmckhhgndbbhbfojemhkhlkpilakhboo)
+![Mozilla Add-on Users](https://img.shields.io/amo/users/배지-모아-챗-치지직-배지-채팅-모아보기?style=for-the-badge&logo=firefoxbrowser&logoColor=white&color=FF7139&label=Firefox%20Users)
+
+</div>
+
+치지직 스트리머, 매니저, 파트너 등의 배지 채팅을 놓치지 않게 한눈에 모아서 보여주는 브라우저 확장프로그램입니다.
+
+채팅이 빠르게 흘러가는 라이브 방송에서 스트리머의 한마디, 매니저의 안내, 중요한 답변을 놓쳐본 적이 있으신가요?  
+배지 모아 챗은 배지가 달린 채팅을 별도의 팝업창으로 모아 보여주어 방송에 집중하면서도 핵심 채팅을 한눈에 확인할 수 있게 해줍니다.
+
+---
+
+## 주요 기능
+
+- **배지 채팅 모아보기**  
+  스트리머, 매니저, 파트너 등 배지가 달린 사용자의 채팅을 자동으로 수집하여 별도 팝업창에 정리해 보여줍니다.
+
+- **다시보기(VOD) 배지 채팅 모아보기**  
+  다시보기(VOD) 시청 시에도 라이브 방송과 같이 배지 채팅을 띄워줍니다.
+
+- **모아보기 대상 직접 추가**  
+  배지가 없는 스트리머라도 닉네임을 등록하면 해당 스트리머의 채팅을 팝업창에서 함께 모아볼 수 있습니다. 채널당 최대 200명까지 등록할 수 있습니다.
+
+- **채팅창 배지 알림 효과**  
+  채팅창에서 배지 사용자 또는 직접 추가한 스트리머가 채팅을 쳤을 때 시각적인 강조 효과로 빠르게 인지할 수 있습니다. 필요하지 않은 닉네임은 사용자가 직접 알림 대상에서 제외할 수 있습니다.
+
+- **모아보기 제외 / 미활동 닉네임 자동 정리**  
+  보고 싶지 않은 닉네임은 모아보기에서 제외하고, 활동이 없는 닉네임은 자동으로 정리해 목록을 깔끔하게 관리할 수 있습니다.
+
+- **채널별 독립 설정**  
+  채널마다 추가한 닉네임, 숨김 목록, 표시 옵션이 따로 저장되어 여러 스트리머를 시청해도 설정이 섞이지 않습니다.
+
+- **세밀한 표시 커스터마이징**  
+  설정창 라이트 / 다크 / 시스템 테마, 팝업창 폰트 크기, 팝업창·채팅창 배경색과 테두리, 팝업창 시간 표시, 채팅창 상단 배지 알림 효과를 원하는 방식으로 조정할 수 있습니다.
+
+- **채널 세션 캐시**  
+  방송 중 새로고침하거나 페이지를 이동해도 모아둔 채팅을 유지할 수 있습니다. 브라우저를 닫으면 자동으로 정리되며, 채팅의 영구 저장은 제공하지 않습니다.
+
+---
+
+## 표시 설정
+
+- 설정창 테마: 라이트 / 다크 / 시스템
+- 팝업창 폰트 크기: 80% ~ 120%
+- 팝업창 배경색 제거
+- 채팅창 배경색 제거
+- 팝업창 테두리 선 제거
+- 채팅창 테두리 선 제거
+- 팝업창 시간 숨김
+- 채팅창 배지 알림 효과 사용 / 해제
+- 채팅창 배지 알림 버튼 숨김
+- 채널 세션 캐시 사용 / 해제
+
+`채널 세션 캐시 사용`의 기본값은 OFF입니다.
+
+---
+
+## 이런 분께 추천합니다
+
+- 시청자가 많아 채팅이 빠르게 흘러가는 방송을 자주 보시는 분
+- 스트리머의 답변이나 매니저의 안내 채팅을 놓치고 싶지 않은 분
+- 파트너 스트리머나 주요 배지 스트리머의 참여 채팅을 모아 보고 싶은 분
+- 관심 있는 스트리머의 채팅을 따로 확인하고 싶은 분
+
+---
+
+## 참고 사항
+
+- 모아보기 대상은 채널별로만 추가할 수 있으며, 모든 채널에 공통 적용되는 글로벌 추가 기능은 제공하지 않습니다.
+- 채널 세션 캐시는 브라우저 세션 동안만 유지됩니다.
+- 채팅의 영구 저장은 제공하지 않습니다.
+- 치지직 페이지 구조가 변경될 경우 일부 기능이 일시적으로 정상 동작하지 않을 수 있습니다.
+
+---
+
+## 업데이트 방법
+
+자동으로 업데이트가 되지 않는다면, 사용 중인 브라우저의 확장 프로그램 관리 페이지에 접속하여 상단의 **업데이트** 버튼을 클릭하세요.
+
+- **Chrome**: `chrome://extensions/`
+- **Edge**: `edge://extensions/`
+- **Whale**: `whale://extensions/`
+- **Firefox**: `about:addons` 페이지 상단 톱니바퀴 > 업데이트 확인
+
+---
+
+## 권한 안내
+
+- **storage**: 사용자가 설정한 옵션과 채널별 닉네임 목록을 브라우저에 저장하기 위해 사용합니다.
+- **scripting / tabs**: 치지직 페이지 내부에 팝업창과 알림 효과를 표시하기 위해 사용합니다.
+- **치지직 관련 도메인 접근 권한**: 치지직 채팅 화면에서 배지 정보를 확인하고 모아보기 기능을 제공하기 위해 사용합니다. (`chzzk.naver.com`, `api.chzzk.naver.com`, `comm-api.game.naver.com`)
+
+본 확장 프로그램은 사용자의 설정과 데이터를 외부 서버로 전송하지 않으며, 필요한 정보는 사용자의 브라우저 안에 저장됩니다.
+
+---
+
+## 문의 및 피드백
+
+확장 프로그램이 제대로 동작하지 않거나 불편한 점, 원하는 기능이 있다면 각 스토어의 확장프로그램 리뷰 탭을 통해 제보해 주세요.
+
+---
+
+## 업데이트 내역
+
+<details>
+<summary><b>버전 기록 펼쳐보기</b></summary>
+<br>
+
+**[1.0.2 업데이트 내용]**
+
+- 채팅창 상단 배지 알림의 위치를 조금 옮기고 길이를 조금 줄였어요.
+- 채팅창 상단 배지 알림이 있을 때 모아보기 제외를 하면 배지 알림이 없어지는 버그를 수정했어요.
+
+**[1.0.1 업데이트 내용]**
+
+- 채팅창 상단 배지 알림의 문구를 변경하고 폰트 크기를 조금 줄였어요.
+
+</details>
+
+---
+
+본 확장 프로그램은 치지직과 관련이 없으며, 네이버, 치지직, CHZZK은 NAVER㈜의 등록상표입니다. 본 확장 프로그램을 사용하여 발생하는 결과에 대한 모든 책임은 사용자에게 있습니다.
