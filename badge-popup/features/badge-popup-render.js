@@ -198,6 +198,22 @@
     count.style.display = "inline-flex";
   }
 
+  function scrollListToBottom(list) {
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+
+    const requestFrame =
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => setTimeout(callback, 0);
+
+    requestFrame(() => {
+      if (!list.isConnected) return;
+      list.scrollTop = list.scrollHeight;
+    });
+  }
+
   function renderList(state, scrollToBottom, deps = {}) {
     const list = state?.ui?.list;
     const empty = state?.ui?.empty;
@@ -258,7 +274,8 @@
     updateViewModeButtonsFn();
     const showPopupTime = state.settings?.hidePopupTime !== true;
 
-    const stickToBottom = isNearBottomFn(list);
+    const preserveBottom = scrollToBottom === "preserve-bottom";
+    const stickToBottom = preserveBottom || isNearBottomFn(list);
     const previousScrollTop = Number(list.scrollTop || 0);
     list.innerHTML = "";
 
@@ -486,10 +503,10 @@
       if (target) {
         target.scrollIntoView({ block: "center" });
       } else {
-        list.scrollTop = list.scrollHeight;
+        scrollListToBottom(list);
       }
     } else if (scrollToBottom || (state.isOpen && stickToBottom)) {
-      list.scrollTop = list.scrollHeight;
+      scrollListToBottom(list);
     } else if (previousScrollTop > 0) {
       const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
       list.scrollTop = Math.min(previousScrollTop, maxScrollTop);

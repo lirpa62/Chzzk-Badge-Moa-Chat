@@ -1104,6 +1104,7 @@
       normalizeDisplayStyle,
       savePopupDisplayStyle,
       renderList,
+      isNearBottom,
     });
   }
 

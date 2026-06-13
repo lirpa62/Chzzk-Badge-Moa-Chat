@@ -482,13 +482,18 @@
         : () => {};
     const renderListFn =
       typeof deps.renderList === "function" ? deps.renderList : () => {};
+    const isNearBottomFn =
+      typeof deps.isNearBottom === "function" ? deps.isNearBottom : isNearBottom;
 
     const nextStyle = normalizeDisplayStyleFn(style);
     if (state.displayStyle === nextStyle) return;
 
+    const list = state?.ui?.list;
+    const preserveBottom = list ? isNearBottomFn(list) : false;
+
     state.displayStyle = nextStyle;
     savePopupDisplayStyleFn(nextStyle);
-    renderListFn(false);
+    renderListFn(preserveBottom ? "preserve-bottom" : false);
   }
 
   function normalizePopupFontScale(value, deps = {}) {
