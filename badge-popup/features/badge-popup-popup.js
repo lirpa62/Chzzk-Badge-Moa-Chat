@@ -85,6 +85,21 @@
     flushIncomingPayloadsFn();
     renderListFn(isVideoPageFn() ? "latest-sequence" : true);
     renderPillFn();
+
+    // 다시보기에서 오픈 직후 레이아웃이 늦게 반영돼 head가 보이지 않는
+    // 경우가 있다. 개발자도구에서 height를 껐다 켜면 고쳐지는 것과 동일하게,
+    // 다음 프레임에 height를 잠깐 비웠다가 다시 적용해 강제 리플로우한다.
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        if (!state.isOpen) return;
+        const popupEl = state?.ui?.popup;
+        if (!popupEl) return;
+        popupEl.style.height = "";
+        void popupEl.offsetHeight;
+        popupEl.style.height = `${state.popupHeight}px`;
+        void popupEl.offsetHeight;
+      });
+    }
   }
 
   function closePopup(state, immediate = false, deps = {}) {
@@ -347,16 +362,45 @@
     return Math.max(minHeight, Math.min(Math.round(fallback), maxHeight));
   }
 
+  // 채팅 입력 영역(텍스트에어리어가 든 하단 블록)을 찾는다. 클래스명이
+  // 빌드마다 바뀌므로 구버전 클래스 → textarea 기반 순으로 탐색한다. 이
+  // 영역의 top이 팝업이 펼쳐질 수 있는 하한이다(일반/시네마틱 모드별로 다름).
+  function findChatInputArea(aside, doc) {
+    const scope = aside instanceof Element ? aside : doc;
+    // 구버전
+    const legacy =
+      (aside && aside.querySelector("[class*='live_chatting_area']")) ||
+      doc.querySelector("[class*='live_chatting_area']");
+    if (legacy instanceof Element) return legacy;
+
+    // 새 구조: 채팅 입력 textarea가 든 하단 블록.
+    const textarea =
+      scope.querySelector("textarea[class*='_input_']") ||
+      scope.querySelector("textarea[placeholder*='채팅']") ||
+      scope.querySelector("textarea");
+    if (textarea instanceof Element) {
+      // textarea를 감싼 입력 영역 컨테이너(_area_ 등)를 우선 반환.
+      const areaWrap =
+        textarea.closest("[class*='_area_']") ||
+        textarea.closest("[class*='_container_']") ||
+        textarea.parentElement;
+      if (areaWrap instanceof Element && (!aside || aside.contains(areaWrap))) {
+        return areaWrap;
+      }
+      return textarea;
+    }
+    return null;
+  }
+
   function getMaxPopupHeight(deps = {}) {
     const doc = deps.document || document;
     const aside =
       doc.querySelector("aside#aside-chatting") ||
+      doc.querySelector("aside#vod-aside") ||
       doc.querySelector("[class*='vod_chatting_container']");
     if (!aside) return 520;
 
-    const inputArea =
-      aside.querySelector("[class*='live_chatting_area']") ||
-      doc.querySelector("[class*='live_chatting_area']");
+    const inputArea = findChatInputArea(aside, doc);
     if (inputArea && typeof inputArea.getBoundingClientRect === "function") {
       const inputRect = inputArea.getBoundingClientRect();
       const popup = doc.querySelector(".chzzk-badge-moa-popup");
@@ -381,6 +425,64 @@
         inputRect.top > popupTop
       ) {
         return Math.max(160, Math.floor(inputRect.top - popupTop - 6));
+      }
+    }
+
+    // 새 다시보기(aside#vod-aside)는 채팅 입력 영역이 없다. 팝업 상단(=헤더
+    // 아래)부터 "다시보기 채팅 패널의 하단"까지를 가용 높이로 잡는다. 패널
+    // 하단은 채팅 리스트 컨테이너 → aside → 뷰포트 순으로 신뢰도가 높은 값을
+    // 사용한다(뷰포트로만 잡으면 패널 아래 영역까지 드래그되는 문제 발생).
+    if (aside.id === "vod-aside") {
+      const viewportHeight = Number(
+        (deps.window || window).innerHeight ||
+          doc.documentElement.clientHeight ||
+          0,
+      );
+      const root = doc.querySelector(".chzzk-badge-moa-root");
+      const popup = doc.querySelector(".chzzk-badge-moa-popup");
+      const rootRect =
+        root && typeof root.getBoundingClientRect === "function"
+          ? root.getBoundingClientRect()
+          : null;
+      const popupRect =
+        popup && typeof popup.getBoundingClientRect === "function"
+          ? popup.getBoundingClientRect()
+          : null;
+      const popupTop =
+        popupRect && popupRect.height > 0
+          ? popupRect.top
+          : rootRect && rootRect.height > 0
+            ? rootRect.bottom
+            : null;
+
+      // 패널 하단 후보: 채팅 리스트 컨테이너 → aside rect → 뷰포트.
+      const listEl =
+        aside.querySelector("[role='log']") ||
+        aside.querySelector("[class*='_list_']");
+      const listRect =
+        listEl && typeof listEl.getBoundingClientRect === "function"
+          ? listEl.getBoundingClientRect()
+          : null;
+      const asideRect =
+        typeof aside.getBoundingClientRect === "function"
+          ? aside.getBoundingClientRect()
+          : null;
+
+      const candidates = [];
+      if (listRect && listRect.bottom > 0) candidates.push(listRect.bottom);
+      if (asideRect && asideRect.bottom > 0) candidates.push(asideRect.bottom);
+      if (viewportHeight > 0) candidates.push(viewportHeight);
+      // 패널 하단은 가장 위(작은 값)를 택해 패널 밖으로 넘치지 않게 한다.
+      // 단, popupTop보다는 충분히 아래여야 하므로 popupTop+160 미만은 제외.
+      const bottomLimit = candidates
+        .filter((value) => Number.isFinite(popupTop) && value > popupTop + 160)
+        .reduce((min, value) => (value < min ? value : min), Infinity);
+
+      if (Number.isFinite(popupTop) && Number.isFinite(bottomLimit)) {
+        return Math.max(160, Math.floor(bottomLimit - popupTop - 24));
+      }
+      if (viewportHeight > 0 && Number.isFinite(popupTop)) {
+        return Math.max(160, Math.floor(viewportHeight - popupTop - 24));
       }
     }
 

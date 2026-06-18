@@ -223,7 +223,7 @@
         if (mutation.type !== "childList") continue;
 
         if (mutation.target instanceof Element) {
-          const targetItem = mutation.target.closest(chatItemSelector);
+          const targetItem = safeClosest(mutation.target, chatItemSelector);
           if (targetItem) applyHighlightToItem(targetItem);
         }
 
@@ -237,6 +237,12 @@
       childList: true,
       subtree: true,
     });
+
+    // 옵저버는 부착 이후 추가되는 항목만 처리하므로, 부착 시점에 이미 존재하는
+    // 항목들을 즉시 한 번 훑어 하이라이트한다(초기 적용 지연 방지).
+    safeQueryAll(container, chatItemSelector).forEach((item) =>
+      applyHighlightToItem(item),
+    );
   }
 
   function findChatListContainer(state, deps = {}) {
@@ -255,21 +261,25 @@
     const vodItemSelector = String(deps.VOD_CHAT_ITEM_SELECTOR || "");
     const liveItemSelector = String(deps.LIVE_CHAT_ITEM_SELECTOR || "");
 
+    // 페이지 타입은 우선순위 힌트일 뿐, 다시보기(#vod-aside)가 라이브 경로에서
+    // 뜰 수도 있어 두 셀렉터 집합을 모두 시도한다.
     const selectors = isVideoPage()
-      ? vodListSelectors
-      : liveListSelectors;
+      ? [...vodListSelectors, ...liveListSelectors]
+      : [...liveListSelectors, ...vodListSelectors];
 
     let visibleFallback = null;
     for (const selector of selectors) {
-      const candidates = document.querySelectorAll(selector);
+      const candidates = safeQueryAll(document, selector);
       for (const candidate of candidates) {
         if (!(candidate instanceof Element)) continue;
         if (!isLikelyVisibleElement(candidate)) continue;
-        if (!visibleFallback) {
+        // 후보 안에 실제 채팅 항목(matchesChatItem 통과)이 있어야 한다.
+        const items = safeQueryAll(candidate, chatItemSelector);
+        const hasChatItem = items.some((item) => matchesChatItem(item));
+        if (!visibleFallback && hasChatItem) {
           visibleFallback = candidate;
         }
-        if (!candidate.querySelector(chatItemSelector)) continue;
-        return candidate;
+        if (hasChatItem) return candidate;
       }
     }
 
@@ -277,9 +287,10 @@
       return visibleFallback;
     }
 
-    const fallbackItem = document.querySelector(
-      isVideoPage() ? vodItemSelector : liveItemSelector,
-    );
+    const fallbackItem = [
+      ...safeQueryAll(document, vodItemSelector),
+      ...safeQueryAll(document, liveItemSelector),
+    ].find((item) => matchesChatItem(item));
     if (
       fallbackItem instanceof Element &&
       fallbackItem.parentElement instanceof Element
@@ -300,6 +311,29 @@
     return true;
   }
 
+  // :has 등 일부 셀렉터가 환경에 따라 throw할 수 있어 안전하게 감싼다.
+  function safeQueryAll(scope, selector) {
+    if (!scope || typeof scope.querySelectorAll !== "function" || !selector) {
+      return [];
+    }
+    try {
+      return Array.from(scope.querySelectorAll(selector));
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function safeClosest(node, selector) {
+    if (!(node instanceof Element) || typeof node.closest !== "function" || !selector) {
+      return null;
+    }
+    try {
+      return node.closest(selector);
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function processHighlightNode(node, deps = {}) {
     if (!(node instanceof Element)) return;
     const matchesChatItem =
@@ -314,7 +348,7 @@
       applyHighlightToItem(node);
     }
 
-    const items = node.querySelectorAll(chatItemSelector);
+    const items = safeQueryAll(node, chatItemSelector);
     items.forEach((item) => applyHighlightToItem(item));
   }
 
@@ -347,12 +381,12 @@
 
     const container = state.chatListContainer || findChatListContainer();
     if (!container) {
-      const fallbackItems = document.querySelectorAll(chatItemSelector);
+      const fallbackItems = safeQueryAll(document, chatItemSelector);
       fallbackItems.forEach((item) => applyHighlightToItem(item));
       return;
     }
     state.chatListContainer = container;
-    const items = container.querySelectorAll(chatItemSelector);
+    const items = safeQueryAll(container, chatItemSelector);
     items.forEach((item) => applyHighlightToItem(item));
   }
 
@@ -461,12 +495,34 @@
   }
 
   function matchesChatItem(node) {
-    return (
-      node instanceof Element &&
-      typeof node.className === "string" &&
-      (node.className.includes("live_chatting_list_item") ||
-        node.className.includes("vod_chatting_item"))
+    if (!(node instanceof Element)) return false;
+    const className = typeof node.className === "string" ? node.className : "";
+    // 구버전 클래스
+    if (
+      className.includes("live_chatting_list_item") ||
+      className.includes("vod_chatting_item")
+    ) {
+      return true;
+    }
+    // 새 구조: 클래스명이 빌드마다 바뀌므로 채팅 메시지(_chatting_message_)와
+    // 닉네임 버튼(_nickname_ + aria-haspopup)을 가진 항목을 채팅으로 본다.
+    return isNewChatItem(node);
+  }
+
+  // 새 치지직 채팅 항목 판별: 직접 자식으로 메시지 컨테이너를 가지며 그 안에
+  // 닉네임 버튼이 있다. (라이브/다시보기 공통 내부 구조)
+  function isNewChatItem(node) {
+    if (!(node instanceof Element)) return false;
+    const message = node.querySelector("[class*='_chatting_message_']");
+    if (!(message instanceof Element)) return false;
+    if (!node.contains(message)) return false;
+    // 너무 상위(리스트 컨테이너 등)가 잡히지 않도록, 메시지가 항목의 가까운
+    // 후손인지 확인한다(컨테이너 한두 단계 이내).
+    const messageItem = message.closest(
+      "[class*='_item_'], [class*='chatting_list_item'], [class*='vod_chatting_item']",
     );
+    if (messageItem && messageItem !== node) return false;
+    return !!node.querySelector("button[aria-haspopup='true'][class*='_nickname_']");
   }
 
   ns.observerApi = {

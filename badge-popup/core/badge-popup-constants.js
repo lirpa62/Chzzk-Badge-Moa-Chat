@@ -109,19 +109,29 @@
   const DEFAULT_POPUP_FONT_SCALE = 1;
   const MIN_POPUP_FONT_SCALE = 0.8;
   const MAX_POPUP_FONT_SCALE = 1.2;
+  // 새 치지직 채팅 항목 후보 셀렉터: 클래스명이 빌드마다 바뀌므로 넓게
+  // [class*='_item_']로 후보를 모으고, 정밀 판별은 matchesChatItem(JS)에서
+  // 한다(:has 의존을 피해 호환성/안정성 확보).
+  const NEW_CHAT_ITEM_SELECTOR = "[class*='_item_']";
   const LIVE_CHAT_LIST_CONTAINER_SELECTORS = [
     "aside#aside-chatting [class*='live_chatting_list_container']",
     "[class*='live_chatting_list_container']",
+    "aside#aside-chatting [role='log']",
+    "aside#aside-chatting [class*='_list_']",
+    "aside#aside-chatting",
   ];
   const VOD_CHAT_LIST_CONTAINER_SELECTORS = [
     "aside#aside-chatting [class*='vod_chatting_list_container']",
     "aside#aside-chatting [class*='vod_chatting_list']",
     "[class*='vod_chatting_list_container']",
     "[class*='vod_chatting_list']",
+    "aside#vod-aside [role='log']",
+    "aside#vod-aside [class*='_list_']",
+    "aside#vod-aside",
   ];
-  const LIVE_CHAT_ITEM_SELECTOR = "[class*='live_chatting_list_item']";
-  const VOD_CHAT_ITEM_SELECTOR = "[class*='vod_chatting_item']";
-  const CHAT_ITEM_SELECTOR = `${LIVE_CHAT_ITEM_SELECTOR}, ${VOD_CHAT_ITEM_SELECTOR}`;
+  const LIVE_CHAT_ITEM_SELECTOR = `[class*='live_chatting_list_item'], ${NEW_CHAT_ITEM_SELECTOR}`;
+  const VOD_CHAT_ITEM_SELECTOR = `[class*='vod_chatting_item'], ${NEW_CHAT_ITEM_SELECTOR}`;
+  const CHAT_ITEM_SELECTOR = `[class*='live_chatting_list_item'], [class*='vod_chatting_item'], ${NEW_CHAT_ITEM_SELECTOR}`;
 
   ns.constants = {
     MESSAGE_MARK,

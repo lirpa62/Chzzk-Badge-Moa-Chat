@@ -328,16 +328,69 @@
     scheduleChatHighlightScan();
   }
 
-  function findLiveChatHeader() {
-    const liveHeader = document.querySelector(
-      "aside#aside-chatting [class*='live_chatting_header_container']",
-    );
-    if (liveHeader) return liveHeader;
+  const VOD_HEADER_TITLE_TEXT = "라이브 채팅 다시보기";
+  const LIVE_HEADER_TITLE_TEXTS = ["채팅"];
 
-    const vodCandidates = document.querySelectorAll(
+  // 치지직은 빌드마다 클래스명이 바뀌므로(예: _container_mb8xy_2) 클래스
+  // 부분일치 대신 안정적인 aside id와 h2 제목 텍스트로 헤더를 찾는다.
+  function findHeaderTitleByText(scope, texts) {
+    if (!(scope instanceof Element)) return null;
+    const titles = scope.querySelectorAll("h2");
+    for (const title of titles) {
+      const text = String(title.textContent || "").trim();
+      if (texts.includes(text)) return title;
+    }
+    return null;
+  }
+
+  function findLiveHeaderContainer(scope, titleNode) {
+    if (!(scope instanceof Element)) return null;
+    // 새 구조: 제목(h2)을 감싼 컨테이너에 토글/메뉴 버튼이 함께 들어있다.
+    if (titleNode instanceof Element) {
+      const container = titleNode.closest("div");
+      if (container instanceof Element && scope.contains(container)) {
+        return container;
+      }
+    }
+    // 구버전 폴백
+    const legacy = scope.querySelector(
+      "[class*='live_chatting_header_container']",
+    );
+    return legacy || null;
+  }
+
+  function findVodHeaderContainer(scope, titleNode) {
+    if (!(scope instanceof Element)) return null;
+    if (titleNode instanceof Element) {
+      const container = titleNode.closest("div");
+      if (container instanceof Element && scope.contains(container)) {
+        return container;
+      }
+    }
+    const legacy = scope.querySelector("[class*='vod_chatting_header']");
+    return legacy || null;
+  }
+
+  function findLiveChatHeader() {
+    const liveAside = document.querySelector("aside#aside-chatting");
+    if (liveAside) {
+      const liveTitle = findHeaderTitleByText(liveAside, LIVE_HEADER_TITLE_TEXTS);
+      const liveHeader = findLiveHeaderContainer(liveAside, liveTitle);
+      if (liveHeader) return liveHeader;
+    }
+
+    const vodAside = document.querySelector("aside#vod-aside");
+    if (vodAside) {
+      const vodTitle = findHeaderTitleByText(vodAside, [VOD_HEADER_TITLE_TEXT]);
+      const vodHeader = findVodHeaderContainer(vodAside, vodTitle);
+      if (vodHeader) return vodHeader;
+    }
+
+    // 구버전 폴백: 클래스명 기반 탐색
+    const legacyVodCandidates = document.querySelectorAll(
       "[class*='vod_chatting_header']",
     );
-    for (const candidate of vodCandidates) {
+    for (const candidate of legacyVodCandidates) {
       if (!(candidate instanceof Element)) continue;
       if (candidate.querySelector("h2[class*='vod_chatting_header_title']")) {
         return candidate;
@@ -347,11 +400,19 @@
     return null;
   }
 
+  function findVodHeaderTitleNode(header) {
+    if (!(header instanceof Element)) return null;
+    const byText = findHeaderTitleByText(header, [VOD_HEADER_TITLE_TEXT]);
+    if (byText) return byText;
+    return header.querySelector("h2[class*='vod_chatting_header_title']");
+  }
+
   function isVodChatHeader(header) {
     if (!(header instanceof Element)) return false;
     const className = String(header.className || "");
     if (className.includes("vod_chatting_header")) return true;
-    return !!header.querySelector("h2[class*='vod_chatting_header_title']");
+    if (header.closest("aside#vod-aside")) return true;
+    return !!findVodHeaderTitleNode(header);
   }
 
   function updateLivePillMaxWidth(state) {
@@ -404,9 +465,7 @@
 
     root.classList.add("is-vod-header");
 
-    const title = header.querySelector(
-      "h2[class*='vod_chatting_header_title']",
-    );
+    const title = findVodHeaderTitleNode(header);
     if (!(title instanceof HTMLElement)) return;
 
     const headerRect = header.getBoundingClientRect();
@@ -423,9 +482,12 @@
     );
 
     let maxWidth = Math.max(68, Math.round(headerRect.width - left - 8));
-    const closeButton = header.querySelector(
-      "button[class*='vod_chatting_close_button']",
-    );
+    const closeButton =
+      header.querySelector("button[class*='vod_chatting_close_button']") ||
+      header.querySelector("button[class*='close_button']") ||
+      Array.from(header.querySelectorAll("button")).find(
+        (button) => !root.contains(button),
+      );
     if (closeButton instanceof HTMLElement) {
       const closeRect = closeButton.getBoundingClientRect();
       const closeLeft = Math.round(closeRect.left - headerRect.left);

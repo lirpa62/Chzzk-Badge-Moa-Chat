@@ -2265,6 +2265,91 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   border-color: transparent !important;
 }
 
+/* === 새 치지직 채팅 구조 하이라이트 ===
+   새 빌드는 채팅 항목(_item_)의 직계 자식이 메시지 컨테이너(_container_)이고
+   그 안에 _chatting_message_가 들어있다. 구버전 클래스(live/vod_chatting_
+   message_container)로 만든 위 규칙들이 안 먹으므로 직계 자식 _container_를
+   대상으로 동일 스타일을 추가한다. */
+.chzzk-badge-moa-chat-highlight > [class*="_container_"] {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+.chzzk-badge-moa-chat-highlight-manager > [class*="_container_"] {
+  background: linear-gradient(
+    90deg,
+    rgba(94, 157, 255, 0.18),
+    rgba(94, 157, 255, 0.05)
+  );
+  border-color: rgba(94, 157, 255, 0.55);
+}
+.chzzk-badge-moa-chat-highlight-partner > [class*="_container_"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 179, 64, 0.2),
+    rgba(255, 179, 64, 0.06)
+  );
+  border-color: rgba(255, 179, 64, 0.58);
+}
+.chzzk-badge-moa-chat-highlight-channel_owner > [class*="_container_"],
+.chzzk-badge-moa-chat-highlight-owner > [class*="_container_"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 105, 125, 0.2),
+    rgba(255, 105, 125, 0.06)
+  );
+  border-color: rgba(255, 105, 125, 0.58);
+}
+.chzzk-badge-moa-chat-highlight-operator > [class*="_container_"] {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 199, 155, 0.2),
+    rgba(0, 199, 155, 0.06)
+  );
+  border-color: rgba(0, 199, 155, 0.58);
+}
+html[data-theme="light"]
+  .chzzk-badge-moa-chat-highlight-channel_owner
+  > [class*="_container_"],
+html[data-theme="light"]
+  .chzzk-badge-moa-chat-highlight-owner
+  > [class*="_container_"],
+html[style*="color-scheme: light"]
+  .chzzk-badge-moa-chat-highlight-channel_owner
+  > [class*="_container_"],
+html[style*="color-scheme: light"]
+  .chzzk-badge-moa-chat-highlight-owner
+  > [class*="_container_"],
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  .chzzk-badge-moa-chat-highlight-channel_owner
+  > [class*="_container_"],
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  .chzzk-badge-moa-chat-highlight-owner
+  > [class*="_container_"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 166, 84, 0.14),
+    rgba(255, 166, 84, 0.035)
+  );
+  border-color: rgba(255, 166, 84, 0.44);
+}
+.chzzk-badge-moa-no-chat-bg
+  .chzzk-badge-moa-chat-highlight
+  > [class*="_container_"] {
+  background: transparent !important;
+}
+.chzzk-badge-moa-no-chat-border
+  .chzzk-badge-moa-chat-highlight
+  > [class*="_container_"] {
+  border-color: transparent !important;
+}
+
 @keyframes chzzkBadgeMoaFlowDown {
   0% {
     opacity: 0;

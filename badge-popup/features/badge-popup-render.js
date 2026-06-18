@@ -208,10 +208,81 @@
         ? window.requestAnimationFrame.bind(window)
         : (callback) => setTimeout(callback, 0);
 
-    requestFrame(() => {
+    const pin = () => {
       if (!list.isConnected) return;
       list.scrollTop = list.scrollHeight;
+    };
+    // 사용자가 이미 위로 스크롤한 경우엔 강제 고정하지 않는다(바닥 근처일 때만).
+    const pinIfNearBottom = () => {
+      if (!list.isConnected) return;
+      const distanceFromBottom =
+        list.scrollHeight - list.scrollTop - list.clientHeight;
+      if (distanceFromBottom <= 80) list.scrollTop = list.scrollHeight;
+    };
+
+    // 레이아웃이 안정될 때까지 여러 프레임에 걸쳐 바닥 고정.
+    requestFrame(() => {
+      pin();
+      requestFrame(pin);
     });
+    // 배지 이미지(lazy)가 로드되며 높이가 늘어나 스크롤이 위로 밀리는 것을
+    // 막기 위해, 아직 로드 안 된 이미지의 load 시점에 다시 바닥으로 고정한다.
+    const images = list.querySelectorAll("img");
+    let pendingImages = 0;
+    images.forEach((img) => {
+      if (img.complete) return;
+      pendingImages += 1;
+      const onSettle = () => {
+        img.removeEventListener("load", onSettle);
+        img.removeEventListener("error", onSettle);
+        pinIfNearBottom();
+      };
+      img.addEventListener("load", onSettle);
+      img.addEventListener("error", onSettle);
+    });
+    // 이미지 로드 누락 대비 한 번 더 지연 고정.
+    if (pendingImages > 0 && typeof setTimeout === "function") {
+      setTimeout(pinIfNearBottom, 120);
+    }
+  }
+
+  // 특정 항목(다시보기 최신 시퀀스)을 중앙에 맞추되, 배지 이미지 로드로 인한
+  // 레이아웃 변화에 대비해 여러 프레임/이미지 로드 시점에 다시 맞춘다.
+  function scrollTargetIntoView(list, target) {
+    if (!list || !target) return;
+    const requestFrame =
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => setTimeout(callback, 0);
+
+    const align = () => {
+      if (!list.isConnected || !target.isConnected) return;
+      target.scrollIntoView({ block: "center" });
+    };
+
+    align();
+    requestFrame(() => {
+      align();
+      requestFrame(align);
+    });
+
+    const images = list.querySelectorAll("img");
+    let pendingImages = 0;
+    images.forEach((img) => {
+      if (img.complete) return;
+      pendingImages += 1;
+      const onSettle = () => {
+        img.removeEventListener("load", onSettle);
+        img.removeEventListener("error", onSettle);
+        align();
+      };
+      img.addEventListener("load", onSettle);
+      img.addEventListener("error", onSettle);
+    });
+    if (pendingImages > 0 && typeof setTimeout === "function") {
+      setTimeout(align, 120);
+    }
   }
 
   function renderList(state, scrollToBottom, deps = {}) {
@@ -501,7 +572,7 @@
       const target =
         maxSeq >= 0 ? list.querySelector(`[data-seq="${maxSeq}"]`) : null;
       if (target) {
-        target.scrollIntoView({ block: "center" });
+        scrollTargetIntoView(list, target);
       } else {
         scrollListToBottom(list);
       }

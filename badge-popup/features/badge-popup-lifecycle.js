@@ -125,6 +125,7 @@
     if (typeof ResizeObserver === "function") {
       const aside =
         documentObj.querySelector("aside#aside-chatting") ||
+        documentObj.querySelector("aside#vod-aside") ||
         documentObj.querySelector("[class*='vod_chatting_container']");
       if (aside) {
         const observer = new ResizeObserver(() => {
@@ -150,15 +151,23 @@
             ) {
               const element = mutation.target;
               const className = String(element.className || "");
+              const tag = element.tagName ? element.tagName.toLowerCase() : "";
               const isRelevantElement =
                 element.id === "aside-chatting" ||
+                element.id === "vod-aside" ||
                 className.includes("live_is_large") ||
                 className.includes("live_chatting_is_large") ||
                 className.includes("vod_is_large") ||
                 className.includes("vod_chatting_is_large") ||
                 className.includes("live_container") ||
                 className.includes("vod_container") ||
-                className.includes("chatting_container");
+                className.includes("chatting_container") ||
+                // 새 구조: 극장(와이드) 토글은 최상위 section/main의 _is_large_가
+                // 붙고/떨어진다.
+                ((tag === "section" || tag === "main") &&
+                  className.includes("_is_large_")) ||
+                ((tag === "section" || tag === "main") &&
+                  className.includes("_container_"));
               if (isRelevantElement) {
                 shouldCheckModeSwitch = true;
               }

@@ -187,6 +187,10 @@
 
   function onAsideResize() {
     if (_heightSwitchInFlight) return;
+    // 사용자가 리사이저를 드래그하는 중에는 모드 전환 감지를 건너뛴다.
+    // (드래그로 인한 aside 크기 변화가 ResizeObserver를 발화시켜 높이가
+    // 기본값으로 리셋되는 문제 방지)
+    if (state.resize && state.resize.active) return;
     const currentKey = getActiveStorageHeightKey();
     if (currentKey !== _lastHeightKey) {
       _heightSwitchInFlight = true;
@@ -1332,6 +1336,7 @@
 
   function isVodContext() {
     return !!(
+      document.querySelector("aside#vod-aside") ||
       document.querySelector("[class*='vod_chatting_container']") ||
       document.querySelector("[class*='vod_chatting_header']") ||
       document.querySelector("[class*='vod_chatting_list_container']")
@@ -1339,19 +1344,23 @@
   }
 
   function isWideMode() {
-    const liveContainerLarge = !!document.querySelector(
-      "section[class*='live_container'][class*='live_is_large']",
+    // 구버전 클래스
+    const legacyLarge = !!document.querySelector(
+      "section[class*='live_container'][class*='live_is_large']," +
+        "aside#aside-chatting[class*='live_chatting_is_large']," +
+        "[class*='vod_container'][class*='vod_is_large']," +
+        "[class*='vod_chatting_container'][class*='vod_chatting_is_large']",
     );
-    const liveChatLarge = !!document.querySelector(
-      "aside#aside-chatting[class*='live_chatting_is_large']",
+    if (legacyLarge) return true;
+
+    // 새 구조: 극장(와이드) 모드는 최상위 컨테이너 section/main에 _is_large_가
+    // 붙는다(예: _container_gzfy8_1 _is_large_gzfy8_7). 클래스 해시가 바뀌므로
+    // 컨테이너 성격(section/main)으로 범위를 좁혀 오탐을 줄인다.
+    const newLarge = !!document.querySelector(
+      "section[class*='_container_'][class*='_is_large_']," +
+        "main[class*='_container_'][class*='_is_large_']",
     );
-    const vodContainerLarge = !!document.querySelector(
-      "[class*='vod_container'][class*='vod_is_large']",
-    );
-    const vodChatLarge = !!document.querySelector(
-      "[class*='vod_chatting_container'][class*='vod_chatting_is_large']",
-    );
-    return liveContainerLarge || liveChatLarge || vodContainerLarge || vodChatLarge;
+    return newLarge;
   }
 
   // /live/{id}/chat 형태의 채팅 전용 팝업 페이지 판정
