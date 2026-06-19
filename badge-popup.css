@@ -2270,14 +2270,14 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
    그 안에 _chatting_message_가 들어있다. 구버전 클래스(live/vod_chatting_
    message_container)로 만든 위 규칙들이 안 먹으므로 직계 자식 _container_를
    대상으로 동일 스타일을 추가한다. */
-.chzzk-badge-moa-chat-highlight > [class*="_container_"] {
+.chzzk-badge-moa-chat-highlight > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   border-radius: 8px;
   border: 1px solid transparent;
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease;
 }
-.chzzk-badge-moa-chat-highlight-manager > [class*="_container_"] {
+.chzzk-badge-moa-chat-highlight-manager > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(94, 157, 255, 0.18),
@@ -2285,7 +2285,7 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(94, 157, 255, 0.55);
 }
-.chzzk-badge-moa-chat-highlight-partner > [class*="_container_"] {
+.chzzk-badge-moa-chat-highlight-partner > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(255, 179, 64, 0.2),
@@ -2293,8 +2293,8 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(255, 179, 64, 0.58);
 }
-.chzzk-badge-moa-chat-highlight-channel_owner > [class*="_container_"],
-.chzzk-badge-moa-chat-highlight-owner > [class*="_container_"] {
+.chzzk-badge-moa-chat-highlight-channel_owner > [class*="_container_"]:has(> [class*="_chatting_message_"]),
+.chzzk-badge-moa-chat-highlight-owner > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(255, 105, 125, 0.2),
@@ -2302,7 +2302,7 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(255, 105, 125, 0.58);
 }
-.chzzk-badge-moa-chat-highlight-operator > [class*="_container_"] {
+.chzzk-badge-moa-chat-highlight-operator > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(0, 199, 155, 0.2),
@@ -2312,26 +2312,26 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 html[data-theme="light"]
   .chzzk-badge-moa-chat-highlight-channel_owner
-  > [class*="_container_"],
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
 html[data-theme="light"]
   .chzzk-badge-moa-chat-highlight-owner
-  > [class*="_container_"],
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
 html[style*="color-scheme: light"]
   .chzzk-badge-moa-chat-highlight-channel_owner
-  > [class*="_container_"],
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
 html[style*="color-scheme: light"]
   .chzzk-badge-moa-chat-highlight-owner
-  > [class*="_container_"],
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
 html:not(.theme_dark):not([data-theme="dark"]):not(
     [style*="color-scheme: dark"]
   )
   .chzzk-badge-moa-chat-highlight-channel_owner
-  > [class*="_container_"],
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
 html:not(.theme_dark):not([data-theme="dark"]):not(
     [style*="color-scheme: dark"]
   )
   .chzzk-badge-moa-chat-highlight-owner
-  > [class*="_container_"] {
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(255, 166, 84, 0.14),
@@ -2341,12 +2341,12 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 .chzzk-badge-moa-no-chat-bg
   .chzzk-badge-moa-chat-highlight
-  > [class*="_container_"] {
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: transparent !important;
 }
 .chzzk-badge-moa-no-chat-border
   .chzzk-badge-moa-chat-highlight
-  > [class*="_container_"] {
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   border-color: transparent !important;
 }
 
