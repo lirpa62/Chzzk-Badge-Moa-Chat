@@ -7,7 +7,11 @@
   }
   if (ns.state && typeof ns.createDefaultSettingsState === "function") return;
 
-  const { DEFAULT_POPUP_HEIGHT, DEFAULT_POPUP_FONT_SCALE } = constants;
+  const {
+    DEFAULT_POPUP_HEIGHT,
+    DEFAULT_POPUP_FONT_SCALE,
+    DEFAULT_CHAT_FONT_SCALE,
+  } = constants;
 
   function createDefaultSettingsState() {
     return {
@@ -27,7 +31,12 @@
       hidePopupBackground: false,
       hidePopupBorder: false,
       hidePopupTime: false,
+      hideChatRanking: false,
+      hideChatMission: false,
+      hideChatDonation: false,
+      showPopupRoleBadgesOnly: false,
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,
+      chatFontScale: DEFAULT_CHAT_FONT_SCALE,
       deleteWithoutConfirm: false,
       hidePillButton: false,
       pillGlowEnabled: true,
@@ -100,6 +109,7 @@
       text: null,
       count: null,
       popup: null,
+      popupHead: null,
       settingsButton: null,
       settingsPanel: null,
       filterToggleButton: null,

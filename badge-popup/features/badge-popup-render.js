@@ -341,6 +341,10 @@
       typeof deps.buildMessageContent === "function"
         ? deps.buildMessageContent
         : () => document.createDocumentFragment();
+    const syncPopupContentHeightFn =
+      typeof deps.syncPopupContentHeight === "function"
+        ? deps.syncPopupContentHeight
+        : () => {};
 
     updateViewModeButtonsFn();
     const showPopupTime = state.settings?.hidePopupTime !== true;
@@ -355,6 +359,7 @@
       list.style.display = "none";
       empty.style.display = "flex";
       empty.textContent = "배지 채팅 없음";
+      syncPopupContentHeightFn();
       return;
     }
 
@@ -367,6 +372,7 @@
       list.style.display = "none";
       empty.style.display = "flex";
       empty.textContent = "선택한 닉네임의 배지 채팅 없음";
+      syncPopupContentHeightFn();
       return;
     }
 
@@ -435,7 +441,12 @@
       const popupBadges = Array.isArray(entry.popupBadges)
         ? entry.popupBadges
         : [];
-      user.appendChild(createBadgeListFn(popupBadges, "popup"));
+      user.appendChild(
+        createBadgeListFn(
+          filterPopupBadgesForSettings(popupBadges, state),
+          "popup",
+        ),
+      );
 
       const nickname = document.createElement("span");
       nickname.className = "chzzk-badge-moa-item-nickname";
@@ -487,7 +498,10 @@
         const mark = createBadgeVisualFn(entry.partnerMark, "partnermark");
         if (mark) markBadges.push(mark);
       }
-      if (entry.achievementMark) {
+      if (
+        entry.achievementMark &&
+        state.settings?.showPopupRoleBadgesOnly !== true
+      ) {
         const mark = createBadgeVisualFn(entry.achievementMark, "nameicon");
         if (mark) markBadges.push(mark);
       }
@@ -563,6 +577,7 @@
     }
 
     list.appendChild(fragment);
+    syncPopupContentHeightFn();
 
     if (scrollToBottom === "latest-sequence") {
       const maxSeq = state.entries.reduce(
@@ -581,6 +596,23 @@
     } else if (previousScrollTop > 0) {
       const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
       list.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+    }
+
+    syncPopupContentHeightFn();
+    if (scrollToBottom === true || scrollToBottom === "preserve-bottom") {
+      scrollListToBottom(list);
+    } else if (scrollToBottom === "latest-sequence") {
+      const maxSeq = state.entries.reduce(
+        (max, e) => Math.max(max, Number.isFinite(e.sequence) ? e.sequence : 0),
+        -1,
+      );
+      const target =
+        maxSeq >= 0 ? list.querySelector(`[data-seq="${maxSeq}"]`) : null;
+      if (target) {
+        scrollTargetIntoView(list, target);
+      } else {
+        scrollListToBottom(list);
+      }
     }
   }
 
@@ -927,6 +959,50 @@
         },
       ),
     );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "채팅창 랭킹 숨김",
+        state.settings.hideChatRanking,
+        (checked) => {
+          state.settings.hideChatRanking = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "채팅창 진행 중인 미션 숨김",
+        state.settings.hideChatMission,
+        (checked) => {
+          state.settings.hideChatMission = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "채팅창 후원 메시지 숨김",
+        state.settings.hideChatDonation,
+        (checked) => {
+          state.settings.hideChatDonation = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "팝업창 역할 배지만 표시",
+        state.settings.showPopupRoleBadgesOnly,
+        (checked) => {
+          state.settings.showPopupRoleBadgesOnly = checked;
+          saveSettingsFn();
+          renderListFn(false);
+        },
+      ),
+    );
     visualSection.appendChild(visualList);
 
     const nicknameSection = document.createElement("section");
@@ -1194,6 +1270,23 @@
     });
 
     return list;
+  }
+
+  function filterPopupBadgesForSettings(badges, state) {
+    if (!Array.isArray(badges)) return [];
+    if (state?.settings?.showPopupRoleBadgesOnly !== true) return badges;
+    const roleTypes = new Set([
+      "channel_owner",
+      "manager",
+      "operator",
+      "partner",
+    ]);
+    return badges.filter((badge) => {
+      const type = String(badge?.type || "")
+        .trim()
+        .toLowerCase();
+      return roleTypes.has(type);
+    });
   }
 
   function createBadgeVisual(badge, variant = "popup") {

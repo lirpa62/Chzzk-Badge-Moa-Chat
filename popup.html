@@ -168,16 +168,28 @@
 
       <section class="section">
         <h2>표시 설정</h2>
-        <label class="field-row">
-          <span>팝업창 폰트 크기</span>
-          <select id="popup-font-scale">
-            <option value="0.8">작게 (80%)</option>
-            <option value="0.9">조금 작게 (90%)</option>
-            <option value="1" selected>기본 (100%)</option>
-            <option value="1.1">조금 크게 (110%)</option>
-            <option value="1.2">크게 (120%)</option>
-          </select>
-        </label>
+        <div class="field-grid-2col">
+          <label class="field-row">
+            <span>팝업 폰트 크기</span>
+            <select id="popup-font-scale">
+              <option value="0.8">작게 (80%)</option>
+              <option value="0.9">조금 작게 (90%)</option>
+              <option value="1" selected>기본 (100%)</option>
+              <option value="1.1">조금 크게 (110%)</option>
+              <option value="1.2">크게 (120%)</option>
+            </select>
+          </label>
+          <label class="field-row">
+            <span>채팅 폰트 크기</span>
+            <select id="chat-font-scale">
+              <option value="0.8">작게 (80%)</option>
+              <option value="0.9">조금 작게 (90%)</option>
+              <option value="1" selected>기본 (100%)</option>
+              <option value="1.1">조금 크게 (110%)</option>
+              <option value="1.2">크게 (120%)</option>
+            </select>
+          </label>
+        </div>
         <div class="toggle-grid-2col">
           <label class="toggle-row">
             <input type="checkbox" id="hide-popup-bg" />
@@ -198,6 +210,22 @@
           <label class="toggle-row">
             <input type="checkbox" id="hide-popup-time" />
             <span>팝업창 시간 숨김</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="hide-chat-ranking" />
+            <span>채팅창 랭킹 숨김</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="hide-chat-mission" />
+            <span>채팅창 진행 중인 미션 숨김</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="hide-chat-donation" />
+            <span>채팅창 후원 메시지 숨김</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="show-popup-role-badges-only" />
+            <span>팝업창 역할 배지만 표시</span>
           </label>
           <label class="toggle-row">
             <input type="checkbox" id="pill-glow-enabled" />

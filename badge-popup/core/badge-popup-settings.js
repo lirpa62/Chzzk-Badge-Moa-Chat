@@ -170,6 +170,10 @@
       typeof deps.normalizePopupFontScale === "function"
         ? deps.normalizePopupFontScale
         : (value) => Number(value) || 1;
+    const normalizeChatFontScale =
+      typeof deps.normalizeChatFontScale === "function"
+        ? deps.normalizeChatFontScale
+        : normalizePopupFontScale;
 
     const hiddenByScope = normalizeHiddenByScope(raw.hiddenPillNicknamesByChannel, {
       normalizeNickname,
@@ -250,7 +254,12 @@
     defaults.hidePopupBackground = raw.hidePopupBackground === true;
     defaults.hidePopupBorder = raw.hidePopupBorder === true;
     defaults.hidePopupTime = raw.hidePopupTime === true;
+    defaults.hideChatRanking = raw.hideChatRanking === true;
+    defaults.hideChatMission = raw.hideChatMission === true;
+    defaults.hideChatDonation = raw.hideChatDonation === true;
+    defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
+    defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
       defaults.deleteWithoutConfirm = raw.deleteWithoutConfirm === true;
     } else if (typeof raw.confirmDeleteDialog === "boolean") {
@@ -302,6 +311,10 @@
       typeof deps.normalizePopupFontScale === "function"
         ? deps.normalizePopupFontScale
         : (value) => Number(value) || 1;
+    const normalizeChatFontScale =
+      typeof deps.normalizeChatFontScale === "function"
+        ? deps.normalizeChatFontScale
+        : normalizePopupFontScale;
     const setStorageValue =
       typeof deps.setStorageValue === "function"
         ? deps.setStorageValue
@@ -350,7 +363,13 @@
       hidePopupBackground: state.settings.hidePopupBackground === true,
       hidePopupBorder: state.settings.hidePopupBorder === true,
       hidePopupTime: state.settings.hidePopupTime === true,
+      hideChatRanking: state.settings.hideChatRanking === true,
+      hideChatMission: state.settings.hideChatMission === true,
+      hideChatDonation: state.settings.hideChatDonation === true,
+      showPopupRoleBadgesOnly:
+        state.settings.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
+      chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
       deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
       hidePillButton: state.settings.hidePillButton === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
@@ -408,6 +427,10 @@
       typeof deps.normalizePopupFontScale === "function"
         ? deps.normalizePopupFontScale
         : (value) => Number(value) || 1;
+    const normalizeChatFontScale =
+      typeof deps.normalizeChatFontScale === "function"
+        ? deps.normalizeChatFontScale
+        : normalizePopupFontScale;
 
     return {
       ok: true,
@@ -422,7 +445,13 @@
         hidePopupBackground: state.settings.hidePopupBackground === true,
         hidePopupBorder: state.settings.hidePopupBorder === true,
         hidePopupTime: state.settings.hidePopupTime === true,
+        hideChatRanking: state.settings.hideChatRanking === true,
+        hideChatMission: state.settings.hideChatMission === true,
+        hideChatDonation: state.settings.hideChatDonation === true,
+        showPopupRoleBadgesOnly:
+          state.settings.showPopupRoleBadgesOnly === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
+        chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
         deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
         hidePillButton: state.settings.hidePillButton === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
@@ -453,6 +482,10 @@
       typeof deps.normalizePopupFontScale === "function"
         ? deps.normalizePopupFontScale
         : (value) => Number(value) || 1;
+    const normalizeChatFontScale =
+      typeof deps.normalizeChatFontScale === "function"
+        ? deps.normalizeChatFontScale
+        : normalizePopupFontScale;
     const previousTrackedNicknames = new Set(state.settings.trackedNicknames || []);
     const forcedTrackedNicknames = new Set(
       Array.isArray(source.newTrackedNicknames)
@@ -478,6 +511,18 @@
     if (typeof source.hidePopupTime === "boolean") {
       state.settings.hidePopupTime = source.hidePopupTime;
     }
+    if (typeof source.hideChatRanking === "boolean") {
+      state.settings.hideChatRanking = source.hideChatRanking;
+    }
+    if (typeof source.hideChatMission === "boolean") {
+      state.settings.hideChatMission = source.hideChatMission;
+    }
+    if (typeof source.hideChatDonation === "boolean") {
+      state.settings.hideChatDonation = source.hideChatDonation;
+    }
+    if (typeof source.showPopupRoleBadgesOnly === "boolean") {
+      state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
+    }
     if (
       typeof source.popupFontScale === "number" ||
       typeof source.popupFontScale === "string"
@@ -485,6 +530,12 @@
       state.settings.popupFontScale = normalizePopupFontScale(
         source.popupFontScale,
       );
+    }
+    if (
+      typeof source.chatFontScale === "number" ||
+      typeof source.chatFontScale === "string"
+    ) {
+      state.settings.chatFontScale = normalizeChatFontScale(source.chatFontScale);
     }
     if (typeof source.deleteWithoutConfirm === "boolean") {
       state.settings.deleteWithoutConfirm = source.deleteWithoutConfirm;

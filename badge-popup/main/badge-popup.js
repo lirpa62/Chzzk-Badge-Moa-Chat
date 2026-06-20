@@ -68,6 +68,9 @@
     DEFAULT_POPUP_FONT_SCALE,
     MIN_POPUP_FONT_SCALE,
     MAX_POPUP_FONT_SCALE,
+    DEFAULT_CHAT_FONT_SCALE,
+    MIN_CHAT_FONT_SCALE,
+    MAX_CHAT_FONT_SCALE,
     LIVE_CHAT_LIST_CONTAINER_SELECTORS,
     VOD_CHAT_LIST_CONTAINER_SELECTORS,
     LIVE_CHAT_ITEM_SELECTOR,
@@ -602,6 +605,7 @@
       normalizeNickname,
       normalizeTrackedNickname,
       normalizePopupFontScale,
+      normalizeChatFontScale,
     });
   }
 
@@ -613,6 +617,7 @@
       normalizeNickname,
       normalizeTrackedNickname,
       normalizePopupFontScale,
+      normalizeChatFontScale,
     });
   }
 
@@ -620,6 +625,7 @@
     settingsApi.saveSettings(state, {
       getSettingsScopeKey,
       normalizePopupFontScale,
+      normalizeChatFontScale,
       setStorageValue,
       getStorageValue,
       syncTrackedTargetsToInject,
@@ -644,6 +650,7 @@
       resolveChannelDisplayName,
       getPillNicknameSettingItems,
       normalizePopupFontScale,
+      normalizeChatFontScale,
     });
   }
 
@@ -660,6 +667,7 @@
       normalizeTrackedNickname,
       normalizeNickname,
       normalizePopupFontScale,
+      normalizeChatFontScale,
       isSessionCacheEnabled,
       clearPersistChannelCacheTimer,
       clearSessionCachesForCurrentTab,
@@ -894,7 +902,12 @@
       formatTime,
       createMessageTagRow,
       buildMessageContent,
+      syncPopupContentHeight,
     });
+  }
+
+  function syncPopupContentHeight() {
+    popupApi.syncPopupContentHeight(state);
   }
 
   function getItemTypeToneClass(entry) {
@@ -1100,6 +1113,7 @@
     popupApi.applySettingsClasses(state, {
       document,
       normalizePopupFontScale,
+      normalizeChatFontScale,
     });
   }
 
@@ -1121,6 +1135,14 @@
       DEFAULT_POPUP_FONT_SCALE,
       MIN_POPUP_FONT_SCALE,
       MAX_POPUP_FONT_SCALE,
+    });
+  }
+
+  function normalizeChatFontScale(value) {
+    return popupApi.normalizePopupFontScale(value, {
+      DEFAULT_POPUP_FONT_SCALE: DEFAULT_CHAT_FONT_SCALE,
+      MIN_POPUP_FONT_SCALE: MIN_CHAT_FONT_SCALE,
+      MAX_POPUP_FONT_SCALE: MAX_CHAT_FONT_SCALE,
     });
   }
 

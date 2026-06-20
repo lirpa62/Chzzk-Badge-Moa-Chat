@@ -15,6 +15,9 @@
   const DEFAULT_POPUP_FONT_SCALE = 1;
   const MIN_POPUP_FONT_SCALE = 0.8;
   const MAX_POPUP_FONT_SCALE = 1.2;
+  const DEFAULT_CHAT_FONT_SCALE = 1;
+  const MIN_CHAT_FONT_SCALE = 0.8;
+  const MAX_CHAT_FONT_SCALE = 1.2;
   const darkThemeMedia =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia(THEME_MEDIA_QUERY)
@@ -42,7 +45,12 @@
     hidePopupBackground: false,
     hidePopupBorder: false,
     hidePopupTime: false,
+    hideChatRanking: false,
+    hideChatMission: false,
+    hideChatDonation: false,
+    showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
+    chatFontScale: DEFAULT_CHAT_FONT_SCALE,
     deleteWithoutConfirm: false,
     hidePillButton: false,
     pillGlowEnabled: true,
@@ -92,7 +100,14 @@
     hidePopupBg: document.getElementById("hide-popup-bg"),
     hidePopupBorder: document.getElementById("hide-popup-border"),
     hidePopupTime: document.getElementById("hide-popup-time"),
+    hideChatRanking: document.getElementById("hide-chat-ranking"),
+    hideChatMission: document.getElementById("hide-chat-mission"),
+    hideChatDonation: document.getElementById("hide-chat-donation"),
+    showPopupRoleBadgesOnly: document.getElementById(
+      "show-popup-role-badges-only",
+    ),
     popupFontScale: document.getElementById("popup-font-scale"),
+    chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
     hidePillButton: document.getElementById("hide-pill-button"),
     pillGlowEnabled: document.getElementById("pill-glow-enabled"),
@@ -105,6 +120,7 @@
     themeToggleOptions: Array.from(
       document.querySelectorAll(".theme-toggle-option"),
     ),
+    customSelects: [],
     excludeConfirmModal: document.getElementById("exclude-confirm-modal"),
     excludeConfirmDialog: document.getElementById("exclude-confirm-dialog"),
     excludeConfirmBackdrop: document.getElementById("exclude-confirm-backdrop"),
@@ -222,6 +238,257 @@
     element.classList.remove("is-pulse-hint");
   }
 
+  function initializeCustomSelects(selects) {
+    selects.forEach((select) => {
+      if (!(select instanceof HTMLSelectElement)) return;
+      if (select.__badgeMoaCustomSelect) return;
+
+      const root = document.createElement("div");
+      root.className = "custom-select";
+      root.dataset.expanded = "false";
+
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "custom-select-trigger";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+
+      const value = document.createElement("span");
+      value.className = "custom-select-value";
+      trigger.appendChild(value);
+
+      const chevron = document.createElement("span");
+      chevron.className = "custom-select-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      trigger.appendChild(chevron);
+
+      const menu = document.createElement("div");
+      menu.className = "custom-select-menu";
+      menu.id = `${select.id || "custom-select"}-menu`;
+      menu.setAttribute("role", "listbox");
+      menu.setAttribute("aria-label", getCustomSelectLabel(select));
+      trigger.setAttribute("aria-controls", menu.id);
+
+      Array.from(select.options).forEach((option) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "custom-select-option";
+        item.setAttribute("role", "option");
+        item.dataset.value = option.value;
+        item.textContent = option.textContent || option.value;
+        item.disabled = option.disabled;
+        item.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setCustomSelectValue(select, option.value);
+          closeCustomSelect(root, { restoreFocus: true });
+        });
+        item.addEventListener("keydown", (event) => {
+          handleCustomSelectOptionKeydown(event, select, item);
+        });
+        menu.appendChild(item);
+      });
+
+      root.appendChild(trigger);
+      root.appendChild(menu);
+      select.insertAdjacentElement("afterend", root);
+      select.classList.add("native-select-hidden");
+      select.tabIndex = -1;
+      select.inert = true;
+
+      const stateItem = { select, root, trigger, value, menu };
+      select.__badgeMoaCustomSelect = stateItem;
+      el.customSelects.push(stateItem);
+
+      trigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleCustomSelect(root, { focusSelected: false });
+      });
+      trigger.addEventListener("keydown", (event) => {
+        handleCustomSelectTriggerKeydown(event, select);
+      });
+      menu.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      select.addEventListener("change", () => {
+        syncCustomSelect(select);
+      });
+      select.addEventListener("focus", () => {
+        try {
+          trigger.focus({ preventScroll: true });
+        } catch (_error) {
+          trigger.focus();
+        }
+      });
+
+      syncCustomSelect(select);
+    });
+  }
+
+  function getCustomSelectLabel(select) {
+    const fieldRow = select.closest(".field-row");
+    const label = fieldRow ? fieldRow.querySelector("span") : null;
+    return String(label ? label.textContent : select.id || "옵션 선택").trim();
+  }
+
+  function syncCustomSelect(select) {
+    const custom = select && select.__badgeMoaCustomSelect;
+    if (!custom) return;
+    const selected = select.selectedOptions && select.selectedOptions[0];
+    custom.value.textContent =
+      (selected && selected.textContent) || select.value || "선택";
+    Array.from(custom.menu.querySelectorAll(".custom-select-option")).forEach(
+      (item) => {
+        const isSelected = item.dataset.value === select.value;
+        item.setAttribute("aria-selected", String(isSelected));
+      },
+    );
+  }
+
+  function setCustomSelectValue(select, value) {
+    if (!(select instanceof HTMLSelectElement)) return;
+    if (select.value === value) {
+      syncCustomSelect(select);
+      return;
+    }
+    select.value = value;
+    syncCustomSelect(select);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function toggleCustomSelect(root, options = {}) {
+    if (!(root instanceof HTMLElement)) return;
+    const expanded = root.dataset.expanded === "true";
+    if (expanded) {
+      closeCustomSelect(root, { restoreFocus: false });
+      return;
+    }
+    openCustomSelect(root, options);
+  }
+
+  function openCustomSelect(root, options = {}) {
+    if (!(root instanceof HTMLElement)) return;
+    closeCustomSelects(root);
+    root.dataset.expanded = "true";
+    const trigger = root.querySelector(".custom-select-trigger");
+    if (trigger) trigger.setAttribute("aria-expanded", "true");
+    if (options.focusSelected) {
+      focusSelectedCustomOption(root);
+    }
+  }
+
+  function closeCustomSelect(root, options = {}) {
+    if (!(root instanceof HTMLElement)) return;
+    const wasExpanded = root.dataset.expanded === "true";
+    root.dataset.expanded = "false";
+    const trigger = root.querySelector(".custom-select-trigger");
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    if (wasExpanded && options.restoreFocus && trigger instanceof HTMLElement) {
+      try {
+        trigger.focus({ preventScroll: true });
+      } catch (_error) {
+        trigger.focus();
+      }
+    }
+  }
+
+  function closeCustomSelects(exceptTarget, options = {}) {
+    el.customSelects.forEach(({ root }) => {
+      if (!(root instanceof HTMLElement)) return;
+      if (exceptTarget instanceof Node && root.contains(exceptTarget)) return;
+      closeCustomSelect(root, options);
+    });
+  }
+
+  function getCustomOptionButtons(root) {
+    if (!(root instanceof HTMLElement)) return [];
+    return Array.from(root.querySelectorAll(".custom-select-option")).filter(
+      (button) => button instanceof HTMLButtonElement && !button.disabled,
+    );
+  }
+
+  function focusSelectedCustomOption(root) {
+    const options = getCustomOptionButtons(root);
+    if (options.length === 0) return;
+    const selected = options.find(
+      (button) => button.getAttribute("aria-selected") === "true",
+    );
+    const target = selected || options[0];
+    try {
+      target.focus({ preventScroll: true });
+    } catch (_error) {
+      target.focus();
+    }
+  }
+
+  function focusCustomOptionByDelta(root, current, delta) {
+    const options = getCustomOptionButtons(root);
+    if (options.length === 0) return;
+    const currentIndex = Math.max(0, options.indexOf(current));
+    const nextIndex =
+      (currentIndex + delta + options.length) % options.length;
+    options[nextIndex].focus();
+  }
+
+  function focusCustomOptionEdge(root, edge) {
+    const options = getCustomOptionButtons(root);
+    if (options.length === 0) return;
+    const target = edge === "last" ? options[options.length - 1] : options[0];
+    target.focus();
+  }
+
+  function handleCustomSelectTriggerKeydown(event, select) {
+    const custom = select && select.__badgeMoaCustomSelect;
+    if (!custom) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleCustomSelect(custom.root, { focusSelected: true });
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      openCustomSelect(custom.root, { focusSelected: true });
+      return;
+    }
+    if (event.key === "Escape") {
+      closeCustomSelect(custom.root, { restoreFocus: false });
+    }
+  }
+
+  function handleCustomSelectOptionKeydown(event, select, item) {
+    const custom = select && select.__badgeMoaCustomSelect;
+    if (!custom) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusCustomOptionByDelta(custom.root, item, 1);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusCustomOptionByDelta(custom.root, item, -1);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      focusCustomOptionEdge(custom.root, "first");
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      focusCustomOptionEdge(custom.root, "last");
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setCustomSelectValue(select, item.dataset.value || "");
+      closeCustomSelect(custom.root, { restoreFocus: true });
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCustomSelect(custom.root, { restoreFocus: true });
+    }
+  }
+
   function pruneManagedHiddenSilently() {
     const currentNicknames = getCurrentChannelNicknames();
     let removed = 0;
@@ -238,6 +505,8 @@
   }
 
   function bindEvents() {
+    initializeCustomSelects([el.popupFontScale, el.chatFontScale]);
+
     if (
       darkThemeMedia &&
       typeof darkThemeMedia.addEventListener === "function"
@@ -263,6 +532,9 @@
       });
     });
     document.addEventListener("click", (event) => {
+      closeCustomSelects(
+        event.target instanceof Node ? event.target : null,
+      );
       if (!isThemeToggleExpanded()) return;
       if (
         el.themeToggle &&
@@ -274,6 +546,9 @@
       setThemeToggleExpanded(false);
     });
     document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeCustomSelects(null, { restoreFocus: true });
+      }
       if (event.key !== "Escape") return;
       if (!isThemeToggleExpanded()) return;
       setThemeToggleExpanded(false);
@@ -305,8 +580,35 @@
       await persistAndApply();
     });
 
+    el.hideChatRanking.addEventListener("change", async () => {
+      state.hideChatRanking = el.hideChatRanking.checked;
+      await persistAndApply();
+    });
+
+    el.hideChatMission.addEventListener("change", async () => {
+      state.hideChatMission = el.hideChatMission.checked;
+      await persistAndApply();
+    });
+
+    el.hideChatDonation.addEventListener("change", async () => {
+      state.hideChatDonation = el.hideChatDonation.checked;
+      await persistAndApply();
+    });
+
+    el.showPopupRoleBadgesOnly.addEventListener("change", async () => {
+      state.showPopupRoleBadgesOnly = el.showPopupRoleBadgesOnly.checked;
+      await persistAndApply();
+    });
+
     el.popupFontScale.addEventListener("change", async () => {
       state.popupFontScale = normalizePopupFontScale(el.popupFontScale.value);
+      syncCustomSelect(el.popupFontScale);
+      await persistAndApply();
+    });
+
+    el.chatFontScale.addEventListener("change", async () => {
+      state.chatFontScale = normalizeChatFontScale(el.chatFontScale.value);
+      syncCustomSelect(el.chatFontScale);
       await persistAndApply();
     });
 
@@ -555,9 +857,17 @@
     el.hidePopupBg.checked = state.hidePopupBackground;
     el.hidePopupBorder.checked = state.hidePopupBorder;
     el.hidePopupTime.checked = state.hidePopupTime;
+    el.hideChatRanking.checked = state.hideChatRanking === true;
+    el.hideChatMission.checked = state.hideChatMission === true;
+    el.hideChatDonation.checked = state.hideChatDonation === true;
+    el.showPopupRoleBadgesOnly.checked =
+      state.showPopupRoleBadgesOnly === true;
     el.popupFontScale.value = String(
       normalizePopupFontScale(state.popupFontScale),
     );
+    el.chatFontScale.value = String(normalizeChatFontScale(state.chatFontScale));
+    syncCustomSelect(el.popupFontScale);
+    syncCustomSelect(el.chatFontScale);
     el.deleteWithoutConfirm.checked = state.deleteWithoutConfirm === true;
     el.hidePillButton.checked = state.hidePillButton === true;
     el.pillGlowEnabled.checked = state.pillGlowEnabled === true;
@@ -1489,7 +1799,12 @@
       hidePopupBackground: state.hidePopupBackground,
       hidePopupBorder: state.hidePopupBorder,
       hidePopupTime: state.hidePopupTime,
+      hideChatRanking: state.hideChatRanking === true,
+      hideChatMission: state.hideChatMission === true,
+      hideChatDonation: state.hideChatDonation === true,
+      showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
+      chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
       hidePillButton: state.hidePillButton === true,
       pillGlowEnabled: state.pillGlowEnabled,
@@ -1558,7 +1873,13 @@
     state.hidePopupBackground = settings.hidePopupBackground === true;
     state.hidePopupBorder = settings.hidePopupBorder === true;
     state.hidePopupTime = settings.hidePopupTime === true;
+    state.hideChatRanking = settings.hideChatRanking === true;
+    state.hideChatMission = settings.hideChatMission === true;
+    state.hideChatDonation = settings.hideChatDonation === true;
+    state.showPopupRoleBadgesOnly =
+      settings.showPopupRoleBadgesOnly === true;
     state.popupFontScale = normalizePopupFontScale(settings.popupFontScale);
+    state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
     state.hidePillButton = settings.hidePillButton === true;
     state.pillGlowEnabled = settings.pillGlowEnabled !== false;
@@ -1678,7 +1999,12 @@
     state.hidePopupBackground = raw.hidePopupBackground === true;
     state.hidePopupBorder = raw.hidePopupBorder === true;
     state.hidePopupTime = raw.hidePopupTime === true;
+    state.hideChatRanking = raw.hideChatRanking === true;
+    state.hideChatMission = raw.hideChatMission === true;
+    state.hideChatDonation = raw.hideChatDonation === true;
+    state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
+    state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
       state.deleteWithoutConfirm = raw.deleteWithoutConfirm === true;
     } else if (typeof raw.confirmDeleteDialog === "boolean") {
@@ -1768,7 +2094,12 @@
     raw.hidePopupBackground = state.hidePopupBackground === true;
     raw.hidePopupBorder = state.hidePopupBorder === true;
     raw.hidePopupTime = state.hidePopupTime === true;
+    raw.hideChatRanking = state.hideChatRanking === true;
+    raw.hideChatMission = state.hideChatMission === true;
+    raw.hideChatDonation = state.hideChatDonation === true;
+    raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
+    raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
     delete raw.confirmDeleteDialog;
     raw.hidePillButton = state.hidePillButton === true;
@@ -2046,6 +2377,16 @@
     const clamped = Math.min(
       MAX_POPUP_FONT_SCALE,
       Math.max(MIN_POPUP_FONT_SCALE, numeric),
+    );
+    return Math.round(clamped * 100) / 100;
+  }
+
+  function normalizeChatFontScale(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHAT_FONT_SCALE;
+    const clamped = Math.min(
+      MAX_CHAT_FONT_SCALE,
+      Math.max(MIN_CHAT_FONT_SCALE, numeric),
     );
     return Math.round(clamped * 100) / 100;
   }

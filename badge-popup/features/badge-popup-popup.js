@@ -43,8 +43,6 @@
       typeof deps.renderList === "function" ? deps.renderList : () => {};
     const renderPillFn =
       typeof deps.renderPill === "function" ? deps.renderPill : () => {};
-    const isVideoPageFn =
-      typeof deps.isVideoPage === "function" ? deps.isVideoPage : () => false;
     const openAnimationMs = Number(deps.OPEN_ANIMATION_MS) || 0;
 
     const root = state?.ui?.root;
@@ -83,23 +81,10 @@
 
     applyPopupHeightFn();
     flushIncomingPayloadsFn();
-    renderListFn(isVideoPageFn() ? "latest-sequence" : true);
+    renderListFn(true);
     renderPillFn();
 
-    // 다시보기에서 오픈 직후 레이아웃이 늦게 반영돼 head가 보이지 않는
-    // 경우가 있다. 개발자도구에서 height를 껐다 켜면 고쳐지는 것과 동일하게,
-    // 다음 프레임에 height를 잠깐 비웠다가 다시 적용해 강제 리플로우한다.
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        if (!state.isOpen) return;
-        const popupEl = state?.ui?.popup;
-        if (!popupEl) return;
-        popupEl.style.height = "";
-        void popupEl.offsetHeight;
-        popupEl.style.height = `${state.popupHeight}px`;
-        void popupEl.offsetHeight;
-      });
-    }
+    schedulePopupLayoutReflow(state, { scrollToBottom: true });
   }
 
   function closePopup(state, immediate = false, deps = {}) {
@@ -135,6 +120,7 @@
 
     resolveConfirmDialogFn(false);
     state.isOpen = false;
+    state._popupOpenScrollToBottom = false;
     state.filterBarCollapsed = true;
     pill.setAttribute("aria-expanded", "false");
 
@@ -341,7 +327,157 @@
     if (!state.filterBarCollapsed) {
       applyFilterBarMaxHeightFn();
     }
+    syncPopupContentHeight(state);
     syncPillPositionForHeaderFn();
+  }
+
+  function getRenderedHeight(element) {
+    if (!(element instanceof HTMLElement)) return 0;
+    const win = element.ownerDocument?.defaultView || window;
+    const style = win.getComputedStyle(element);
+    if (style.display === "none") return 0;
+    return Math.ceil(element.getBoundingClientRect().height || 0);
+  }
+
+  function syncPopupContentHeight(state) {
+    const popup = state?.ui?.popup;
+    const head = state?.ui?.popupHead;
+    const filterBar = state?.ui?.filterBar;
+    const list = state?.ui?.list;
+    const empty = state?.ui?.empty;
+    const resizer = state?.ui?.resizer;
+    if (!(popup instanceof HTMLElement)) return;
+
+    const popupHeight =
+      Math.floor(popup.clientHeight || 0) ||
+      Math.floor(Number(state.popupHeight || 0));
+    if (!Number.isFinite(popupHeight) || popupHeight <= 0) return;
+
+    const fixedHeight =
+      getRenderedHeight(head) +
+      getRenderedHeight(filterBar) +
+      getRenderedHeight(resizer);
+    const contentHeight = Math.max(0, popupHeight - fixedHeight);
+
+    [list, empty].forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      element.style.flex = `0 1 ${contentHeight}px`;
+      element.style.height = `${contentHeight}px`;
+      element.style.maxHeight = `${contentHeight}px`;
+      element.style.minHeight = "0";
+    });
+  }
+
+  function isPopupLayoutMisaligned(state) {
+    const popup = state?.ui?.popup;
+    const head = state?.ui?.popupHead;
+    const resizer = state?.ui?.resizer;
+    if (
+      !(popup instanceof HTMLElement) ||
+      !(head instanceof HTMLElement) ||
+      !(resizer instanceof HTMLElement)
+    ) {
+      return false;
+    }
+
+    const popupRect = popup.getBoundingClientRect();
+    const headRect = head.getBoundingClientRect();
+    const resizerRect = resizer.getBoundingClientRect();
+    if (
+      popupRect.height <= 0 ||
+      headRect.height <= 0 ||
+      resizerRect.height <= 0
+    ) {
+      return true;
+    }
+
+    const resizerBottomGap = Math.abs(popupRect.bottom - resizerRect.bottom);
+    const headEscapedTop = headRect.top < popupRect.top - 2;
+    const headEscapedBottom = headRect.bottom > popupRect.bottom + 2;
+    return resizerBottomGap > 3 || headEscapedTop || headEscapedBottom;
+  }
+
+  function resetPopupLayoutReflow(state) {
+    const popup = state?.ui?.popup;
+    if (!state?.isOpen || !(popup instanceof HTMLElement)) return;
+
+    const height = Number(state.popupHeight || 0);
+    if (!Number.isFinite(height) || height <= 0) return;
+
+    popup.style.height = "";
+    if (state.ui?.list instanceof HTMLElement) {
+      state.ui.list.style.height = "";
+      state.ui.list.style.maxHeight = "";
+      state.ui.list.style.flex = "";
+    }
+    if (state.ui?.empty instanceof HTMLElement) {
+      state.ui.empty.style.height = "";
+      state.ui.empty.style.maxHeight = "";
+      state.ui.empty.style.flex = "";
+    }
+    void popup.offsetHeight;
+    popup.style.height = `${height}px`;
+    syncPopupContentHeight(state);
+    void popup.offsetHeight;
+  }
+
+  function settlePopupLayout(state) {
+    const popup = state?.ui?.popup;
+    if (!state?.isOpen || !(popup instanceof HTMLElement)) return;
+
+    const height = Number(state.popupHeight || 0);
+    if (!Number.isFinite(height) || height <= 0) return;
+
+    popup.style.height = `${height}px`;
+    syncPopupContentHeight(state);
+    syncPopupOpenScroll(state);
+    void popup.offsetHeight;
+
+    if (
+      !popup.classList.contains("is-opening") &&
+      isPopupLayoutMisaligned(state)
+    ) {
+      resetPopupLayoutReflow(state);
+      syncPopupOpenScroll(state);
+    }
+  }
+
+  function schedulePopupLayoutReflow(state, options = {}) {
+    if (!state) return;
+    if (Array.isArray(state._popupLayoutReflowTimers)) {
+      state._popupLayoutReflowTimers.forEach((timer) => clearTimeout(timer));
+    }
+    state._popupLayoutReflowTimers = [];
+
+    state._popupOpenScrollToBottom = options.scrollToBottom === true;
+
+    const run = () => settlePopupLayout(state);
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(run);
+      });
+    } else {
+      run();
+    }
+
+    // 다시보기 헤더는 채팅 패널의 접힘/마진 조정이 늦게 확정되는 경우가
+    // 있어 몇 번 더 동기화한다.
+    [60, 180, 360].forEach((delay, index, delays) => {
+      const timer = setTimeout(() => {
+        run();
+        if (index === delays.length - 1) {
+          state._popupOpenScrollToBottom = false;
+        }
+      }, delay);
+      state._popupLayoutReflowTimers.push(timer);
+    });
+  }
+
+  function syncPopupOpenScroll(state) {
+    if (state?._popupOpenScrollToBottom !== true) return;
+    const list = state?.ui?.list;
+    if (!(list instanceof HTMLElement)) return;
+    list.scrollTop = list.scrollHeight;
   }
 
   function clampPopupHeight(state, height, deps = {}) {
@@ -642,6 +778,10 @@
       typeof deps.normalizePopupFontScale === "function"
         ? deps.normalizePopupFontScale
         : (value) => normalizePopupFontScale(value, deps);
+    const normalizeChatFontScaleFn =
+      typeof deps.normalizeChatFontScale === "function"
+        ? deps.normalizeChatFontScale
+        : normalizePopupFontScaleFn;
     const rootElement =
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const root = state?.ui?.root;
@@ -658,6 +798,22 @@
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-pill",
         state.settings.hidePillButton === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-ranking",
+        state.settings.hideChatRanking === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-mission",
+        state.settings.hideChatMission === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-donation",
+        state.settings.hideChatDonation === true,
+      );
+      rootElement.style.setProperty(
+        "--chzzk-badge-moa-chat-font-scale",
+        String(normalizeChatFontScaleFn(state.settings.chatFontScale)),
       );
     }
 
@@ -693,6 +849,7 @@
     onResizeMove,
     onResizeEnd,
     applyPopupHeight,
+    syncPopupContentHeight,
     clampPopupHeight,
     getMaxPopupHeight,
     loadPopupHeight,
