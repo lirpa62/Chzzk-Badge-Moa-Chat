@@ -260,6 +260,7 @@
     defaults.hidePopupTime = raw.hidePopupTime === true;
     defaults.hideChatRanking = raw.hideChatRanking === true;
     defaults.hideChatMission = raw.hideChatMission === true;
+    defaults.hideChatPrediction = raw.hideChatPrediction === true;
     defaults.hideChatDonation = raw.hideChatDonation === true;
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
@@ -375,6 +376,7 @@
       hidePopupTime: state.settings.hidePopupTime === true,
       hideChatRanking: state.settings.hideChatRanking === true,
       hideChatMission: state.settings.hideChatMission === true,
+      hideChatPrediction: state.settings.hideChatPrediction === true,
       hideChatDonation: state.settings.hideChatDonation === true,
       showPopupRoleBadgesOnly:
         state.settings.showPopupRoleBadgesOnly === true,
@@ -463,6 +465,7 @@
         hidePopupTime: state.settings.hidePopupTime === true,
         hideChatRanking: state.settings.hideChatRanking === true,
         hideChatMission: state.settings.hideChatMission === true,
+        hideChatPrediction: state.settings.hideChatPrediction === true,
         hideChatDonation: state.settings.hideChatDonation === true,
         showPopupRoleBadgesOnly:
           state.settings.showPopupRoleBadgesOnly === true,
@@ -538,6 +541,9 @@
     }
     if (typeof source.hideChatMission === "boolean") {
       state.settings.hideChatMission = source.hideChatMission;
+    }
+    if (typeof source.hideChatPrediction === "boolean") {
+      state.settings.hideChatPrediction = source.hideChatPrediction;
     }
     if (typeof source.hideChatDonation === "boolean") {
       state.settings.hideChatDonation = source.hideChatDonation;

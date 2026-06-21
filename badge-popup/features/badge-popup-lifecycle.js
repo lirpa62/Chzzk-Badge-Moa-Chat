@@ -181,10 +181,12 @@
                   const className = String(node.className || "");
                   return (
                     node.id === "aside-chatting" ||
+                    node.id === "vod-aside" ||
                     className.includes("live_container") ||
                     className.includes("vod_container") ||
                     className.includes("chatting_container") ||
-                    node.querySelector?.("aside#aside-chatting")
+                    node.querySelector?.("aside#aside-chatting") ||
+                    node.querySelector?.("aside#vod-aside")
                   );
                 })
               ) {

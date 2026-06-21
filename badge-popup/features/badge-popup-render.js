@@ -983,6 +983,17 @@
     );
     visualList.appendChild(
       createSettingToggleRowFn(
+        "채팅창 승부예측 숨김",
+        state.settings.hideChatPrediction,
+        (checked) => {
+          state.settings.hideChatPrediction = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
         "채팅창 후원 메시지 숨김",
         state.settings.hideChatDonation,
         (checked) => {

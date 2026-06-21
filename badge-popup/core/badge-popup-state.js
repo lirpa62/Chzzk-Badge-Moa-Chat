@@ -34,6 +34,7 @@
       hidePopupTime: false,
       hideChatRanking: false,
       hideChatMission: false,
+      hideChatPrediction: false,
       hideChatDonation: false,
       showPopupRoleBadgesOnly: false,
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,

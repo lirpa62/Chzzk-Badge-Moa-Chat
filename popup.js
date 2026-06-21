@@ -48,6 +48,7 @@
     hidePopupTime: false,
     hideChatRanking: false,
     hideChatMission: false,
+    hideChatPrediction: false,
     hideChatDonation: false,
     showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
@@ -105,6 +106,7 @@
     hidePopupTime: document.getElementById("hide-popup-time"),
     hideChatRanking: document.getElementById("hide-chat-ranking"),
     hideChatMission: document.getElementById("hide-chat-mission"),
+    hideChatPrediction: document.getElementById("hide-chat-prediction"),
     hideChatDonation: document.getElementById("hide-chat-donation"),
     enableChatWidthResize: document.getElementById(
       "enable-chat-width-resize",
@@ -596,6 +598,11 @@
       await persistAndApply();
     });
 
+    el.hideChatPrediction.addEventListener("change", async () => {
+      state.hideChatPrediction = el.hideChatPrediction.checked;
+      await persistAndApply();
+    });
+
     el.hideChatDonation.addEventListener("change", async () => {
       state.hideChatDonation = el.hideChatDonation.checked;
       await persistAndApply();
@@ -870,6 +877,7 @@
     el.hidePopupTime.checked = state.hidePopupTime;
     el.hideChatRanking.checked = state.hideChatRanking === true;
     el.hideChatMission.checked = state.hideChatMission === true;
+    el.hideChatPrediction.checked = state.hideChatPrediction === true;
     el.hideChatDonation.checked = state.hideChatDonation === true;
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
@@ -1813,6 +1821,7 @@
       hidePopupTime: state.hidePopupTime,
       hideChatRanking: state.hideChatRanking === true,
       hideChatMission: state.hideChatMission === true,
+      hideChatPrediction: state.hideChatPrediction === true,
       hideChatDonation: state.hideChatDonation === true,
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
@@ -1889,6 +1898,7 @@
     state.hidePopupTime = settings.hidePopupTime === true;
     state.hideChatRanking = settings.hideChatRanking === true;
     state.hideChatMission = settings.hideChatMission === true;
+    state.hideChatPrediction = settings.hideChatPrediction === true;
     state.hideChatDonation = settings.hideChatDonation === true;
     state.enableChatWidthResize = settings.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
@@ -2017,6 +2027,7 @@
     state.hidePopupTime = raw.hidePopupTime === true;
     state.hideChatRanking = raw.hideChatRanking === true;
     state.hideChatMission = raw.hideChatMission === true;
+    state.hideChatPrediction = raw.hideChatPrediction === true;
     state.hideChatDonation = raw.hideChatDonation === true;
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
@@ -2114,6 +2125,7 @@
     raw.hidePopupTime = state.hidePopupTime === true;
     raw.hideChatRanking = state.hideChatRanking === true;
     raw.hideChatMission = state.hideChatMission === true;
+    raw.hideChatPrediction = state.hideChatPrediction === true;
     raw.hideChatDonation = state.hideChatDonation === true;
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);

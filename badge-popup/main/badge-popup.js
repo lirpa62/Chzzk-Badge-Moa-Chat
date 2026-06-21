@@ -459,7 +459,10 @@
   }
 
   function syncPillPositionForHeader() {
-    uiCoreApi.syncPillPositionForHeader(state, { isVodChatHeader });
+    uiCoreApi.syncPillPositionForHeader(state, {
+      isVodChatHeader,
+      MIN_CHAT_WIDTH,
+    });
   }
 
   function cleanupDetachedUi() {
@@ -1362,6 +1365,7 @@
       normalizeChatWidth,
       MIN_CHAT_WIDTH,
       saveSettings,
+      syncPillPositionForHeader,
     });
   }
 

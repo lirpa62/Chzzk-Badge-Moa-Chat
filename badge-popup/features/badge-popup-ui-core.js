@@ -474,8 +474,24 @@
     const titleRect = title.getBoundingClientRect();
     if (headerRect.width <= 0 || titleRect.width <= 0) return;
 
+    const vodAside =
+      header.closest("aside#vod-aside") ||
+      document.querySelector("aside#vod-aside");
+    const vodAsideRect =
+      vodAside instanceof HTMLElement ? vodAside.getBoundingClientRect() : null;
+    const effectiveWidth =
+      vodAsideRect && vodAsideRect.width > 0
+        ? Math.round(vodAsideRect.width)
+        : Math.round(headerRect.width);
+    const minChatWidth = Number(deps.MIN_CHAT_WIDTH) || 220;
+    const defaultVodChatWidth = Number(deps.DEFAULT_VOD_CHAT_WIDTH) || 353;
     const pillHeight = 32;
-    const left = Math.max(8, Math.round(titleRect.right - headerRect.left + 8));
+    const minLeft = 15;
+    const minMaxWidth = 150;
+    const naturalLeft = Math.max(
+      8,
+      Math.round(titleRect.right - headerRect.left + 8),
+    );
     const top = Math.max(
       2,
       Math.round(
@@ -483,18 +499,33 @@
       ),
     );
 
-    let maxWidth = Math.max(68, Math.round(headerRect.width - left - 8));
     const closeButton =
       header.querySelector("button[class*='vod_chatting_close_button']") ||
       header.querySelector("button[class*='close_button']") ||
       Array.from(header.querySelectorAll("button")).find(
         (button) => !root.contains(button),
       );
-    if (closeButton instanceof HTMLElement) {
+
+    let left = naturalLeft;
+    let maxWidth = Math.max(68, Math.round(headerRect.width - left - 8));
+    if (effectiveWidth < defaultVodChatWidth) {
+      const widthDelta = Math.max(0, effectiveWidth - minChatWidth);
+      const transitionRange = Math.max(1, defaultVodChatWidth - minChatWidth);
+      const progress = Math.min(1, widthDelta / transitionRange);
+      left = Math.round(minLeft + (naturalLeft - minLeft) * progress);
+      const maxWidthAtDefault = Math.max(
+        minMaxWidth,
+        Math.round(defaultVodChatWidth - naturalLeft - 8),
+      );
+      maxWidth = Math.round(
+        minMaxWidth + (maxWidthAtDefault - minMaxWidth) * progress,
+      );
+    } else if (closeButton instanceof HTMLElement) {
       const closeRect = closeButton.getBoundingClientRect();
       const closeLeft = Math.round(closeRect.left - headerRect.left);
       maxWidth = Math.max(68, Math.round(closeLeft - left - 8));
     }
+    maxWidth = Math.max(68, maxWidth);
 
     root.style.setProperty("--chzzk-vod-pill-left", `${left}px`);
     root.style.setProperty("--chzzk-vod-pill-top", `${top}px`);

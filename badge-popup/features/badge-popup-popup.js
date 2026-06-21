@@ -721,7 +721,9 @@
     const renderListFn =
       typeof deps.renderList === "function" ? deps.renderList : () => {};
     const isNearBottomFn =
-      typeof deps.isNearBottom === "function" ? deps.isNearBottom : isNearBottom;
+      typeof deps.isNearBottom === "function"
+        ? deps.isNearBottom
+        : isNearBottom;
 
     const nextStyle = normalizeDisplayStyleFn(style);
     if (state.displayStyle === nextStyle) return;
@@ -772,7 +774,45 @@
     return Math.min(safeMax, Math.max(safeMin, Math.round(numeric)));
   }
 
-  function getMaxChatWidth(doc, deps = {}) {
+  function getVodMaxChatWidth(doc, aside, deps = {}) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "vod-aside") {
+      return Infinity;
+    }
+    const scope = doc || document;
+    const player =
+      aside.querySelector("[class*='_player_']") ||
+      scope.querySelector("aside#vod-aside [class*='_player_']") ||
+      scope.querySelector("[class*='_player_']");
+    const title =
+      scope.querySelector(
+        "aside#vod-aside [class*='_player_'] + [class*='_area_'] " +
+          "[class*='_content_'] [class*='_content_left_'] " +
+          "[class*='_details_'] [class*='_container_'] " +
+          "[class*='_row_'] h2[class*='_title_']",
+      ) ||
+      scope.querySelector(
+        "[class*='_player_'] + [class*='_area_'] " +
+          "[class*='_content_'] [class*='_content_left_'] " +
+          "[class*='_details_'] [class*='_container_'] " +
+          "[class*='_row_'] h2[class*='_title_']",
+      );
+    if (!(player instanceof HTMLElement) || !(title instanceof HTMLElement)) {
+      return Infinity;
+    }
+
+    const playerRect = player.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    const maxWidth = Math.floor(
+      Number(playerRect.width || 0) - Number(titleRect.width || 0) - 55,
+    );
+    if (!Number.isFinite(maxWidth) || maxWidth <= 0) return Infinity;
+    return Math.max(getMinChatWidth(deps), maxWidth);
+  }
+
+  function getMaxChatWidth(doc, deps = {}, aside = null) {
+    const vodMaxWidth = getVodMaxChatWidth(doc, aside, deps);
+    if (Number.isFinite(vodMaxWidth)) return vodMaxWidth;
+
     const scope = doc || document;
     const container = scope.querySelector(
       'div#layout-body[aria-label="콘텐츠"] section[class*="_container_"]',
@@ -780,12 +820,20 @@
     if (!(container instanceof HTMLElement)) return Infinity;
 
     const rect = container.getBoundingClientRect();
-    const maxWidth = Math.floor(Number(rect.width || 0) - 10);
+    const maxWidth = Math.floor(Number(rect.width || 0) - 275);
     if (!Number.isFinite(maxWidth) || maxWidth <= 0) return Infinity;
     return Math.max(getMinChatWidth(deps), maxWidth);
   }
 
-  function isChatWidthStackedLayout(doc) {
+  function findResizableChatAside(doc) {
+    const scope = doc || document;
+    const aside =
+      scope.querySelector("aside#aside-chatting") ||
+      scope.querySelector("aside#vod-aside");
+    return aside instanceof HTMLElement ? aside : null;
+  }
+
+  function isChatWidthStackedLayout(doc, targetAside = null) {
     const scope = doc || document;
     const win = scope.defaultView || window;
     if (win && typeof win.matchMedia === "function") {
@@ -796,11 +844,17 @@
       } catch (_error) {}
     }
 
-    const aside = scope.querySelector("aside#aside-chatting");
+    const aside =
+      targetAside instanceof HTMLElement
+        ? targetAside
+        : findResizableChatAside(scope);
     const container = scope.querySelector(
       'div#layout-body[aria-label="콘텐츠"] section[class*="_container_"]',
     );
-    if (!(aside instanceof HTMLElement) || !(container instanceof HTMLElement)) {
+    if (
+      !(aside instanceof HTMLElement) ||
+      !(container instanceof HTMLElement)
+    ) {
       return false;
     }
 
@@ -823,13 +877,111 @@
       `${getMinChatWidth(deps)}px`,
       "important",
     );
+    syncLiveMiniPlayerSize(aside, nextWidth, deps);
   }
 
   function resetChatAsideWidth(aside) {
     if (!(aside instanceof HTMLElement)) return;
+    resetVodBannerWidth(aside);
+    resetLiveMiniPlayerSize(aside, { document });
     aside.style.removeProperty("width");
     aside.style.removeProperty("flex-basis");
     aside.style.removeProperty("min-width");
+  }
+
+  function getLiveMiniPlayerHeight(width) {
+    const numeric = Number(width);
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.max(1, Math.round((numeric * 206) / 353));
+  }
+
+  function syncLiveMiniPlayerSize(aside, width, deps = {}) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "aside-chatting") {
+      return;
+    }
+    const doc = deps.document || document;
+    const root = doc.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    const numeric = Math.round(Number(width || 0));
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    root.style.setProperty(
+      "--chzzk-badge-moa-chat-resized-width",
+      `${numeric}px`,
+    );
+    root.style.setProperty(
+      "--chzzk-badge-moa-live-miniplayer-height",
+      `${getLiveMiniPlayerHeight(numeric)}px`,
+    );
+  }
+
+  function resetLiveMiniPlayerSize(aside, deps = {}) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "aside-chatting") {
+      return;
+    }
+    const doc = deps.document || document;
+    const root = doc.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    root.style.removeProperty("--chzzk-badge-moa-chat-resized-width");
+    root.style.removeProperty("--chzzk-badge-moa-live-miniplayer-height");
+  }
+
+  function getVodBannerScope(aside) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "vod-aside")
+      return null;
+    const candidates = [];
+    let current = aside;
+    while (current instanceof HTMLElement && candidates.length < 8) {
+      candidates.push(current);
+      current = current.parentElement;
+    }
+    return (
+      candidates.find((element) => {
+        if (element.querySelector("[class*='_banner_']")) return true;
+        if (element.querySelector("#vod_rs_banner")) return true;
+        return false;
+      }) || aside
+    );
+  }
+
+  function applyVodBannerWidthStyle(aside, callback) {
+    const scope = getVodBannerScope(aside);
+    if (!(scope instanceof HTMLElement)) return;
+
+    const selectors = [
+      "[class*='_banner_']",
+      "#vod_rs_banner",
+      "#vod_rs_banner > div",
+      "#vod_rs_banner iframe",
+    ];
+    selectors.forEach((selector) => {
+      scope.querySelectorAll(selector).forEach((element) => {
+        if (element instanceof HTMLElement) {
+          callback(element);
+        }
+      });
+    });
+  }
+
+  function syncVodBannerWidth(aside) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "vod-aside") return;
+    const width = Math.round(Number(aside.getBoundingClientRect().width || 0));
+    if (!Number.isFinite(width) || width <= 0) return;
+
+    applyVodBannerWidthStyle(aside, (element) => {
+      element.style.setProperty("width", `${width}px`, "important");
+      element.style.setProperty("max-width", `${width}px`, "important");
+      element.style.setProperty("min-width", "0", "important");
+      element.style.setProperty("box-sizing", "border-box", "important");
+    });
+  }
+
+  function resetVodBannerWidth(aside) {
+    applyVodBannerWidthStyle(aside, (element) => {
+      element.style.removeProperty("width");
+      element.style.removeProperty("max-width");
+      element.style.removeProperty("min-width");
+      element.style.removeProperty("box-sizing");
+    });
   }
 
   function isTextareaElement(element) {
@@ -842,9 +994,7 @@
   function findLiveChatInputTextarea(aside) {
     if (!(aside instanceof Element)) return null;
     const textarea =
-      aside.querySelector(
-        "textarea[placeholder*='채팅을 입력해주세요']",
-      ) ||
+      aside.querySelector("textarea[placeholder*='채팅을 입력해주세요']") ||
       aside.querySelector("textarea[class*='_input_']") ||
       aside.querySelector("textarea[placeholder*='채팅']");
     return isTextareaElement(textarea) ? textarea : null;
@@ -907,19 +1057,23 @@
     const doc = deps.document || document;
 
     if (resizeState.inputHeightAside === aside) {
+      syncVodBannerWidth(aside);
       normalizeLiveChatInputHeight(aside, doc);
       return;
     }
 
     cleanupChatInputHeightWatcher(resizeState);
+    const observeTarget = getVodBannerScope(aside) || aside;
 
     const scheduleNormalize = () => {
       if (resizeState.inputHeightTimer) {
         clearTimeout(resizeState.inputHeightTimer);
       }
+      syncVodBannerWidth(aside);
       normalizeLiveChatInputHeight(aside, doc);
       resizeState.inputHeightTimer = setTimeout(() => {
         resizeState.inputHeightTimer = null;
+        syncVodBannerWidth(aside);
         normalizeLiveChatInputHeight(aside, doc);
       }, 80);
     };
@@ -942,7 +1096,7 @@
           })
         : null;
     if (observer) {
-      observer.observe(aside, {
+      observer.observe(observeTarget, {
         subtree: true,
         childList: true,
         attributes: true,
@@ -997,6 +1151,10 @@
     const doc = deps.document || document;
     const saveSettingsFn =
       typeof deps.saveSettings === "function" ? deps.saveSettings : () => {};
+    const syncPillPositionForHeaderFn =
+      typeof deps.syncPillPositionForHeader === "function"
+        ? deps.syncPillPositionForHeader
+        : () => {};
     const normalizeChatWidthFn =
       typeof deps.normalizeChatWidth === "function"
         ? deps.normalizeChatWidth
@@ -1004,11 +1162,12 @@
     const rootElement =
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const enabled = state?.settings?.enableChatWidthResize === true;
-    const stackedLayout = isChatWidthStackedLayout(doc);
+    const aside = findResizableChatAside(doc);
+    const stackedLayout = isChatWidthStackedLayout(doc, aside);
     if (rootElement) {
       rootElement.classList.toggle(
         "chzzk-badge-moa-chat-width-resize-enabled",
-        enabled && !stackedLayout,
+        enabled && !stackedLayout && aside instanceof HTMLElement,
       );
     }
 
@@ -1017,7 +1176,6 @@
       return;
     }
 
-    const aside = doc.querySelector("aside#aside-chatting");
     if (!(aside instanceof HTMLElement)) {
       cleanupChatWidthResize(state, { document: doc, resetWidth: false });
       return;
@@ -1033,7 +1191,7 @@
       cleanupChatWidthResize(state, { document: doc, resetWidth: false });
     }
 
-    const maxWidth = getMaxChatWidth(doc, deps);
+    const maxWidth = getMaxChatWidth(doc, deps, aside);
     const savedWidth = normalizeChatWidthFn(state.settings.chatWidth);
     const currentWidth = aside.getBoundingClientRect().width;
     const appliedWidth =
@@ -1046,6 +1204,10 @@
       maxWidth,
       MIN_CHAT_WIDTH: deps.MIN_CHAT_WIDTH,
     });
+    syncVodBannerWidth(aside);
+    if (aside.id === "vod-aside") {
+      syncPillPositionForHeaderFn();
+    }
     syncChatInputHeightWatcher(state, aside, deps);
 
     if (
@@ -1085,17 +1247,21 @@
       if (!resizeState.active) return;
       event.preventDefault();
       const deltaX = Number(event.clientX || 0) - resizeState.startX;
-      const dragMaxWidth = getMaxChatWidth(doc, deps);
-      const nextWidth = clampChatWidth(
-        resizeState.startWidth - deltaX,
-        { ...deps, maxWidth: dragMaxWidth },
-      );
+      const dragMaxWidth = getMaxChatWidth(doc, deps, aside);
+      const nextWidth = clampChatWidth(resizeState.startWidth - deltaX, {
+        ...deps,
+        maxWidth: dragMaxWidth,
+      });
       state.settings.chatWidth = nextWidth;
       setChatAsideWidth(aside, nextWidth, {
         normalizeChatWidth: normalizeChatWidthFn,
         maxWidth: dragMaxWidth,
         MIN_CHAT_WIDTH: deps.MIN_CHAT_WIDTH,
       });
+      syncVodBannerWidth(aside);
+      if (aside.id === "vod-aside") {
+        syncPillPositionForHeaderFn();
+      }
       if (Number.isFinite(dragMaxWidth)) {
         handle.setAttribute("aria-valuemax", String(Math.floor(dragMaxWidth)));
       } else {
@@ -1120,10 +1286,10 @@
       const rect = aside.getBoundingClientRect();
       resizeState.active = true;
       resizeState.startX = Number(event.clientX || 0);
-      resizeState.startWidth = clampChatWidth(
-        rect.width || appliedWidth,
-        { ...deps, maxWidth: getMaxChatWidth(doc, deps) },
-      );
+      resizeState.startWidth = clampChatWidth(rect.width || appliedWidth, {
+        ...deps,
+        maxWidth: getMaxChatWidth(doc, deps, aside),
+      });
       if (rootElement) {
         rootElement.classList.add("chzzk-badge-moa-chat-resizing");
       }
@@ -1198,6 +1364,10 @@
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-chat-mission",
         state.settings.hideChatMission === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-prediction",
+        state.settings.hideChatPrediction === true,
       );
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-chat-donation",
