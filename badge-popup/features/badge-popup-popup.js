@@ -832,6 +832,136 @@
     aside.style.removeProperty("min-width");
   }
 
+  function isTextareaElement(element) {
+    return (
+      element instanceof Element &&
+      String(element.tagName || "").toLowerCase() === "textarea"
+    );
+  }
+
+  function findLiveChatInputTextarea(aside) {
+    if (!(aside instanceof Element)) return null;
+    const textarea =
+      aside.querySelector(
+        "textarea[placeholder*='채팅을 입력해주세요']",
+      ) ||
+      aside.querySelector("textarea[class*='_input_']") ||
+      aside.querySelector("textarea[placeholder*='채팅']");
+    return isTextareaElement(textarea) ? textarea : null;
+  }
+
+  function normalizeLiveChatInputHeight(aside, doc = document) {
+    const textarea = findLiveChatInputTextarea(aside);
+    if (!isTextareaElement(textarea)) return;
+    if (!String(textarea.placeholder || "").includes("채팅을 입력해주세요")) {
+      return;
+    }
+    if (String(textarea.value || "").length > 0) return;
+    if (doc.activeElement === textarea) return;
+
+    const currentHeight = textarea.style.getPropertyValue("height");
+    const currentPriority = textarea.style.getPropertyPriority("height");
+    if (currentHeight === "40px" && currentPriority === "important") return;
+    textarea.style.setProperty("height", "40px", "important");
+  }
+
+  function cleanupChatInputHeightWatcher(resizeState) {
+    if (!resizeState) return;
+    if (resizeState.inputHeightObserver) {
+      resizeState.inputHeightObserver.disconnect();
+      resizeState.inputHeightObserver = null;
+    }
+    if (resizeState.inputHeightAside instanceof HTMLElement) {
+      if (resizeState.inputHeightBlurHandler) {
+        resizeState.inputHeightAside.removeEventListener(
+          "blur",
+          resizeState.inputHeightBlurHandler,
+          true,
+        );
+        resizeState.inputHeightAside.removeEventListener(
+          "focusout",
+          resizeState.inputHeightBlurHandler,
+          true,
+        );
+      }
+      if (resizeState.inputHeightInputHandler) {
+        resizeState.inputHeightAside.removeEventListener(
+          "input",
+          resizeState.inputHeightInputHandler,
+          true,
+        );
+      }
+    }
+    if (resizeState.inputHeightTimer) {
+      clearTimeout(resizeState.inputHeightTimer);
+      resizeState.inputHeightTimer = null;
+    }
+    resizeState.inputHeightAside = null;
+    resizeState.inputHeightBlurHandler = null;
+    resizeState.inputHeightInputHandler = null;
+  }
+
+  function syncChatInputHeightWatcher(state, aside, deps = {}) {
+    const resizeState = state?.chatWidthResize;
+    if (!resizeState || !(aside instanceof HTMLElement)) return;
+    const doc = deps.document || document;
+
+    if (resizeState.inputHeightAside === aside) {
+      normalizeLiveChatInputHeight(aside, doc);
+      return;
+    }
+
+    cleanupChatInputHeightWatcher(resizeState);
+
+    const scheduleNormalize = () => {
+      if (resizeState.inputHeightTimer) {
+        clearTimeout(resizeState.inputHeightTimer);
+      }
+      normalizeLiveChatInputHeight(aside, doc);
+      resizeState.inputHeightTimer = setTimeout(() => {
+        resizeState.inputHeightTimer = null;
+        normalizeLiveChatInputHeight(aside, doc);
+      }, 80);
+    };
+
+    const observer =
+      typeof MutationObserver === "function"
+        ? new MutationObserver((mutations) => {
+            if (
+              mutations.some((mutation) => {
+                if (mutation.type === "childList") return true;
+                return (
+                  mutation.type === "attributes" &&
+                  mutation.attributeName === "style" &&
+                  isTextareaElement(mutation.target)
+                );
+              })
+            ) {
+              scheduleNormalize();
+            }
+          })
+        : null;
+    if (observer) {
+      observer.observe(aside, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+    }
+
+    const onInputOrBlur = () => scheduleNormalize();
+    aside.addEventListener("blur", onInputOrBlur, true);
+    aside.addEventListener("focusout", onInputOrBlur, true);
+    aside.addEventListener("input", onInputOrBlur, true);
+
+    resizeState.inputHeightObserver = observer;
+    resizeState.inputHeightAside = aside;
+    resizeState.inputHeightBlurHandler = onInputOrBlur;
+    resizeState.inputHeightInputHandler = onInputOrBlur;
+    scheduleNormalize();
+  }
+
   function cleanupChatWidthResize(state, options = {}) {
     const resizeState = state?.chatWidthResize;
     if (!resizeState) return;
@@ -846,6 +976,7 @@
     if (resizeState.handle && resizeState.handle.parentNode) {
       resizeState.handle.parentNode.removeChild(resizeState.handle);
     }
+    cleanupChatInputHeightWatcher(resizeState);
     if (options.resetWidth === true) {
       resetChatAsideWidth(resizeState.aside);
     }
@@ -915,6 +1046,7 @@
       maxWidth,
       MIN_CHAT_WIDTH: deps.MIN_CHAT_WIDTH,
     });
+    syncChatInputHeightWatcher(state, aside, deps);
 
     if (
       resizeState.handle instanceof HTMLElement &&

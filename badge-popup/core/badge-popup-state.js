@@ -100,6 +100,11 @@
       startWidth: MIN_CHAT_WIDTH,
       moveHandler: null,
       upHandler: null,
+      inputHeightObserver: null,
+      inputHeightAside: null,
+      inputHeightBlurHandler: null,
+      inputHeightInputHandler: null,
+      inputHeightTimer: null,
     },
     cache: {
       saveTimer: null,
