@@ -174,6 +174,10 @@
       typeof deps.normalizeChatFontScale === "function"
         ? deps.normalizeChatFontScale
         : normalizePopupFontScale;
+    const normalizeChatWidth =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => Number(value) || 220;
 
     const hiddenByScope = normalizeHiddenByScope(raw.hiddenPillNicknamesByChannel, {
       normalizeNickname,
@@ -260,6 +264,8 @@
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
+    defaults.enableChatWidthResize = raw.enableChatWidthResize === true;
+    defaults.chatWidth = normalizeChatWidth(raw.chatWidth);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
       defaults.deleteWithoutConfirm = raw.deleteWithoutConfirm === true;
     } else if (typeof raw.confirmDeleteDialog === "boolean") {
@@ -315,6 +321,10 @@
       typeof deps.normalizeChatFontScale === "function"
         ? deps.normalizeChatFontScale
         : normalizePopupFontScale;
+    const normalizeChatWidth =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => Number(value) || 220;
     const setStorageValue =
       typeof deps.setStorageValue === "function"
         ? deps.setStorageValue
@@ -370,6 +380,8 @@
         state.settings.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
+      enableChatWidthResize: state.settings.enableChatWidthResize === true,
+      chatWidth: normalizeChatWidth(state.settings.chatWidth),
       deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
       hidePillButton: state.settings.hidePillButton === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
@@ -431,6 +443,10 @@
       typeof deps.normalizeChatFontScale === "function"
         ? deps.normalizeChatFontScale
         : normalizePopupFontScale;
+    const normalizeChatWidth =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => Number(value) || 220;
 
     return {
       ok: true,
@@ -452,6 +468,8 @@
           state.settings.showPopupRoleBadgesOnly === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
         chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
+        enableChatWidthResize: state.settings.enableChatWidthResize === true,
+        chatWidth: normalizeChatWidth(state.settings.chatWidth),
         deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
         hidePillButton: state.settings.hidePillButton === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
@@ -486,6 +504,10 @@
       typeof deps.normalizeChatFontScale === "function"
         ? deps.normalizeChatFontScale
         : normalizePopupFontScale;
+    const normalizeChatWidth =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => Number(value) || 220;
     const previousTrackedNicknames = new Set(state.settings.trackedNicknames || []);
     const forcedTrackedNicknames = new Set(
       Array.isArray(source.newTrackedNicknames)
@@ -523,6 +545,9 @@
     if (typeof source.showPopupRoleBadgesOnly === "boolean") {
       state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
     }
+    if (typeof source.enableChatWidthResize === "boolean") {
+      state.settings.enableChatWidthResize = source.enableChatWidthResize;
+    }
     if (
       typeof source.popupFontScale === "number" ||
       typeof source.popupFontScale === "string"
@@ -536,6 +561,12 @@
       typeof source.chatFontScale === "string"
     ) {
       state.settings.chatFontScale = normalizeChatFontScale(source.chatFontScale);
+    }
+    if (
+      typeof source.chatWidth === "number" ||
+      typeof source.chatWidth === "string"
+    ) {
+      state.settings.chatWidth = normalizeChatWidth(source.chatWidth);
     }
     if (typeof source.deleteWithoutConfirm === "boolean") {
       state.settings.deleteWithoutConfirm = source.deleteWithoutConfirm;

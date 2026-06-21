@@ -747,6 +747,266 @@
     return Math.round(clamped * 100) / 100;
   }
 
+  function normalizeChatWidth(value, deps = {}) {
+    const numeric = Number(value);
+    const minWidth = Number(deps.MIN_CHAT_WIDTH);
+    const safeMin = Number.isFinite(minWidth) ? minWidth : 220;
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.max(safeMin, Math.round(numeric));
+  }
+
+  function getMinChatWidth(deps = {}) {
+    const minWidth = Number(deps.MIN_CHAT_WIDTH);
+    return Number.isFinite(minWidth) ? minWidth : 220;
+  }
+
+  function clampChatWidth(value, deps = {}) {
+    const numeric = Number(value);
+    const safeMin = getMinChatWidth(deps);
+    const maxWidth = Number(deps.maxWidth);
+    const safeMax =
+      Number.isFinite(maxWidth) && maxWidth > 0
+        ? Math.max(safeMin, Math.floor(maxWidth))
+        : Infinity;
+    if (!Number.isFinite(numeric) || numeric <= 0) return safeMin;
+    return Math.min(safeMax, Math.max(safeMin, Math.round(numeric)));
+  }
+
+  function getMaxChatWidth(doc, deps = {}) {
+    const scope = doc || document;
+    const container = scope.querySelector(
+      'div#layout-body[aria-label="콘텐츠"] section[class*="_container_"]',
+    );
+    if (!(container instanceof HTMLElement)) return Infinity;
+
+    const rect = container.getBoundingClientRect();
+    const maxWidth = Math.floor(Number(rect.width || 0) - 10);
+    if (!Number.isFinite(maxWidth) || maxWidth <= 0) return Infinity;
+    return Math.max(getMinChatWidth(deps), maxWidth);
+  }
+
+  function isChatWidthStackedLayout(doc) {
+    const scope = doc || document;
+    const win = scope.defaultView || window;
+    if (win && typeof win.matchMedia === "function") {
+      try {
+        if (win.matchMedia("screen and (aspect-ratio <= 1 / 1)").matches) {
+          return true;
+        }
+      } catch (_error) {}
+    }
+
+    const aside = scope.querySelector("aside#aside-chatting");
+    const container = scope.querySelector(
+      'div#layout-body[aria-label="콘텐츠"] section[class*="_container_"]',
+    );
+    if (!(aside instanceof HTMLElement) || !(container instanceof HTMLElement)) {
+      return false;
+    }
+
+    const asideRect = aside.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    return asideRect.top >= containerRect.bottom - 2;
+  }
+
+  function setChatAsideWidth(aside, width, deps = {}) {
+    if (!(aside instanceof HTMLElement)) return;
+    const normalizeChatWidthFn =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => normalizeChatWidth(value, deps);
+    const nextWidth = clampChatWidth(normalizeChatWidthFn(width), deps);
+    aside.style.setProperty("width", `${nextWidth}px`, "important");
+    aside.style.setProperty("flex-basis", `${nextWidth}px`, "important");
+    aside.style.setProperty(
+      "min-width",
+      `${getMinChatWidth(deps)}px`,
+      "important",
+    );
+  }
+
+  function resetChatAsideWidth(aside) {
+    if (!(aside instanceof HTMLElement)) return;
+    aside.style.removeProperty("width");
+    aside.style.removeProperty("flex-basis");
+    aside.style.removeProperty("min-width");
+  }
+
+  function cleanupChatWidthResize(state, options = {}) {
+    const resizeState = state?.chatWidthResize;
+    if (!resizeState) return;
+    const doc = options.document || document;
+
+    if (resizeState.moveHandler) {
+      doc.removeEventListener("mousemove", resizeState.moveHandler, true);
+    }
+    if (resizeState.upHandler) {
+      doc.removeEventListener("mouseup", resizeState.upHandler, true);
+    }
+    if (resizeState.handle && resizeState.handle.parentNode) {
+      resizeState.handle.parentNode.removeChild(resizeState.handle);
+    }
+    if (options.resetWidth === true) {
+      resetChatAsideWidth(resizeState.aside);
+    }
+    if (doc.documentElement instanceof HTMLElement) {
+      doc.documentElement.classList.remove("chzzk-badge-moa-chat-resizing");
+    }
+
+    resizeState.handle = null;
+    resizeState.aside = null;
+    resizeState.active = false;
+    resizeState.startX = 0;
+    resizeState.startWidth = 220;
+    resizeState.moveHandler = null;
+    resizeState.upHandler = null;
+  }
+
+  function syncChatWidthResize(state, deps = {}) {
+    const doc = deps.document || document;
+    const saveSettingsFn =
+      typeof deps.saveSettings === "function" ? deps.saveSettings : () => {};
+    const normalizeChatWidthFn =
+      typeof deps.normalizeChatWidth === "function"
+        ? deps.normalizeChatWidth
+        : (value) => normalizeChatWidth(value, deps);
+    const rootElement =
+      doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
+    const enabled = state?.settings?.enableChatWidthResize === true;
+    const stackedLayout = isChatWidthStackedLayout(doc);
+    if (rootElement) {
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-chat-width-resize-enabled",
+        enabled && !stackedLayout,
+      );
+    }
+
+    if (!enabled || stackedLayout) {
+      cleanupChatWidthResize(state, { document: doc, resetWidth: true });
+      return;
+    }
+
+    const aside = doc.querySelector("aside#aside-chatting");
+    if (!(aside instanceof HTMLElement)) {
+      cleanupChatWidthResize(state, { document: doc, resetWidth: false });
+      return;
+    }
+
+    const resizeState = state.chatWidthResize;
+    if (!resizeState) return;
+
+    if (
+      resizeState.aside instanceof HTMLElement &&
+      resizeState.aside !== aside
+    ) {
+      cleanupChatWidthResize(state, { document: doc, resetWidth: false });
+    }
+
+    const maxWidth = getMaxChatWidth(doc, deps);
+    const savedWidth = normalizeChatWidthFn(state.settings.chatWidth);
+    const currentWidth = aside.getBoundingClientRect().width;
+    const appliedWidth =
+      savedWidth > 0
+        ? clampChatWidth(savedWidth, { ...deps, maxWidth })
+        : clampChatWidth(currentWidth, { ...deps, maxWidth });
+    state.settings.chatWidth = savedWidth;
+    setChatAsideWidth(aside, appliedWidth, {
+      normalizeChatWidth: normalizeChatWidthFn,
+      maxWidth,
+      MIN_CHAT_WIDTH: deps.MIN_CHAT_WIDTH,
+    });
+
+    if (
+      resizeState.handle instanceof HTMLElement &&
+      resizeState.handle.isConnected &&
+      resizeState.aside === aside
+    ) {
+      resizeState.handle.setAttribute(
+        "aria-valuemin",
+        String(getMinChatWidth(deps)),
+      );
+      if (Number.isFinite(maxWidth)) {
+        resizeState.handle.setAttribute(
+          "aria-valuemax",
+          String(Math.floor(maxWidth)),
+        );
+      } else {
+        resizeState.handle.removeAttribute("aria-valuemax");
+      }
+      resizeState.handle.setAttribute("aria-valuenow", String(appliedWidth));
+      return;
+    }
+
+    const handle = doc.createElement("div");
+    handle.className = "chzzk-badge-moa-chat-width-resizer";
+    handle.setAttribute("role", "separator");
+    handle.setAttribute("aria-orientation", "vertical");
+    handle.setAttribute("aria-label", "채팅창 넓이 조절");
+    handle.setAttribute("aria-valuemin", String(getMinChatWidth(deps)));
+    if (Number.isFinite(maxWidth)) {
+      handle.setAttribute("aria-valuemax", String(Math.floor(maxWidth)));
+    }
+    handle.setAttribute("aria-valuenow", String(appliedWidth));
+    handle.title = "채팅창 넓이 조절";
+
+    const onMouseMove = (event) => {
+      if (!resizeState.active) return;
+      event.preventDefault();
+      const deltaX = Number(event.clientX || 0) - resizeState.startX;
+      const dragMaxWidth = getMaxChatWidth(doc, deps);
+      const nextWidth = clampChatWidth(
+        resizeState.startWidth - deltaX,
+        { ...deps, maxWidth: dragMaxWidth },
+      );
+      state.settings.chatWidth = nextWidth;
+      setChatAsideWidth(aside, nextWidth, {
+        normalizeChatWidth: normalizeChatWidthFn,
+        maxWidth: dragMaxWidth,
+        MIN_CHAT_WIDTH: deps.MIN_CHAT_WIDTH,
+      });
+      if (Number.isFinite(dragMaxWidth)) {
+        handle.setAttribute("aria-valuemax", String(Math.floor(dragMaxWidth)));
+      } else {
+        handle.removeAttribute("aria-valuemax");
+      }
+      handle.setAttribute("aria-valuenow", String(nextWidth));
+    };
+
+    const onMouseUp = () => {
+      if (!resizeState.active) return;
+      resizeState.active = false;
+      if (rootElement) {
+        rootElement.classList.remove("chzzk-badge-moa-chat-resizing");
+      }
+      saveSettingsFn();
+    };
+
+    handle.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = aside.getBoundingClientRect();
+      resizeState.active = true;
+      resizeState.startX = Number(event.clientX || 0);
+      resizeState.startWidth = clampChatWidth(
+        rect.width || appliedWidth,
+        { ...deps, maxWidth: getMaxChatWidth(doc, deps) },
+      );
+      if (rootElement) {
+        rootElement.classList.add("chzzk-badge-moa-chat-resizing");
+      }
+    });
+
+    doc.addEventListener("mousemove", onMouseMove, true);
+    doc.addEventListener("mouseup", onMouseUp, true);
+    aside.appendChild(handle);
+
+    resizeState.handle = handle;
+    resizeState.aside = aside;
+    resizeState.moveHandler = onMouseMove;
+    resizeState.upHandler = onMouseUp;
+  }
+
   function toggleSettingsPanel(state, forceOpen, deps = {}) {
     const renderSettingsPanelFn =
       typeof deps.renderSettingsPanel === "function"
@@ -816,6 +1076,7 @@
         String(normalizeChatFontScaleFn(state.settings.chatFontScale)),
       );
     }
+    syncChatWidthResize(state, deps);
 
     if (!root) return;
 
@@ -859,7 +1120,9 @@
     setDisplayStyle,
     normalizeDisplayStyle,
     normalizePopupFontScale,
+    normalizeChatWidth,
     toggleSettingsPanel,
     applySettingsClasses,
+    syncChatWidthResize,
   };
 })();

@@ -11,6 +11,7 @@
     DEFAULT_POPUP_HEIGHT,
     DEFAULT_POPUP_FONT_SCALE,
     DEFAULT_CHAT_FONT_SCALE,
+    MIN_CHAT_WIDTH,
   } = constants;
 
   function createDefaultSettingsState() {
@@ -37,6 +38,8 @@
       showPopupRoleBadgesOnly: false,
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,
       chatFontScale: DEFAULT_CHAT_FONT_SCALE,
+      enableChatWidthResize: false,
+      chatWidth: 0,
       deleteWithoutConfirm: false,
       hidePillButton: false,
       pillGlowEnabled: true,
@@ -88,6 +91,15 @@
       active: false,
       startY: 0,
       startHeight: DEFAULT_POPUP_HEIGHT,
+    },
+    chatWidthResize: {
+      handle: null,
+      aside: null,
+      active: false,
+      startX: 0,
+      startWidth: MIN_CHAT_WIDTH,
+      moveHandler: null,
+      upHandler: null,
     },
     cache: {
       saveTimer: null,

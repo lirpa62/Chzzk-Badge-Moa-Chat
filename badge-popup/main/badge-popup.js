@@ -71,6 +71,7 @@
     DEFAULT_CHAT_FONT_SCALE,
     MIN_CHAT_FONT_SCALE,
     MAX_CHAT_FONT_SCALE,
+    MIN_CHAT_WIDTH,
     LIVE_CHAT_LIST_CONTAINER_SELECTORS,
     VOD_CHAT_LIST_CONTAINER_SELECTORS,
     LIVE_CHAT_ITEM_SELECTOR,
@@ -606,6 +607,7 @@
       normalizeTrackedNickname,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
     });
   }
 
@@ -618,6 +620,7 @@
       normalizeTrackedNickname,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
     });
   }
 
@@ -626,6 +629,7 @@
       getSettingsScopeKey,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
       setStorageValue,
       getStorageValue,
       syncTrackedTargetsToInject,
@@ -651,6 +655,7 @@
       getPillNicknameSettingItems,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
     });
   }
 
@@ -668,6 +673,7 @@
       normalizeNickname,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
       isSessionCacheEnabled,
       clearPersistChannelCacheTimer,
       clearSessionCachesForCurrentTab,
@@ -1114,6 +1120,9 @@
       document,
       normalizePopupFontScale,
       normalizeChatFontScale,
+      normalizeChatWidth,
+      MIN_CHAT_WIDTH,
+      saveSettings,
     });
   }
 
@@ -1144,6 +1153,12 @@
       MIN_POPUP_FONT_SCALE: MIN_CHAT_FONT_SCALE,
       MAX_POPUP_FONT_SCALE: MAX_CHAT_FONT_SCALE,
     });
+  }
+
+  function normalizeChatWidth(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.max(Number(MIN_CHAT_WIDTH) || 220, Math.round(numeric));
   }
 
   function applyNicknameFilterStateFromSettings() {
@@ -1341,6 +1356,12 @@
       clampPopupHeight,
       applyFilterBarMaxHeight,
       syncPillPositionForHeader,
+    });
+    popupApi.syncChatWidthResize(state, {
+      document,
+      normalizeChatWidth,
+      MIN_CHAT_WIDTH,
+      saveSettings,
     });
   }
 

@@ -422,7 +422,8 @@
     const headerRect = header.getBoundingClientRect();
     if (headerRect.width <= 0) return;
     const pillLeft = 52;
-    const maxWidth = Math.max(68, Math.round(headerRect.width / 2 - pillLeft));
+    const availableWidth = Math.round(headerRect.width - pillLeft - 8);
+    const maxWidth = Math.max(68, Math.min(150, availableWidth));
     root.style.setProperty("--chzzk-vod-pill-max-width", `${maxWidth}px`);
   }
 

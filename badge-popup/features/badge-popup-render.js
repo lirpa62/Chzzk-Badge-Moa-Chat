@@ -994,6 +994,17 @@
     );
     visualList.appendChild(
       createSettingToggleRowFn(
+        "채팅창 넓이 조절",
+        state.settings.enableChatWidthResize,
+        (checked) => {
+          state.settings.enableChatWidthResize = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
         "팝업창 역할 배지만 표시",
         state.settings.showPopupRoleBadgesOnly,
         (checked) => {

@@ -18,6 +18,7 @@
   const DEFAULT_CHAT_FONT_SCALE = 1;
   const MIN_CHAT_FONT_SCALE = 0.8;
   const MAX_CHAT_FONT_SCALE = 1.2;
+  const MIN_CHAT_WIDTH = 220;
   const darkThemeMedia =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia(THEME_MEDIA_QUERY)
@@ -51,6 +52,8 @@
     showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
+    enableChatWidthResize: false,
+    chatWidth: 0,
     deleteWithoutConfirm: false,
     hidePillButton: false,
     pillGlowEnabled: true,
@@ -103,6 +106,9 @@
     hideChatRanking: document.getElementById("hide-chat-ranking"),
     hideChatMission: document.getElementById("hide-chat-mission"),
     hideChatDonation: document.getElementById("hide-chat-donation"),
+    enableChatWidthResize: document.getElementById(
+      "enable-chat-width-resize",
+    ),
     showPopupRoleBadgesOnly: document.getElementById(
       "show-popup-role-badges-only",
     ),
@@ -595,6 +601,11 @@
       await persistAndApply();
     });
 
+    el.enableChatWidthResize.addEventListener("change", async () => {
+      state.enableChatWidthResize = el.enableChatWidthResize.checked;
+      await persistAndApply();
+    });
+
     el.showPopupRoleBadgesOnly.addEventListener("change", async () => {
       state.showPopupRoleBadgesOnly = el.showPopupRoleBadgesOnly.checked;
       await persistAndApply();
@@ -860,6 +871,7 @@
     el.hideChatRanking.checked = state.hideChatRanking === true;
     el.hideChatMission.checked = state.hideChatMission === true;
     el.hideChatDonation.checked = state.hideChatDonation === true;
+    el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
       state.showPopupRoleBadgesOnly === true;
     el.popupFontScale.value = String(
@@ -1802,6 +1814,8 @@
       hideChatRanking: state.hideChatRanking === true,
       hideChatMission: state.hideChatMission === true,
       hideChatDonation: state.hideChatDonation === true,
+      enableChatWidthResize: state.enableChatWidthResize === true,
+      chatWidth: normalizeChatWidth(state.chatWidth),
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
@@ -1876,6 +1890,8 @@
     state.hideChatRanking = settings.hideChatRanking === true;
     state.hideChatMission = settings.hideChatMission === true;
     state.hideChatDonation = settings.hideChatDonation === true;
+    state.enableChatWidthResize = settings.enableChatWidthResize === true;
+    state.chatWidth = normalizeChatWidth(settings.chatWidth);
     state.showPopupRoleBadgesOnly =
       settings.showPopupRoleBadgesOnly === true;
     state.popupFontScale = normalizePopupFontScale(settings.popupFontScale);
@@ -2002,6 +2018,8 @@
     state.hideChatRanking = raw.hideChatRanking === true;
     state.hideChatMission = raw.hideChatMission === true;
     state.hideChatDonation = raw.hideChatDonation === true;
+    state.enableChatWidthResize = raw.enableChatWidthResize === true;
+    state.chatWidth = normalizeChatWidth(raw.chatWidth);
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
@@ -2097,6 +2115,8 @@
     raw.hideChatRanking = state.hideChatRanking === true;
     raw.hideChatMission = state.hideChatMission === true;
     raw.hideChatDonation = state.hideChatDonation === true;
+    raw.enableChatWidthResize = state.enableChatWidthResize === true;
+    raw.chatWidth = normalizeChatWidth(state.chatWidth);
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
     raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
@@ -2389,6 +2409,12 @@
       Math.max(MIN_CHAT_FONT_SCALE, numeric),
     );
     return Math.round(clamped * 100) / 100;
+  }
+
+  function normalizeChatWidth(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.max(MIN_CHAT_WIDTH, Math.round(numeric));
   }
 
   function onSystemThemeChanged() {

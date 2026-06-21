@@ -25,7 +25,7 @@
   position: absolute;
   top: 6px;
   left: 37px;
-  max-width: var(--chzzk-vod-pill-max-width, 125px);
+  max-width: var(--chzzk-vod-pill-max-width, 150px);
   height: 32px;
   border: 1px solid var(--pill-border-color);
   border-radius: 999px;
@@ -192,7 +192,7 @@ html[style*="color-scheme: dark"] .chzzk-badge-moa-pill.is-attention::before {
 
 .chzzk-badge-moa-pill-count {
   display: inline-flex;
-  min-width: 30px;
+  min-width: fit-content;
   height: 18px;
   padding: 0 6px;
   border-radius: 999px;
@@ -2272,14 +2272,16 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
    그 안에 _chatting_message_가 들어있다. 구버전 클래스(live/vod_chatting_
    message_container)로 만든 위 규칙들이 안 먹으므로 직계 자식 _container_를
    대상으로 동일 스타일을 추가한다. */
-.chzzk-badge-moa-chat-highlight > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+.chzzk-badge-moa-chat-highlight
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   border-radius: 8px;
   border: 1px solid transparent;
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease;
 }
-.chzzk-badge-moa-chat-highlight-manager > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+.chzzk-badge-moa-chat-highlight-manager
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(94, 157, 255, 0.18),
@@ -2287,7 +2289,8 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(94, 157, 255, 0.55);
 }
-.chzzk-badge-moa-chat-highlight-partner > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+.chzzk-badge-moa-chat-highlight-partner
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(255, 179, 64, 0.2),
@@ -2295,8 +2298,10 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(255, 179, 64, 0.58);
 }
-.chzzk-badge-moa-chat-highlight-channel_owner > [class*="_container_"]:has(> [class*="_chatting_message_"]),
-.chzzk-badge-moa-chat-highlight-owner > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+.chzzk-badge-moa-chat-highlight-channel_owner
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]),
+.chzzk-badge-moa-chat-highlight-owner
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(255, 105, 125, 0.2),
@@ -2304,7 +2309,8 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   );
   border-color: rgba(255, 105, 125, 0.58);
 }
-.chzzk-badge-moa-chat-highlight-operator > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+.chzzk-badge-moa-chat-highlight-operator
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
     rgba(0, 199, 155, 0.2),
@@ -2367,18 +2373,26 @@ html.chzzk-badge-moa-hide-chat-ranking
 html.chzzk-badge-moa-hide-chat-mission
   aside#aside-chatting
   [class*="_fixed_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_mission_button_"]),
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_mission_button_"]
+  ),
 html.chzzk-badge-moa-hide-chat-mission
   aside#vod-aside
   [class*="_fixed_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_mission_button_"]),
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_mission_button_"]
+  ),
 html.chzzk-badge-moa-hide-chat-mission
   aside
   [class*="_fixed_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_mission_button_"]),
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_mission_button_"]
+  ),
 html.chzzk-badge-moa-hide-chat-mission
   aside
-  [class*="_container_"]:has(> [class*="_header_"] [class*="_mission_button_"]) {
+  [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_mission_button_"]
+  ) {
   display: none !important;
 }
 
@@ -2397,6 +2411,64 @@ html.chzzk-badge-moa-hide-chat-donation
   display: none !important;
 }
 
+html.chzzk-badge-moa-chat-width-resize-enabled aside#aside-chatting {
+  position: relative !important;
+  min-width: 220px !important;
+}
+
+html.chzzk-badge-moa-chat-resizing,
+html.chzzk-badge-moa-chat-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+aside#aside-chatting .chzzk-badge-moa-chat-width-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2147482500;
+  width: 8px;
+  cursor: col-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+aside#aside-chatting .chzzk-badge-moa-chat-width-resizer::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(93, 191, 255, 0);
+  transition: background-color 0.16s ease;
+}
+
+aside#aside-chatting .chzzk-badge-moa-chat-width-resizer:hover::before,
+html.chzzk-badge-moa-chat-resizing
+  aside#aside-chatting
+  .chzzk-badge-moa-chat-width-resizer::before {
+  background: rgba(93, 191, 255, 0.72);
+}
+
+html.chzzk-badge-moa-chat-width-resize-enabled
+  aside#aside-chatting
+  textarea[placeholder*="채팅을 입력해주세요"]:placeholder-shown {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html.chzzk-badge-moa-chat-width-resize-enabled
+  aside#aside-chatting
+  textarea[placeholder*="채팅을 입력해주세요"]::placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* === 치지직 원본 채팅 폰트/배지 크기 === */
 :root {
   --chzzk-badge-moa-chat-font-scale: 1;
@@ -2408,14 +2480,24 @@ aside#aside-chatting [role="log"] [class*="_chatting_message_"],
 aside#vod-aside [role="log"] [class*="_chatting_message_"],
 aside#aside-chatting [role="log"] [class*="_is_subscription_"],
 aside#vod-aside [role="log"] [class*="_is_subscription_"],
-aside#aside-chatting [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"]),
-aside#vod-aside [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"]),
+aside#aside-chatting
+  [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  ),
+aside#vod-aside
+  [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  ),
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"]),
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  ),
 aside#aside-chatting [role="log"] [class*="_is_donation_"],
 aside#vod-aside [role="log"] [class*="_is_donation_"],
-aside#aside-chatting [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"]),
-aside#vod-aside [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"]),
+aside#aside-chatting
+  [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"]),
+aside#vod-aside
+  [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"]),
 [class*="_item_"]
   > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"]),
 aside#aside-chatting [role="log"] [class*="_filter_"] [class*="_inner_"],
@@ -2458,7 +2540,9 @@ aside#vod-aside [class*="_chatting_message_"] {
   line-height: var(--chzzk-badge-moa-chat-base-line-height) !important;
 }
 
-aside#aside-chatting [class*="_item_"] > [class*="_container_"][class*="_welcome_"],
+aside#aside-chatting
+  [class*="_item_"]
+  > [class*="_container_"][class*="_welcome_"],
 aside#vod-aside [class*="_item_"] > [class*="_container_"][class*="_welcome_"],
 [class*="_item_"] > [class*="_container_"][class*="_welcome_"] {
   font-size: calc(13px * var(--chzzk-badge-moa-chat-font-scale)) !important;
@@ -2533,22 +2617,32 @@ aside#aside-chatting [class*="_default_"] [class*="_inner_"] p,
 aside#vod-aside [class*="_default_"] [class*="_inner_"] p,
 aside [class*="_default_"] [class*="_inner_"] p,
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   [class*="_header_"]
   button,
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   [class*="_header_"]
   span,
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   [class*="_header_"]
   em,
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   > [class*="_text_"],
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   > [class*="_detail_"],
 [class*="_item_"]
   > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_donation_"])
@@ -2572,15 +2666,27 @@ aside [class*="_default_"] [class*="_inner_"] p,
 aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) em,
 aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) button,
 aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) span,
-aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) [class*="_text_"],
-aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) [class*="_money_"],
-aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) [class*="_time_"],
+aside#aside-chatting
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_text_"],
+aside#aside-chatting
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_money_"],
+aside#aside-chatting
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_time_"],
 aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) em,
 aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) button,
 aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) span,
-aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) [class*="_text_"],
-aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) [class*="_money_"],
-aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) [class*="_time_"],
+aside#vod-aside
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_text_"],
+aside#vod-aside
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_money_"],
+aside#vod-aside
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_time_"],
 aside [class*="_container_"]:has([class*="_is_mission_"]) em,
 aside [class*="_container_"]:has([class*="_is_mission_"]) button,
 aside [class*="_container_"]:has([class*="_is_mission_"]) span,
@@ -2647,7 +2753,10 @@ aside#vod-aside [class*="vod_chatting_message_container"] span,
   line-height: inherit !important;
 }
 
-aside#aside-chatting [class*="_fixed_"] [class*="_wrapper_"] > [class*="_message_"],
+aside#aside-chatting
+  [class*="_fixed_"]
+  [class*="_wrapper_"]
+  > [class*="_message_"],
 aside#vod-aside [class*="_fixed_"] [class*="_wrapper_"] > [class*="_message_"],
 aside#aside-chatting [class*="_fixed_"] [class*="_footer_"],
 aside#vod-aside [class*="_fixed_"] [class*="_footer_"] {
@@ -2675,13 +2784,31 @@ aside#vod-aside [class*="_chatting_message_"] [class*="_text_"] {
   line-height: inherit !important;
 }
 
-aside#aside-chatting [role="log"] [class*="_chatting_message_"] [class*="_text_"] button:has(> img),
-aside#vod-aside [role="log"] [class*="_chatting_message_"] [class*="_text_"] button:has(> img),
-aside#aside-chatting [class*="_chatting_message_"] [class*="_text_"] button:has(> img),
-aside#vod-aside [class*="_chatting_message_"] [class*="_text_"] button:has(> img),
-aside#aside-chatting [class*="live_chatting_message_container"] button:has(> img),
+aside#aside-chatting
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button:has(> img),
+aside#vod-aside
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button:has(> img),
+aside#aside-chatting
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button:has(> img),
+aside#vod-aside
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button:has(> img),
+aside#aside-chatting
+  [class*="live_chatting_message_container"]
+  button:has(> img),
 aside#vod-aside [class*="vod_chatting_message_container"] button:has(> img),
-[class*="vod_chatting_list"] [class*="vod_chatting_message_container"] button:has(> img) {
+[class*="vod_chatting_list"]
+  [class*="vod_chatting_message_container"]
+  button:has(> img) {
   width: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -2692,13 +2819,30 @@ aside#vod-aside [class*="vod_chatting_message_container"] button:has(> img),
   ) !important;
 }
 
-aside#aside-chatting [role="log"] [class*="_chatting_message_"] [class*="_text_"] button > img,
-aside#vod-aside [role="log"] [class*="_chatting_message_"] [class*="_text_"] button > img,
-aside#aside-chatting [class*="_chatting_message_"] [class*="_text_"] button > img,
+aside#aside-chatting
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button
+  > img,
+aside#vod-aside
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button
+  > img,
+aside#aside-chatting
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  button
+  > img,
 aside#vod-aside [class*="_chatting_message_"] [class*="_text_"] button > img,
 aside#aside-chatting [class*="live_chatting_message_container"] button > img,
 aside#vod-aside [class*="vod_chatting_message_container"] button > img,
-[class*="vod_chatting_list"] [class*="vod_chatting_message_container"] button > img {
+[class*="vod_chatting_list"]
+  [class*="vod_chatting_message_container"]
+  button
+  > img {
   width: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -2709,7 +2853,10 @@ aside#vod-aside [class*="vod_chatting_message_container"] button > img,
   ) !important;
 }
 
-aside#aside-chatting [role="log"] [class*="_chatting_message_"] [class*="_icon_"],
+aside#aside-chatting
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_icon_"],
 aside#vod-aside [role="log"] [class*="_chatting_message_"] [class*="_icon_"],
 aside#aside-chatting [class*="_chatting_message_"] [class*="_icon_"],
 aside#vod-aside [class*="_chatting_message_"] [class*="_icon_"],
@@ -2740,10 +2887,14 @@ aside#vod-aside [class*="_type_congratulation_"] svg,
 aside#vod-aside [class*="_type_congratulation_"] img,
 aside [class*="_type_congratulation_"] svg,
 aside [class*="_type_congratulation_"] img,
-aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) [class*="_icon_"],
+aside#aside-chatting
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_icon_"],
 aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) svg,
 aside#aside-chatting [class*="_container_"]:has([class*="_is_mission_"]) img,
-aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) [class*="_icon_"],
+aside#vod-aside
+  [class*="_container_"]:has([class*="_is_mission_"])
+  [class*="_icon_"],
 aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) svg,
 aside#vod-aside [class*="_container_"]:has([class*="_is_mission_"]) img,
 aside [class*="_container_"]:has([class*="_is_mission_"]) [class*="_icon_"],
@@ -2758,7 +2909,9 @@ aside#vod-aside
   [class*="_header_"]
   [class*="_icon_"],
 [class*="_item_"]
-  > [class*="_container_"]:has(> [class*="_header_"] [class*="_is_subscription_"])
+  > [class*="_container_"]:has(
+    > [class*="_header_"] [class*="_is_subscription_"]
+  )
   [class*="_header_"]
   [class*="_icon_"],
 [class*="_item_"]
