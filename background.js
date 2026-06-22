@@ -1,8 +1,26 @@
 const CHZZK_TAB_MATCH_PATTERNS = ["https://chzzk.naver.com/*"];
-const CHZZK_RECOVERY_CONTENT_JS_FILES = ["badge-popup.js"];
-const CHZZK_RECOVERY_CONTENT_CSS_FILES = ["badge-popup.css"];
 const SESSION_CACHE_PREFIX_V1 = "chzzk_badge_moa_tab_channel_cache_v1:";
 const SESSION_CACHE_PREFIX_LEGACY = "chzzk_badge_moa_channel_cache_v1:";
+
+function getChzzkContentScriptFiles(key, options = {}) {
+  const manifest =
+    chrome.runtime && typeof chrome.runtime.getManifest === "function"
+      ? chrome.runtime.getManifest()
+      : null;
+  const scripts = Array.isArray(manifest?.content_scripts)
+    ? manifest.content_scripts
+    : [];
+  return scripts
+    .filter((script) => {
+      const matches = Array.isArray(script.matches) ? script.matches : [];
+      if (!matches.includes("https://chzzk.naver.com/*")) return false;
+      if (options.excludeMainWorld === true && script.world === "MAIN") {
+        return false;
+      }
+      return Array.isArray(script[key]) && script[key].length > 0;
+    })
+    .flatMap((script) => script[key]);
+}
 
 function getSessionStorageArea() {
   if (
@@ -167,13 +185,13 @@ async function reinjectChzzkContentScripts(tabId) {
     await chrome.scripting
       .insertCSS({
         target: { tabId, allFrames: true },
-        files: CHZZK_RECOVERY_CONTENT_CSS_FILES,
+        files: getChzzkContentScriptFiles("css"),
       })
       .catch(() => {});
 
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
-      files: CHZZK_RECOVERY_CONTENT_JS_FILES,
+      files: getChzzkContentScriptFiles("js", { excludeMainWorld: true }),
       world: "ISOLATED",
     });
     return true;

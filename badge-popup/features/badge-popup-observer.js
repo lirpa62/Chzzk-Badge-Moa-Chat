@@ -10,6 +10,12 @@
     "chzzk-badge-moa-chat-highlight-partner",
   ];
   const HIGHLIGHT_TYPE_ATTR = "data-chzzk-badge-moa-highlight";
+  const HIDDEN_CHAT_ELEMENT_CLASSES = [
+    "chzzk-badge-moa-hidden-chat-ranking",
+    "chzzk-badge-moa-hidden-chat-mission",
+    "chzzk-badge-moa-hidden-chat-prediction",
+    "chzzk-badge-moa-hidden-chat-donation",
+  ];
 
   function startObserver(state, refs, deps = {}) {
     if (refs.observer) return;
@@ -19,8 +25,14 @@
       typeof deps.refreshChatHighlightObserver === "function"
         ? deps.refreshChatHighlightObserver
         : () => {};
+    const scheduleHiddenChatElementSync =
+      typeof deps.scheduleHiddenChatElementSync === "function"
+        ? deps.scheduleHiddenChatElementSync
+        : () => {};
 
     refs.observer = new MutationObserver(() => {
+      scheduleHiddenChatElementSync();
+
       const uiStable =
         state?.ui?.root &&
         state.ui.root.isConnected &&
@@ -45,6 +57,105 @@
     if (!root) return;
 
     refs.observer.observe(root, { childList: true, subtree: true });
+  }
+
+  function hasHiddenChatElementSettings(state) {
+    const settings = state?.settings || {};
+    return (
+      settings.hideChatRanking === true ||
+      settings.hideChatMission === true ||
+      settings.hideChatPrediction === true ||
+      settings.hideChatDonation === true
+    );
+  }
+
+  function scheduleHiddenChatElementSync(state, refs, deps = {}) {
+    if (!hasHiddenChatElementSettings(state)) return;
+    if (refs.hiddenChatElementSyncQueued) return;
+    const now = Date.now();
+    const lastSyncAt = Number(refs.lastHiddenChatElementSyncAt || 0);
+    if (now - lastSyncAt < 300) return;
+    refs.hiddenChatElementSyncQueued = true;
+
+    const applyHiddenChatElements =
+      typeof deps.applyHiddenChatElements === "function"
+        ? deps.applyHiddenChatElements
+        : () => {};
+    requestAnimationFrame(() => {
+      refs.hiddenChatElementSyncQueued = false;
+      refs.lastHiddenChatElementSyncAt = Date.now();
+      applyHiddenChatElements();
+    });
+  }
+
+  function addHiddenClass(element, className) {
+    if (element instanceof HTMLElement) {
+      element.classList.add(className);
+    }
+  }
+
+  function findClosestContainer(element) {
+    return safeClosest(element, "[class*='_container_']");
+  }
+
+  function applyHiddenChatElements(state) {
+    document
+      .querySelectorAll(`.${HIDDEN_CHAT_ELEMENT_CLASSES.join(", .")}`)
+      .forEach((element) => {
+        element.classList.remove(...HIDDEN_CHAT_ELEMENT_CLASSES);
+      });
+
+    if (!hasHiddenChatElementSettings(state)) return;
+
+    const settings = state?.settings || {};
+    const asides = safeQueryAll(document, "aside#aside-chatting, aside#vod-aside");
+    asides.forEach((aside) => {
+      if (settings.hideChatRanking === true) {
+        safeQueryAll(aside, "button[class*='_ranking_button_']").forEach(
+          (button) => {
+            addHiddenClass(
+              findClosestContainer(button),
+              "chzzk-badge-moa-hidden-chat-ranking",
+            );
+          },
+        );
+      }
+
+      if (settings.hideChatMission === true) {
+        safeQueryAll(aside, "button[class*='_mission_button_']").forEach(
+          (button) => {
+            addHiddenClass(
+              findClosestContainer(button),
+              "chzzk-badge-moa-hidden-chat-mission",
+            );
+          },
+        );
+      }
+
+      if (settings.hideChatPrediction === true) {
+        safeQueryAll(aside, "[class*='_status_']").forEach((status) => {
+          const container = findClosestContainer(status);
+          if (
+            container &&
+            container.querySelector("button[class*='_title_']")
+          ) {
+            addHiddenClass(
+              container,
+              "chzzk-badge-moa-hidden-chat-prediction",
+            );
+          }
+        });
+      }
+
+      if (settings.hideChatDonation === true) {
+        safeQueryAll(aside, "[class*='_is_donation_']").forEach((badge) => {
+          addHiddenClass(
+            safeClosest(badge, "[class*='_item_']"),
+            "chzzk-badge-moa-hidden-chat-donation",
+          );
+        });
+      }
+    });
   }
 
   function onWindowMessage(state, refs, event, deps = {}) {
@@ -531,6 +642,8 @@
     enqueueIncomingPayload,
     scheduleIncomingPayloadFlush,
     flushIncomingPayloads,
+    scheduleHiddenChatElementSync,
+    applyHiddenChatElements,
     refreshChatHighlightObserver,
     findChatListContainer,
     isLikelyVisibleElement,

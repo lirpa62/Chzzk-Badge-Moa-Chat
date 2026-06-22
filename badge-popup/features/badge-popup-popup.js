@@ -877,12 +877,14 @@
       `${getMinChatWidth(deps)}px`,
       "important",
     );
+    syncChatResizeCssVars(aside, nextWidth, deps);
     syncLiveMiniPlayerSize(aside, nextWidth, deps);
   }
 
   function resetChatAsideWidth(aside) {
     if (!(aside instanceof HTMLElement)) return;
     resetVodBannerWidth(aside);
+    resetChatResizeCssVars(aside, { document });
     resetLiveMiniPlayerSize(aside, { document });
     aside.style.removeProperty("width");
     aside.style.removeProperty("flex-basis");
@@ -895,10 +897,8 @@
     return Math.max(1, Math.round((numeric * 206) / 353));
   }
 
-  function syncLiveMiniPlayerSize(aside, width, deps = {}) {
-    if (!(aside instanceof HTMLElement) || aside.id !== "aside-chatting") {
-      return;
-    }
+  function syncChatResizeCssVars(aside, width, deps = {}) {
+    if (!(aside instanceof HTMLElement)) return;
     const doc = deps.document || document;
     const root = doc.documentElement;
     if (!(root instanceof HTMLElement)) return;
@@ -908,6 +908,30 @@
       "--chzzk-badge-moa-chat-resized-width",
       `${numeric}px`,
     );
+    root.style.setProperty(
+      "--chzzk-badge-moa-chat-profile-popup-width",
+      `${Math.max(1, numeric - 12)}px`,
+    );
+  }
+
+  function resetChatResizeCssVars(aside, deps = {}) {
+    if (!(aside instanceof HTMLElement)) return;
+    const doc = deps.document || document;
+    const root = doc.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    root.style.removeProperty("--chzzk-badge-moa-chat-resized-width");
+    root.style.removeProperty("--chzzk-badge-moa-chat-profile-popup-width");
+  }
+
+  function syncLiveMiniPlayerSize(aside, width, deps = {}) {
+    if (!(aside instanceof HTMLElement) || aside.id !== "aside-chatting") {
+      return;
+    }
+    const doc = deps.document || document;
+    const root = doc.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    const numeric = Math.round(Number(width || 0));
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
     root.style.setProperty(
       "--chzzk-badge-moa-live-miniplayer-height",
       `${getLiveMiniPlayerHeight(numeric)}px`,
@@ -921,7 +945,6 @@
     const doc = deps.document || document;
     const root = doc.documentElement;
     if (!(root instanceof HTMLElement)) return;
-    root.style.removeProperty("--chzzk-badge-moa-chat-resized-width");
     root.style.removeProperty("--chzzk-badge-moa-live-miniplayer-height");
   }
 
@@ -1034,21 +1057,14 @@
           true,
         );
       }
-      if (resizeState.inputHeightInputHandler) {
-        resizeState.inputHeightAside.removeEventListener(
-          "input",
-          resizeState.inputHeightInputHandler,
-          true,
-        );
-      }
     }
     if (resizeState.inputHeightTimer) {
       clearTimeout(resizeState.inputHeightTimer);
       resizeState.inputHeightTimer = null;
     }
     resizeState.inputHeightAside = null;
+    resizeState.inputHeightObservedElement = null;
     resizeState.inputHeightBlurHandler = null;
-    resizeState.inputHeightInputHandler = null;
   }
 
   function syncChatInputHeightWatcher(state, aside, deps = {}) {
@@ -1056,14 +1072,21 @@
     if (!resizeState || !(aside instanceof HTMLElement)) return;
     const doc = deps.document || document;
 
-    if (resizeState.inputHeightAside === aside) {
+    const isVodAside = aside.id === "vod-aside";
+    const observeTarget = isVodAside
+      ? getVodBannerScope(aside) || aside
+      : findLiveChatInputTextarea(aside);
+
+    if (
+      resizeState.inputHeightAside === aside &&
+      resizeState.inputHeightObservedElement === observeTarget
+    ) {
       syncVodBannerWidth(aside);
       normalizeLiveChatInputHeight(aside, doc);
       return;
     }
 
     cleanupChatInputHeightWatcher(resizeState);
-    const observeTarget = getVodBannerScope(aside) || aside;
 
     const scheduleNormalize = () => {
       if (resizeState.inputHeightTimer) {
@@ -1079,6 +1102,8 @@
     };
 
     const observer =
+      isVodAside &&
+      observeTarget instanceof HTMLElement &&
       typeof MutationObserver === "function"
         ? new MutationObserver((mutations) => {
             if (
@@ -1087,7 +1112,7 @@
                 return (
                   mutation.type === "attributes" &&
                   mutation.attributeName === "style" &&
-                  isTextareaElement(mutation.target)
+                  mutation.target instanceof HTMLElement
                 );
               })
             ) {
@@ -1097,8 +1122,8 @@
         : null;
     if (observer) {
       observer.observe(observeTarget, {
-        subtree: true,
-        childList: true,
+        subtree: isVodAside,
+        childList: isVodAside,
         attributes: true,
         attributeFilter: ["style"],
       });
@@ -1107,12 +1132,11 @@
     const onInputOrBlur = () => scheduleNormalize();
     aside.addEventListener("blur", onInputOrBlur, true);
     aside.addEventListener("focusout", onInputOrBlur, true);
-    aside.addEventListener("input", onInputOrBlur, true);
 
     resizeState.inputHeightObserver = observer;
     resizeState.inputHeightAside = aside;
+    resizeState.inputHeightObservedElement = observeTarget;
     resizeState.inputHeightBlurHandler = onInputOrBlur;
-    resizeState.inputHeightInputHandler = onInputOrBlur;
     scheduleNormalize();
   }
 
@@ -1340,10 +1364,17 @@
       typeof deps.normalizeChatFontScale === "function"
         ? deps.normalizeChatFontScale
         : normalizePopupFontScaleFn;
+    const applyHiddenChatElementsFn =
+      typeof deps.applyHiddenChatElements === "function"
+        ? deps.applyHiddenChatElements
+        : () => {};
     const rootElement =
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const root = state?.ui?.root;
     const popup = state?.ui?.popup;
+    const chatFontScale = normalizeChatFontScaleFn(
+      state.settings.chatFontScale,
+    );
     if (rootElement) {
       rootElement.classList.toggle(
         "chzzk-badge-moa-no-chat-bg",
@@ -1373,12 +1404,17 @@
         "chzzk-badge-moa-hide-chat-donation",
         state.settings.hideChatDonation === true,
       );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-chat-font-scale-enabled",
+        Math.abs(Number(chatFontScale) - 1) > 0.001,
+      );
       rootElement.style.setProperty(
         "--chzzk-badge-moa-chat-font-scale",
-        String(normalizeChatFontScaleFn(state.settings.chatFontScale)),
+        String(chatFontScale),
       );
     }
     syncChatWidthResize(state, deps);
+    applyHiddenChatElementsFn();
 
     if (!root) return;
 

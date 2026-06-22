@@ -280,6 +280,7 @@
     observerApi.startObserver(state, observerRefs, {
       ensureUi,
       refreshChatHighlightObserver,
+      scheduleHiddenChatElementSync,
     });
   }
 
@@ -729,6 +730,16 @@
     });
   }
 
+  function scheduleHiddenChatElementSync() {
+    observerApi.scheduleHiddenChatElementSync(state, observerRefs, {
+      applyHiddenChatElements,
+    });
+  }
+
+  function applyHiddenChatElements() {
+    observerApi.applyHiddenChatElements(state);
+  }
+
   function applyHighlightToAll() {
     observerApi.applyHighlightToAll(state, {
       findChatListContainer,
@@ -1126,6 +1137,7 @@
       normalizeChatWidth,
       MIN_CHAT_WIDTH,
       saveSettings,
+      applyHiddenChatElements,
     });
   }
 

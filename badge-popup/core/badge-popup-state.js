@@ -103,8 +103,8 @@
       upHandler: null,
       inputHeightObserver: null,
       inputHeightAside: null,
+      inputHeightObservedElement: null,
       inputHeightBlurHandler: null,
-      inputHeightInputHandler: null,
       inputHeightTimer: null,
     },
     cache: {
