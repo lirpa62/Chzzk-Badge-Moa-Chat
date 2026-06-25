@@ -830,7 +830,36 @@
     const aside =
       scope.querySelector("aside#aside-chatting") ||
       scope.querySelector("aside#vod-aside");
+    if (isStandaloneChatPopupAside(aside)) return null;
     return aside instanceof HTMLElement ? aside : null;
+  }
+
+  function isStandaloneChatPopupAside(aside) {
+    if (!(aside instanceof HTMLElement)) return false;
+    if (aside.id !== "aside-chatting") return false;
+    return String(aside.className || "").includes("_is_popup_chat_");
+  }
+
+  function isStandaloneChatPopupDocument(doc = document) {
+    const scope = doc || document;
+    if (
+      isStandaloneChatPopupAside(scope.querySelector("aside#aside-chatting"))
+    ) {
+      return true;
+    }
+    const location = scope.defaultView?.location || window.location;
+    return /\/live\/[^/?#]+\/chat(?:[/?#]|$)/.test(
+      String(location?.pathname || ""),
+    );
+  }
+
+  function getEffectiveChatFontScale(doc, chatFontScale) {
+    const numeric = Number(chatFontScale);
+    if (!Number.isFinite(numeric)) return 1;
+    if (isStandaloneChatPopupDocument(doc)) {
+      return Math.min(1, numeric);
+    }
+    return numeric;
   }
 
   function isChatWidthStackedLayout(doc, targetAside = null) {
@@ -1214,7 +1243,7 @@
     }
 
     if (!(aside instanceof HTMLElement)) {
-      cleanupChatWidthResize(state, { document: doc, resetWidth: false });
+      cleanupChatWidthResize(state, { document: doc, resetWidth: true });
       return;
     }
 
@@ -1385,8 +1414,9 @@
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const root = state?.ui?.root;
     const popup = state?.ui?.popup;
-    const chatFontScale = normalizeChatFontScaleFn(
-      state.settings.chatFontScale,
+    const chatFontScale = getEffectiveChatFontScale(
+      doc,
+      normalizeChatFontScaleFn(state.settings.chatFontScale),
     );
     if (rootElement) {
       rootElement.classList.toggle(

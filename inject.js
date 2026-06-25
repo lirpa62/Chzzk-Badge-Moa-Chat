@@ -257,6 +257,13 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     return fragment;
   }
 
+  function getBlindRestoreLabel(placeholder) {
+    const text = String(placeholder || "");
+    if (text.includes("클린봇")) return "(클린봇)";
+    if (text.includes("블라인드")) return "(블라인드)";
+    return "";
+  }
+
   // 닉네임 앞에 회색 HH:MM 시간 span을 삽입.
   function applyTimestamp(row, epochMs) {
     if (row.querySelector(":scope .chzzk-badge-moa-chat-time")) return;
@@ -290,7 +297,12 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         nickname: getRowNickname(row),
       });
     }
+    const info = restoredRowInfo.get(row);
+    const label = getBlindRestoreLabel(info?.placeholder || span.textContent);
     const fragment = buildRestoredMessageFragment(original.text, original.emojis);
+    if (label) {
+      fragment.appendChild(document.createTextNode(` ${label}`));
+    }
     blindRestoreWriting = true;
     try {
       span.textContent = "";
