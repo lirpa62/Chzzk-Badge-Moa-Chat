@@ -983,10 +983,32 @@
     );
     visualList.appendChild(
       createSettingToggleRowFn(
+        "채팅창 미션 메시지 숨김",
+        state.settings.hideChatMissionMessage,
+        (checked) => {
+          state.settings.hideChatMissionMessage = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
         "채팅창 승부예측 숨김",
         state.settings.hideChatPrediction,
         (checked) => {
           state.settings.hideChatPrediction = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "채팅창 구독 메시지 숨김",
+        state.settings.hideChatSubscription,
+        (checked) => {
+          state.settings.hideChatSubscription = checked;
           saveSettingsFn();
           applySettingsClassesFn();
         },

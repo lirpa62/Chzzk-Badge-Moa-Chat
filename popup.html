@@ -187,6 +187,9 @@
               <option value="1" selected>기본 (100%)</option>
               <option value="1.1">조금 크게 (110%)</option>
               <option value="1.2">크게 (120%)</option>
+              <option value="1.5">더 크게 (150%)</option>
+              <option value="1.75">매우 크게 (175%)</option>
+              <option value="2">최대 (200%)</option>
             </select>
           </label>
         </div>
@@ -220,12 +223,34 @@
             <span>채팅창 진행 중인 미션 숨김</span>
           </label>
           <label class="toggle-row">
+            <input type="checkbox" id="hide-chat-mission-message" />
+            <span>채팅창 미션 메시지 숨김</span>
+          </label>
+          <label class="toggle-row">
             <input type="checkbox" id="hide-chat-prediction" />
             <span>채팅창 승부예측 숨김</span>
           </label>
           <label class="toggle-row">
+            <input type="checkbox" id="hide-chat-subscription" />
+            <span>채팅창 구독 메시지 숨김</span>
+          </label>
+          <label class="toggle-row">
             <input type="checkbox" id="hide-chat-donation" />
             <span>채팅창 후원 메시지 숨김</span>
+          </label>
+          <label
+            class="toggle-row"
+            title="블라인드/클린봇으로 가려진 채팅을 원문으로 표시합니다."
+          >
+            <input type="checkbox" id="restore-blinded-chat" />
+            <span>가려진 채팅 표시</span>
+          </label>
+          <label
+            class="toggle-row"
+            title="각 채팅 앞에 보낸 시각(HH:MM)을 표시합니다."
+          >
+            <input type="checkbox" id="show-chat-timestamp" />
+            <span>채팅 시간 표시</span>
           </label>
           <label class="toggle-row">
             <input type="checkbox" id="enable-chat-width-resize" />

@@ -11,6 +11,8 @@
     STORAGE_SETTINGS_KEY,
     MESSAGE_MARK,
     INJECT_TRACKED_SYNC_TYPE,
+    INJECT_BLIND_CAPTURE_TOGGLE_TYPE,
+    INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE,
   } = constants;
 
   function normalizeHiddenByScope(rawMap, deps = {}) {
@@ -260,8 +262,12 @@
     defaults.hidePopupTime = raw.hidePopupTime === true;
     defaults.hideChatRanking = raw.hideChatRanking === true;
     defaults.hideChatMission = raw.hideChatMission === true;
+    defaults.hideChatMissionMessage = raw.hideChatMissionMessage === true;
     defaults.hideChatPrediction = raw.hideChatPrediction === true;
+    defaults.hideChatSubscription = raw.hideChatSubscription === true;
     defaults.hideChatDonation = raw.hideChatDonation === true;
+    defaults.restoreBlindedChat = raw.restoreBlindedChat === true;
+    defaults.showChatTimestamp = raw.showChatTimestamp === true;
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
@@ -303,6 +309,34 @@
           [MESSAGE_MARK]: true,
           type: INJECT_TRACKED_SYNC_TYPE,
           payload: { nicknames },
+        },
+        window.location.origin,
+      );
+    } catch (_error) {}
+  }
+
+  // 가려진 채팅 표시 on/off를 inject(MAIN world)에 통지한다.
+  function syncBlindCaptureToInject(state) {
+    try {
+      window.postMessage(
+        {
+          [MESSAGE_MARK]: true,
+          type: INJECT_BLIND_CAPTURE_TOGGLE_TYPE,
+          payload: { enabled: state.settings.restoreBlindedChat === true },
+        },
+        window.location.origin,
+      );
+    } catch (_error) {}
+  }
+
+  // 채팅 시간 표시 on/off를 inject(MAIN world)에 통지한다.
+  function syncChatTimestampToInject(state) {
+    try {
+      window.postMessage(
+        {
+          [MESSAGE_MARK]: true,
+          type: INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE,
+          payload: { enabled: state.settings.showChatTimestamp === true },
         },
         window.location.origin,
       );
@@ -376,8 +410,13 @@
       hidePopupTime: state.settings.hidePopupTime === true,
       hideChatRanking: state.settings.hideChatRanking === true,
       hideChatMission: state.settings.hideChatMission === true,
+      hideChatMissionMessage:
+        state.settings.hideChatMissionMessage === true,
       hideChatPrediction: state.settings.hideChatPrediction === true,
+      hideChatSubscription: state.settings.hideChatSubscription === true,
       hideChatDonation: state.settings.hideChatDonation === true,
+      restoreBlindedChat: state.settings.restoreBlindedChat === true,
+      showChatTimestamp: state.settings.showChatTimestamp === true,
       showPopupRoleBadgesOnly:
         state.settings.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
@@ -465,8 +504,13 @@
         hidePopupTime: state.settings.hidePopupTime === true,
         hideChatRanking: state.settings.hideChatRanking === true,
         hideChatMission: state.settings.hideChatMission === true,
+        hideChatMissionMessage:
+          state.settings.hideChatMissionMessage === true,
         hideChatPrediction: state.settings.hideChatPrediction === true,
+        hideChatSubscription: state.settings.hideChatSubscription === true,
         hideChatDonation: state.settings.hideChatDonation === true,
+        restoreBlindedChat: state.settings.restoreBlindedChat === true,
+        showChatTimestamp: state.settings.showChatTimestamp === true,
         showPopupRoleBadgesOnly:
           state.settings.showPopupRoleBadgesOnly === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
@@ -542,11 +586,23 @@
     if (typeof source.hideChatMission === "boolean") {
       state.settings.hideChatMission = source.hideChatMission;
     }
+    if (typeof source.hideChatMissionMessage === "boolean") {
+      state.settings.hideChatMissionMessage = source.hideChatMissionMessage;
+    }
     if (typeof source.hideChatPrediction === "boolean") {
       state.settings.hideChatPrediction = source.hideChatPrediction;
     }
+    if (typeof source.hideChatSubscription === "boolean") {
+      state.settings.hideChatSubscription = source.hideChatSubscription;
+    }
     if (typeof source.hideChatDonation === "boolean") {
       state.settings.hideChatDonation = source.hideChatDonation;
+    }
+    if (typeof source.restoreBlindedChat === "boolean") {
+      state.settings.restoreBlindedChat = source.restoreBlindedChat;
+    }
+    if (typeof source.showChatTimestamp === "boolean") {
+      state.settings.showChatTimestamp = source.showChatTimestamp;
     }
     if (typeof source.showPopupRoleBadgesOnly === "boolean") {
       state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
@@ -675,6 +731,13 @@
     if (typeof deps.saveSettings === "function") {
       deps.saveSettings();
     }
+    // 가려진 채팅 표시 / 채팅 시간 표시 토글을 inject에 통지(ON-sweep/OFF-revert는 inject가 처리).
+    if (typeof deps.syncBlindCaptureToInject === "function") {
+      deps.syncBlindCaptureToInject();
+    }
+    if (typeof deps.syncChatTimestampToInject === "function") {
+      deps.syncChatTimestampToInject();
+    }
     if (typeof deps.render === "function") {
       deps.render();
     }
@@ -689,6 +752,8 @@
     loadSettings,
     saveSettings,
     syncTrackedTargetsToInject,
+    syncBlindCaptureToInject,
+    syncChatTimestampToInject,
     buildSettingsContextResponse,
     applySettingsFromPopupPayload,
   };

@@ -13,9 +13,19 @@
   const HIDDEN_CHAT_ELEMENT_CLASSES = [
     "chzzk-badge-moa-hidden-chat-ranking",
     "chzzk-badge-moa-hidden-chat-mission",
+    "chzzk-badge-moa-hidden-chat-mission-message",
     "chzzk-badge-moa-hidden-chat-prediction",
+    "chzzk-badge-moa-hidden-chat-subscription",
     "chzzk-badge-moa-hidden-chat-donation",
   ];
+  const HIDDEN_CHAT_ELEMENT_CLASS_BY_SETTING = {
+    hideChatRanking: "chzzk-badge-moa-hidden-chat-ranking",
+    hideChatMission: "chzzk-badge-moa-hidden-chat-mission",
+    hideChatMissionMessage: "chzzk-badge-moa-hidden-chat-mission-message",
+    hideChatPrediction: "chzzk-badge-moa-hidden-chat-prediction",
+    hideChatSubscription: "chzzk-badge-moa-hidden-chat-subscription",
+    hideChatDonation: "chzzk-badge-moa-hidden-chat-donation",
+  };
 
   function startObserver(state, refs, deps = {}) {
     if (refs.observer) return;
@@ -64,7 +74,9 @@
     return (
       settings.hideChatRanking === true ||
       settings.hideChatMission === true ||
+      settings.hideChatMissionMessage === true ||
       settings.hideChatPrediction === true ||
+      settings.hideChatSubscription === true ||
       settings.hideChatDonation === true
     );
   }
@@ -94,69 +106,146 @@
     }
   }
 
+  function getDisabledHiddenChatElementClasses(settings = {}) {
+    return Object.entries(HIDDEN_CHAT_ELEMENT_CLASS_BY_SETTING)
+      .filter(([settingName]) => settings[settingName] !== true)
+      .map(([, className]) => className);
+  }
+
+  function removeHiddenClasses(classes, scope = document) {
+    if (!classes.length) return;
+    safeQueryAll(scope, `.${classes.join(", .")}`).forEach((element) => {
+      if (element instanceof HTMLElement) {
+        element.classList.remove(...classes);
+      }
+    });
+  }
+
   function findClosestContainer(element) {
     return safeClosest(element, "[class*='_container_']");
   }
 
-  function applyHiddenChatElements(state) {
-    document
-      .querySelectorAll(`.${HIDDEN_CHAT_ELEMENT_CLASSES.join(", .")}`)
-      .forEach((element) => {
-        element.classList.remove(...HIDDEN_CHAT_ELEMENT_CLASSES);
+  function findClosestChatItem(element) {
+    const item = safeClosest(element, "[class*='_item_']");
+    if (!(item instanceof HTMLElement)) return null;
+    const className = String(item.className || "");
+    if (
+      className.includes("_small_padding_") ||
+      className.includes("_big_padding_")
+    ) {
+      return item;
+    }
+    return null;
+  }
+
+  // scope(자기 자신 포함) 안에서 selector에 맞는 요소를 모은다.
+  function queryAllWithSelf(scope, selector) {
+    const matches = safeQueryAll(scope, selector);
+    if (scope instanceof Element && safeMatches(scope, selector)) {
+      matches.push(scope);
+    }
+    return matches;
+  }
+
+  function safeMatches(element, selector) {
+    if (!(element instanceof Element) || typeof element.matches !== "function") {
+      return false;
+    }
+    try {
+      return element.matches(selector);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  // 주어진 scope(전체 aside 또는 새로 추가된 노드) 안에서 숨김 대상 채팅
+  // 요소에 숨김 클래스를 적용한다. MutationObserver에서 노드 추가 즉시
+  // 동기적으로 호출하면 페인트 전에 display:none이 적용되어 깜빡임이 없다.
+  function applyHiddenChatElementsInScope(state, scope) {
+    if (!hasHiddenChatElementSettings(state)) return;
+    if (!(scope instanceof Element)) return;
+    const settings = state?.settings || {};
+
+    if (settings.hideChatRanking === true) {
+      queryAllWithSelf(scope, "button[class*='_ranking_button_']").forEach(
+        (button) => {
+          addHiddenClass(
+            findClosestContainer(button),
+            "chzzk-badge-moa-hidden-chat-ranking",
+          );
+        },
+      );
+    }
+
+    if (settings.hideChatMission === true) {
+      queryAllWithSelf(scope, "button[class*='_mission_button_']").forEach(
+        (button) => {
+          addHiddenClass(
+            findClosestContainer(button),
+            "chzzk-badge-moa-hidden-chat-mission",
+          );
+        },
+      );
+    }
+
+    if (settings.hideChatMissionMessage === true) {
+      queryAllWithSelf(scope, "[class*='_is_mission_']").forEach((badge) => {
+        addHiddenClass(
+          findClosestChatItem(badge),
+          "chzzk-badge-moa-hidden-chat-mission-message",
+        );
       });
+    }
+
+    if (settings.hideChatPrediction === true) {
+      queryAllWithSelf(scope, "[class*='_status_']").forEach((status) => {
+        const container = findClosestContainer(status);
+        if (container && container.querySelector("button[class*='_title_']")) {
+          addHiddenClass(container, "chzzk-badge-moa-hidden-chat-prediction");
+        }
+      });
+    }
+
+    if (settings.hideChatSubscription === true) {
+      queryAllWithSelf(scope, "[class*='_is_subscription_']").forEach(
+        (badge) => {
+          addHiddenClass(
+            findClosestChatItem(badge),
+            "chzzk-badge-moa-hidden-chat-subscription",
+          );
+        },
+      );
+    }
+
+    if (settings.hideChatDonation === true) {
+      queryAllWithSelf(scope, "[class*='_is_donation_']").forEach((badge) => {
+        addHiddenClass(
+          findClosestChatItem(badge),
+          "chzzk-badge-moa-hidden-chat-donation",
+        );
+      });
+    }
+  }
+
+  // 새로 추가된 노드에 대해 동기적으로 숨김을 적용한다(깜빡임 방지용).
+  function applyHiddenChatElementsToNode(state, node) {
+    if (!hasHiddenChatElementSettings(state)) return;
+    applyHiddenChatElementsInScope(state, node);
+  }
+
+  function applyHiddenChatElements(state) {
+    const settings = state?.settings || {};
+    const disabledClasses = hasHiddenChatElementSettings(state)
+      ? getDisabledHiddenChatElementClasses(settings)
+      : HIDDEN_CHAT_ELEMENT_CLASSES;
+    removeHiddenClasses(disabledClasses);
 
     if (!hasHiddenChatElementSettings(state)) return;
 
-    const settings = state?.settings || {};
     const asides = safeQueryAll(document, "aside#aside-chatting, aside#vod-aside");
-    asides.forEach((aside) => {
-      if (settings.hideChatRanking === true) {
-        safeQueryAll(aside, "button[class*='_ranking_button_']").forEach(
-          (button) => {
-            addHiddenClass(
-              findClosestContainer(button),
-              "chzzk-badge-moa-hidden-chat-ranking",
-            );
-          },
-        );
-      }
-
-      if (settings.hideChatMission === true) {
-        safeQueryAll(aside, "button[class*='_mission_button_']").forEach(
-          (button) => {
-            addHiddenClass(
-              findClosestContainer(button),
-              "chzzk-badge-moa-hidden-chat-mission",
-            );
-          },
-        );
-      }
-
-      if (settings.hideChatPrediction === true) {
-        safeQueryAll(aside, "[class*='_status_']").forEach((status) => {
-          const container = findClosestContainer(status);
-          if (
-            container &&
-            container.querySelector("button[class*='_title_']")
-          ) {
-            addHiddenClass(
-              container,
-              "chzzk-badge-moa-hidden-chat-prediction",
-            );
-          }
-        });
-      }
-
-      if (settings.hideChatDonation === true) {
-        safeQueryAll(aside, "[class*='_is_donation_']").forEach((badge) => {
-          addHiddenClass(
-            safeClosest(badge, "[class*='_item_']"),
-            "chzzk-badge-moa-hidden-chat-donation",
-          );
-        });
-      }
-    });
+    asides.forEach((aside) => applyHiddenChatElementsInScope(state, aside));
   }
+
 
   function onWindowMessage(state, refs, event, deps = {}) {
     if (event.source !== window) return;
@@ -307,6 +396,10 @@
       typeof deps.applyHighlightToItem === "function"
         ? deps.applyHighlightToItem
         : () => {};
+    const applyHiddenChatElementsToNode =
+      typeof deps.applyHiddenChatElementsToNode === "function"
+        ? deps.applyHiddenChatElementsToNode
+        : () => {};
     const chatItemSelector = String(deps.CHAT_ITEM_SELECTOR || "");
 
     const container = findChatListContainer();
@@ -339,6 +432,8 @@
         }
 
         mutation.addedNodes.forEach((node) => {
+          // 페인트 전에 동기적으로 숨김을 적용해 깜빡임을 방지한다.
+          applyHiddenChatElementsToNode(node);
           processHighlightNode(node);
         });
       }
@@ -350,7 +445,8 @@
     });
 
     // 옵저버는 부착 이후 추가되는 항목만 처리하므로, 부착 시점에 이미 존재하는
-    // 항목들을 즉시 한 번 훑어 하이라이트한다(초기 적용 지연 방지).
+    // 항목들을 즉시 한 번 훑어 하이라이트/숨김 적용한다(초기 적용 지연 방지).
+    applyHiddenChatElementsToNode(container);
     safeQueryAll(container, chatItemSelector).forEach((item) =>
       applyHighlightToItem(item),
     );
@@ -644,6 +740,7 @@
     flushIncomingPayloads,
     scheduleHiddenChatElementSync,
     applyHiddenChatElements,
+    applyHiddenChatElementsToNode,
     refreshChatHighlightObserver,
     findChatListContainer,
     isLikelyVisibleElement,

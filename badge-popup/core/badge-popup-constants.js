@@ -4,6 +4,9 @@
 
   const MESSAGE_MARK = "__CHZZK_BADGE_MOA__";
   const INJECT_TRACKED_SYNC_TYPE = "CHZZK_BADGE_MOA_SET_TRACKED_NICKNAMES";
+  // content→inject 토글: 가려진 채팅 표시 / 채팅 시간 표시
+  const INJECT_BLIND_CAPTURE_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_BLIND_CAPTURE";
+  const INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_CHAT_TIMESTAMP";
   const STORAGE_HEIGHT_KEY = "chzzk_badge_moa_popup_height";
   const STORAGE_HEIGHT_KEY_LIVE = "chzzk_badge_moa_popup_height_live";
   const STORAGE_HEIGHT_KEY_VOD = "chzzk_badge_moa_popup_height_vod";
@@ -111,7 +114,7 @@
   const MAX_POPUP_FONT_SCALE = 1.2;
   const DEFAULT_CHAT_FONT_SCALE = 1;
   const MIN_CHAT_FONT_SCALE = 0.8;
-  const MAX_CHAT_FONT_SCALE = 1.2;
+  const MAX_CHAT_FONT_SCALE = 2;
   const MIN_CHAT_WIDTH = 220;
   // 새 치지직 채팅 항목 후보 셀렉터: 클래스명이 빌드마다 바뀌므로 넓게
   // [class*='_item_']로 후보를 모으고, 정밀 판별은 matchesChatItem(JS)에서
@@ -140,6 +143,8 @@
   ns.constants = {
     MESSAGE_MARK,
     INJECT_TRACKED_SYNC_TYPE,
+    INJECT_BLIND_CAPTURE_TOGGLE_TYPE,
+    INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE,
     STORAGE_HEIGHT_KEY,
     STORAGE_HEIGHT_KEY_LIVE,
     STORAGE_HEIGHT_KEY_LIVE_WIDE,

@@ -17,7 +17,7 @@
   const MAX_POPUP_FONT_SCALE = 1.2;
   const DEFAULT_CHAT_FONT_SCALE = 1;
   const MIN_CHAT_FONT_SCALE = 0.8;
-  const MAX_CHAT_FONT_SCALE = 1.2;
+  const MAX_CHAT_FONT_SCALE = 2;
   const MIN_CHAT_WIDTH = 220;
   const darkThemeMedia =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -48,8 +48,12 @@
     hidePopupTime: false,
     hideChatRanking: false,
     hideChatMission: false,
+    hideChatMissionMessage: false,
     hideChatPrediction: false,
+    hideChatSubscription: false,
     hideChatDonation: false,
+    restoreBlindedChat: false,
+    showChatTimestamp: false,
     showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
@@ -106,8 +110,14 @@
     hidePopupTime: document.getElementById("hide-popup-time"),
     hideChatRanking: document.getElementById("hide-chat-ranking"),
     hideChatMission: document.getElementById("hide-chat-mission"),
+    hideChatMissionMessage: document.getElementById(
+      "hide-chat-mission-message",
+    ),
     hideChatPrediction: document.getElementById("hide-chat-prediction"),
+    hideChatSubscription: document.getElementById("hide-chat-subscription"),
     hideChatDonation: document.getElementById("hide-chat-donation"),
+    restoreBlindedChat: document.getElementById("restore-blinded-chat"),
+    showChatTimestamp: document.getElementById("show-chat-timestamp"),
     enableChatWidthResize: document.getElementById(
       "enable-chat-width-resize",
     ),
@@ -598,13 +608,33 @@
       await persistAndApply();
     });
 
+    el.hideChatMissionMessage.addEventListener("change", async () => {
+      state.hideChatMissionMessage = el.hideChatMissionMessage.checked;
+      await persistAndApply();
+    });
+
     el.hideChatPrediction.addEventListener("change", async () => {
       state.hideChatPrediction = el.hideChatPrediction.checked;
       await persistAndApply();
     });
 
+    el.hideChatSubscription.addEventListener("change", async () => {
+      state.hideChatSubscription = el.hideChatSubscription.checked;
+      await persistAndApply();
+    });
+
     el.hideChatDonation.addEventListener("change", async () => {
       state.hideChatDonation = el.hideChatDonation.checked;
+      await persistAndApply();
+    });
+
+    el.restoreBlindedChat.addEventListener("change", async () => {
+      state.restoreBlindedChat = el.restoreBlindedChat.checked;
+      await persistAndApply();
+    });
+
+    el.showChatTimestamp.addEventListener("change", async () => {
+      state.showChatTimestamp = el.showChatTimestamp.checked;
       await persistAndApply();
     });
 
@@ -877,8 +907,12 @@
     el.hidePopupTime.checked = state.hidePopupTime;
     el.hideChatRanking.checked = state.hideChatRanking === true;
     el.hideChatMission.checked = state.hideChatMission === true;
+    el.hideChatMissionMessage.checked = state.hideChatMissionMessage === true;
     el.hideChatPrediction.checked = state.hideChatPrediction === true;
+    el.hideChatSubscription.checked = state.hideChatSubscription === true;
     el.hideChatDonation.checked = state.hideChatDonation === true;
+    el.restoreBlindedChat.checked = state.restoreBlindedChat === true;
+    el.showChatTimestamp.checked = state.showChatTimestamp === true;
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
       state.showPopupRoleBadgesOnly === true;
@@ -1821,8 +1855,12 @@
       hidePopupTime: state.hidePopupTime,
       hideChatRanking: state.hideChatRanking === true,
       hideChatMission: state.hideChatMission === true,
+      hideChatMissionMessage: state.hideChatMissionMessage === true,
       hideChatPrediction: state.hideChatPrediction === true,
+      hideChatSubscription: state.hideChatSubscription === true,
       hideChatDonation: state.hideChatDonation === true,
+      restoreBlindedChat: state.restoreBlindedChat === true,
+      showChatTimestamp: state.showChatTimestamp === true,
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
@@ -1898,8 +1936,12 @@
     state.hidePopupTime = settings.hidePopupTime === true;
     state.hideChatRanking = settings.hideChatRanking === true;
     state.hideChatMission = settings.hideChatMission === true;
+    state.hideChatMissionMessage = settings.hideChatMissionMessage === true;
     state.hideChatPrediction = settings.hideChatPrediction === true;
+    state.hideChatSubscription = settings.hideChatSubscription === true;
     state.hideChatDonation = settings.hideChatDonation === true;
+    state.restoreBlindedChat = settings.restoreBlindedChat === true;
+    state.showChatTimestamp = settings.showChatTimestamp === true;
     state.enableChatWidthResize = settings.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
     state.showPopupRoleBadgesOnly =
@@ -2027,8 +2069,12 @@
     state.hidePopupTime = raw.hidePopupTime === true;
     state.hideChatRanking = raw.hideChatRanking === true;
     state.hideChatMission = raw.hideChatMission === true;
+    state.hideChatMissionMessage = raw.hideChatMissionMessage === true;
     state.hideChatPrediction = raw.hideChatPrediction === true;
+    state.hideChatSubscription = raw.hideChatSubscription === true;
     state.hideChatDonation = raw.hideChatDonation === true;
+    state.restoreBlindedChat = raw.restoreBlindedChat === true;
+    state.showChatTimestamp = raw.showChatTimestamp === true;
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
@@ -2125,8 +2171,12 @@
     raw.hidePopupTime = state.hidePopupTime === true;
     raw.hideChatRanking = state.hideChatRanking === true;
     raw.hideChatMission = state.hideChatMission === true;
+    raw.hideChatMissionMessage = state.hideChatMissionMessage === true;
     raw.hideChatPrediction = state.hideChatPrediction === true;
+    raw.hideChatSubscription = state.hideChatSubscription === true;
     raw.hideChatDonation = state.hideChatDonation === true;
+    raw.restoreBlindedChat = state.restoreBlindedChat === true;
+    raw.showChatTimestamp = state.showChatTimestamp === true;
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;

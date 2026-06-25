@@ -168,6 +168,9 @@
       refreshChatHighlightObserver,
       scheduleChatHighlightScan,
     });
+    // 설정 로드 후 inject에 블라인드 캡처 on/off 동기화
+    syncBlindCaptureToInject();
+    syncChatTimestampToInject();
   }
 
   let _lastHeightKey = "";
@@ -340,6 +343,8 @@
       applySettingsClasses,
       render,
     });
+    syncBlindCaptureToInject();
+    syncChatTimestampToInject();
   }
 
   function getLocationKey() {
@@ -688,6 +693,8 @@
       schedulePersistChannelCache,
       saveSettings,
       render,
+      syncBlindCaptureToInject,
+      syncChatTimestampToInject,
     });
   }
 
@@ -696,8 +703,17 @@
       findChatListContainer,
       processHighlightNode,
       applyHighlightToItem,
+      applyHiddenChatElementsToNode,
       CHAT_ITEM_SELECTOR,
     });
+  }
+
+  function syncBlindCaptureToInject() {
+    settingsApi.syncBlindCaptureToInject(state);
+  }
+
+  function syncChatTimestampToInject() {
+    settingsApi.syncChatTimestampToInject(state);
   }
 
   function findChatListContainer() {
@@ -738,6 +754,10 @@
 
   function applyHiddenChatElements() {
     observerApi.applyHiddenChatElements(state);
+  }
+
+  function applyHiddenChatElementsToNode(node) {
+    observerApi.applyHiddenChatElementsToNode(state, node);
   }
 
   function applyHighlightToAll() {

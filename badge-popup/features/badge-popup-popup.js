@@ -835,15 +835,6 @@
 
   function isChatWidthStackedLayout(doc, targetAside = null) {
     const scope = doc || document;
-    const win = scope.defaultView || window;
-    if (win && typeof win.matchMedia === "function") {
-      try {
-        if (win.matchMedia("screen and (aspect-ratio <= 1 / 1)").matches) {
-          return true;
-        }
-      } catch (_error) {}
-    }
-
     const aside =
       targetAside instanceof HTMLElement
         ? targetAside
@@ -860,7 +851,10 @@
 
     const asideRect = aside.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    return asideRect.top >= containerRect.bottom - 2;
+    const isBelowContent = asideRect.top > containerRect.top + 40;
+    const isFullWidth =
+      Number(asideRect.width || 0) >= Number(containerRect.width || 0) - 8;
+    return isBelowContent && isFullWidth;
   }
 
   function setChatAsideWidth(aside, width, deps = {}) {
@@ -959,19 +953,38 @@
     }
     return (
       candidates.find((element) => {
-        if (element.querySelector("[class*='_banner_']")) return true;
+        if (
+          element.querySelector("[class*='_container_'][class*='_banner_']")
+        ) {
+          return true;
+        }
         if (element.querySelector("#vod_rs_banner")) return true;
         return false;
       }) || aside
     );
   }
 
+  function resetHeaderBannerWidth(doc = document) {
+    const header = doc.querySelector(
+      "header#header, header[aria-label='헤더']",
+    );
+    if (!(header instanceof HTMLElement)) return;
+    header.querySelectorAll("[class*='_banner_']").forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      element.style.removeProperty("width");
+      element.style.removeProperty("max-width");
+      element.style.removeProperty("min-width");
+      element.style.removeProperty("box-sizing");
+    });
+  }
+
   function applyVodBannerWidthStyle(aside, callback) {
+    resetHeaderBannerWidth(aside.ownerDocument || document);
     const scope = getVodBannerScope(aside);
     if (!(scope instanceof HTMLElement)) return;
 
     const selectors = [
-      "[class*='_banner_']",
+      "[class*='_container_'][class*='_banner_']",
       "#vod_rs_banner",
       "#vod_rs_banner > div",
       "#vod_rs_banner iframe",
@@ -1026,7 +1039,7 @@
   function normalizeLiveChatInputHeight(aside, doc = document) {
     const textarea = findLiveChatInputTextarea(aside);
     if (!isTextareaElement(textarea)) return;
-    if (!String(textarea.placeholder || "").includes("채팅을 입력해주세요")) {
+    if (!String(textarea.placeholder || "").includes("채팅")) {
       return;
     }
     if (String(textarea.value || "").length > 0) return;
@@ -1397,8 +1410,16 @@
         state.settings.hideChatMission === true,
       );
       rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-mission-message",
+        state.settings.hideChatMissionMessage === true,
+      );
+      rootElement.classList.toggle(
         "chzzk-badge-moa-hide-chat-prediction",
         state.settings.hideChatPrediction === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-chat-subscription",
+        state.settings.hideChatSubscription === true,
       );
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-chat-donation",
@@ -1408,6 +1429,7 @@
         "chzzk-badge-moa-chat-font-scale-enabled",
         Math.abs(Number(chatFontScale) - 1) > 0.001,
       );
+      rootElement.classList.add("chzzk-badge-moa-chat-font-scale-ready");
       rootElement.style.setProperty(
         "--chzzk-badge-moa-chat-font-scale",
         String(chatFontScale),

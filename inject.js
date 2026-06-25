@@ -12,6 +12,12 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   const CHZZK_BADGE_MOA_MSG_MARK = "__CHZZK_BADGE_MOA__";
   const CHZZK_BADGE_MOA_TARGET_ORIGIN = window.location.origin;
   const INJECT_TRACKED_SYNC_TYPE = "CHZZK_BADGE_MOA_SET_TRACKED_NICKNAMES";
+  // content→inject 토글 (constants.js와 동일 문자열)
+  const INJECT_BLIND_CAPTURE_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_BLIND_CAPTURE";
+  const INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_CHAT_TIMESTAMP";
+  // 가려진 채팅 표시 / 채팅 시간 표시 토글 상태(원문은 MAIN world 메모리에만).
+  let restoreBlindedChat = false;
+  let showChatTimestamp = false;
   const trackedNicknameTargets = new Set();
   const PROFILE_CACHE_MAX = 600;
   const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -87,6 +93,394 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       if (!nickname) return;
       trackedNicknameTargets.add(nickname);
     });
+  }
+
+  // ===== 가려진 채팅 표시 + 채팅 시간 표시 (MAIN world: React props 직접 접근) =====
+
+  const BLIND_PLACEHOLDER_TEXTS = [
+    "메시지가 블라인드 처리되었습니다.",
+    "클린봇이 부적절한 표현을 감지했습니다.",
+  ];
+  let chatRowObserver = null;
+  let chatRowObserverRetryTimer = null;
+  let blindRestoreWriting = false;
+  // 행 → { placeholder, nickname }: OFF 시 원래 가림 문구로 되돌리기 위함.
+  const restoredRowInfo = new WeakMap();
+
+  function getReactProps(node) {
+    if (node == null) return null;
+    const key = Object.keys(node).find((k) => k.startsWith("__reactProps$"));
+    return key ? node[key] : null;
+  }
+
+  function getReactFiber(node) {
+    if (node == null) return null;
+    const key = Object.keys(node).find((k) => k.startsWith("__reactFiber$"));
+    return key ? node[key] : null;
+  }
+
+  // 채팅 행 노드에서 React props의 chatMessage 객체를 얻는다.
+  function getChatMessage(row) {
+    const props = getReactProps(row);
+    const direct = props && props.children && props.children.props
+      ? props.children.props.chatMessage
+      : null;
+    if (direct && typeof direct === "object") return direct;
+    // 폴백: fiber 서브트리에서 chatMessage를 가진 props 탐색
+    let fiber = getReactFiber(row);
+    let guard = 0;
+    while (fiber != null && guard < 60) {
+      const mp = fiber.memoizedProps;
+      if (mp) {
+        if (mp.chatMessage && typeof mp.chatMessage === "object") {
+          return mp.chatMessage;
+        }
+        if (
+          mp.children &&
+          mp.children.props &&
+          mp.children.props.chatMessage &&
+          typeof mp.children.props.chatMessage === "object"
+        ) {
+          return mp.children.props.chatMessage;
+        }
+      }
+      fiber = fiber.child;
+      guard += 1;
+    }
+    return null;
+  }
+
+  // 실제 전송 시각(epoch ms)을 찾는다. playerMessageTime(영상 경과)은 제외.
+  function readChatEpochMs(chatMessage) {
+    if (!chatMessage || typeof chatMessage !== "object") return null;
+    const candidates = [
+      chatMessage.time,
+      chatMessage.messageTime,
+      chatMessage.createTime,
+      chatMessage.ctime,
+      chatMessage.regTime,
+      chatMessage.msgTime,
+    ];
+    for (const value of candidates) {
+      const n = Number(value);
+      // 2001년 이후(ms)만 타당한 실제 시각으로 인정
+      if (Number.isFinite(n) && n > 1e12) return n;
+    }
+    return null;
+  }
+
+  // chatMessage에서 원문 텍스트와 이모티콘 맵을 읽는다(객체/JSON 문자열 모두).
+  function readChatOriginal(chatMessage) {
+    if (!chatMessage || typeof chatMessage !== "object") return null;
+    const msgTypeCode =
+      chatMessage.msgTypeCode || chatMessage.messageTypeCode || 1;
+    if (msgTypeCode === 30 || msgTypeCode === 11 || msgTypeCode === 12) {
+      return null; // 시스템/구독 합성 메시지 제외
+    }
+    const text = String(chatMessage.content || chatMessage.msg || "");
+    if (!text) return null;
+    let extras = chatMessage.extras;
+    if (typeof extras === "string") extras = parseJsonSafe(extras);
+    const emojis =
+      extras && typeof extras.emojis === "object" && extras.emojis
+        ? extras.emojis
+        : {};
+    return { text, emojis };
+  }
+
+  function getRowNickname(row) {
+    const node = row.querySelector("[class*='_nickname_'] [class*='_text_']");
+    return node ? String(node.textContent || "").trim() : "";
+  }
+
+  // 메시지 텍스트 span = _chatting_message_ 하위 _text_ 중 _nickname_ 버튼 밖의 것.
+  function getRowMessageSpan(row) {
+    const message =
+      row.querySelector("[class*='_chatting_message_']") || row;
+    const candidates = message.querySelectorAll("[class*='_text_']");
+    for (const span of candidates) {
+      if (!span.closest("[class*='_nickname_']")) return span;
+    }
+    return null;
+  }
+
+  function isHiddenRow(row) {
+    return (
+      row.matches("[class*='_is_hidden_']") ||
+      !!row.querySelector("[class*='_is_hidden_']")
+    );
+  }
+
+  // {:emojiKey:} 토큰을 텍스트 노드 + <img>로 조립.
+  function buildRestoredMessageFragment(text, emojiMap) {
+    const fragment = document.createDocumentFragment();
+    const messageText = String(text || "");
+    if (!messageText) return fragment;
+    const hasEmojis =
+      emojiMap &&
+      typeof emojiMap === "object" &&
+      Object.keys(emojiMap).length > 0;
+    if (!hasEmojis) {
+      fragment.appendChild(document.createTextNode(messageText));
+      return fragment;
+    }
+    const tokenPattern = /\{:([^:}]+):\}/g;
+    let lastIndex = 0;
+    let match = null;
+    while ((match = tokenPattern.exec(messageText)) !== null) {
+      const key = String(match[1] || "").trim();
+      const url = emojiMap[key];
+      if (match.index > lastIndex) {
+        fragment.appendChild(
+          document.createTextNode(messageText.slice(lastIndex, match.index)),
+        );
+      }
+      if (typeof url === "string" && url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        img.className = "chzzk-badge-moa-blind-emoji";
+        img.width = 24;
+        img.height = 24;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.draggable = false;
+        fragment.appendChild(img);
+      } else {
+        fragment.appendChild(document.createTextNode(match[0]));
+      }
+      lastIndex = tokenPattern.lastIndex;
+    }
+    if (lastIndex < messageText.length) {
+      fragment.appendChild(document.createTextNode(messageText.slice(lastIndex)));
+    }
+    return fragment;
+  }
+
+  // 닉네임 앞에 회색 HH:MM 시간 span을 삽입.
+  function applyTimestamp(row, epochMs) {
+    if (row.querySelector(":scope .chzzk-badge-moa-chat-time")) return;
+    const nicknameBtn =
+      row.querySelector("button[class*='_nickname_']") ||
+      row.querySelector("[class*='_nickname_']");
+    if (!nicknameBtn || !nicknameBtn.parentNode) return;
+    const d = new Date(epochMs);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const span = document.createElement("span");
+    span.className = "chzzk-badge-moa-chat-time";
+    span.textContent = `${hh}:${mm}`;
+    nicknameBtn.parentNode.insertBefore(span, nicknameBtn);
+  }
+
+  function removeAllTimestamps() {
+    document
+      .querySelectorAll(".chzzk-badge-moa-chat-time")
+      .forEach((el) => el.remove());
+  }
+
+  // 가려진 행을 원문(텍스트+이모티콘)으로 복원.
+  function applyRestore(row, original) {
+    const span = getRowMessageSpan(row);
+    if (!(span instanceof HTMLElement)) return;
+    // 원래 가림 문구 보관(OFF 시 되돌리기). 이미 복원된 경우 덮지 않음.
+    if (!restoredRowInfo.has(row)) {
+      restoredRowInfo.set(row, {
+        placeholder: String(span.textContent || ""),
+        nickname: getRowNickname(row),
+      });
+    }
+    const fragment = buildRestoredMessageFragment(original.text, original.emojis);
+    blindRestoreWriting = true;
+    try {
+      span.textContent = "";
+      span.appendChild(fragment);
+      span.classList.add("chzzk-badge-moa-blind-restored-text");
+    } finally {
+      if (typeof queueMicrotask === "function") {
+        queueMicrotask(() => {
+          blindRestoreWriting = false;
+        });
+      } else {
+        Promise.resolve().then(() => {
+          blindRestoreWriting = false;
+        });
+      }
+    }
+  }
+
+  // OFF: 복원된 행을 원래 가림 문구로 되돌린다.
+  function revertAllRestores() {
+    document
+      .querySelectorAll(".chzzk-badge-moa-blind-restored-text")
+      .forEach((span) => {
+        const row = span.closest("[class*='_item_']");
+        const info = row ? restoredRowInfo.get(row) : null;
+        blindRestoreWriting = true;
+        try {
+          span.textContent = info ? info.placeholder : span.textContent;
+          span.classList.remove("chzzk-badge-moa-blind-restored-text");
+        } finally {
+          if (typeof queueMicrotask === "function") {
+            queueMicrotask(() => {
+              blindRestoreWriting = false;
+            });
+          } else {
+            Promise.resolve().then(() => {
+              blindRestoreWriting = false;
+            });
+          }
+        }
+        if (row) restoredRowInfo.delete(row);
+      });
+  }
+
+  // 채팅 행 하나 처리: 시간 삽입 + 가림 복원.
+  function processRow(row) {
+    if (!(row instanceof HTMLElement)) return;
+    const chatMessage = getChatMessage(row);
+    if (!chatMessage) return;
+
+    if (showChatTimestamp) {
+      const epoch = readChatEpochMs(chatMessage);
+      if (epoch) applyTimestamp(row, epoch);
+    }
+
+    if (restoreBlindedChat && isHiddenRow(row)) {
+      const span = getRowMessageSpan(row);
+      // 이미 복원된 행이면 skip(클래스로 식별)
+      if (span && !span.classList.contains("chzzk-badge-moa-blind-restored-text")) {
+        const original = readChatOriginal(chatMessage);
+        if (original) applyRestore(row, original);
+      }
+    }
+  }
+
+  // React 재렌더로 다시 가림 문구가 된 복원행을 재복원.
+  function reapplyRestoreForTarget(target) {
+    if (!restoreBlindedChat || blindRestoreWriting) return;
+    if (!(target instanceof Element)) return;
+    const row = target.closest("[class*='_item_']");
+    if (!(row instanceof HTMLElement)) return;
+    const info = restoredRowInfo.get(row);
+    if (!info) return;
+    // 노드 재활용 가드
+    if (getRowNickname(row) !== info.nickname) {
+      restoredRowInfo.delete(row);
+      return;
+    }
+    const span = getRowMessageSpan(row);
+    if (!(span instanceof HTMLElement)) return;
+    const current = String(span.textContent || "").trim();
+    if (BLIND_PLACEHOLDER_TEXTS.includes(current)) {
+      const chatMessage = getChatMessage(row);
+      const original = chatMessage ? readChatOriginal(chatMessage) : null;
+      if (original) applyRestore(row, original);
+    }
+  }
+
+  function findChatListContainers() {
+    const containers = [];
+    const live = document.querySelector(
+      "aside#aside-chatting [class*='live_chatting_list_container'], aside#aside-chatting [role='log']",
+    );
+    if (live) containers.push(live);
+    const vod = document.querySelector(
+      "aside#vod-aside [class*='vod_chatting_list_container'], aside#vod-aside [role='log']",
+    );
+    if (vod) containers.push(vod);
+    if (containers.length === 0) {
+      const aside =
+        document.querySelector("aside#aside-chatting") ||
+        document.querySelector("aside#vod-aside");
+      if (aside) containers.push(aside);
+    }
+    return containers;
+  }
+
+  function isChatRowNode(node) {
+    if (!(node instanceof HTMLElement)) return false;
+    return (
+      node.matches(
+        "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
+      ) && !!node.querySelector("[class*='_chatting_message_']")
+    );
+  }
+
+  function sweepExistingRows() {
+    findChatListContainers().forEach((container) => {
+      container
+        .querySelectorAll(
+          "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
+        )
+        .forEach((row) => {
+          if (row.querySelector("[class*='_chatting_message_']")) processRow(row);
+        });
+    });
+  }
+
+  function ensureChatRowObserver() {
+    if (!restoreBlindedChat && !showChatTimestamp) return;
+    const containers = findChatListContainers();
+    if (containers.length === 0) {
+      scheduleChatRowObserverRetry();
+      return;
+    }
+    clearChatRowObserverRetry();
+    if (chatRowObserver) chatRowObserver.disconnect();
+    chatRowObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type !== "childList") continue;
+        if (mutation.target instanceof Element) {
+          reapplyRestoreForTarget(mutation.target);
+        }
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (isChatRowNode(node)) {
+            processRow(node);
+          } else {
+            node
+              .querySelectorAll(
+                "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
+              )
+              .forEach((row) => {
+                if (row.querySelector("[class*='_chatting_message_']")) {
+                  processRow(row);
+                }
+              });
+          }
+        });
+      }
+    });
+    containers.forEach((c) =>
+      chatRowObserver.observe(c, { childList: true, subtree: true }),
+    );
+    sweepExistingRows();
+  }
+
+  function scheduleChatRowObserverRetry() {
+    if (!restoreBlindedChat && !showChatTimestamp) return;
+    if (chatRowObserverRetryTimer) return;
+    chatRowObserverRetryTimer = setTimeout(() => {
+      chatRowObserverRetryTimer = null;
+      ensureChatRowObserver();
+    }, 500);
+  }
+
+  function clearChatRowObserverRetry() {
+    if (!chatRowObserverRetryTimer) return;
+    clearTimeout(chatRowObserverRetryTimer);
+    chatRowObserverRetryTimer = null;
+  }
+
+  function disconnectChatRowObserverIfIdle() {
+    if (!restoreBlindedChat && !showChatTimestamp && chatRowObserver) {
+      chatRowObserver.disconnect();
+      chatRowObserver = null;
+    }
+    if (!restoreBlindedChat && !showChatTimestamp) {
+      clearChatRowObserverRetry();
+    }
   }
 
   function isTrackedNickname(nickname) {
@@ -498,14 +892,47 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     ) {
       return;
     }
-    if (String(data.type || "") !== INJECT_TRACKED_SYNC_TYPE) {
+    const messageType = String(data.type || "");
+    const payload =
+      data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (messageType === INJECT_TRACKED_SYNC_TYPE) {
+      const nicknames = Array.isArray(payload.nicknames)
+        ? payload.nicknames
+        : [];
+      setTrackedNicknameTargets(nicknames);
       return;
     }
 
-    const payload =
-      data.payload && typeof data.payload === "object" ? data.payload : {};
-    const nicknames = Array.isArray(payload.nicknames) ? payload.nicknames : [];
-    setTrackedNicknameTargets(nicknames);
+    // 가려진 채팅 표시 on/off
+    if (messageType === INJECT_BLIND_CAPTURE_TOGGLE_TYPE) {
+      const next = payload.enabled === true;
+      if (next === restoreBlindedChat) return;
+      restoreBlindedChat = next;
+      if (restoreBlindedChat) {
+        ensureChatRowObserver();
+        sweepExistingRows();
+      } else {
+        revertAllRestores();
+        disconnectChatRowObserverIfIdle();
+      }
+      return;
+    }
+
+    // 채팅 시간 표시 on/off
+    if (messageType === INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE) {
+      const next = payload.enabled === true;
+      if (next === showChatTimestamp) return;
+      showChatTimestamp = next;
+      if (showChatTimestamp) {
+        ensureChatRowObserver();
+        sweepExistingRows();
+      } else {
+        removeAllTimestamps();
+        disconnectChatRowObserverIfIdle();
+      }
+      return;
+    }
   });
 
   function normalizeUrlForMatching(url) {
@@ -1445,6 +1872,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       vodChannelHintsByVideoNo.clear();
       pruneVodPendingChatsForLocation();
       postArchiveMessage("CHZZK_URL_CHANGED");
+      // SPA 이동 시 채팅 컨테이너가 교체되므로 옵저버를 재연결한다.
+      if (restoreBlindedChat || showChatTimestamp) {
+        setTimeout(() => ensureChatRowObserver(), 600);
+      }
     }
 
     history.pushState = function () {

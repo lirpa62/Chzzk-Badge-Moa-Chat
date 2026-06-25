@@ -2267,6 +2267,31 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   border-color: transparent !important;
 }
 
+/* 블라인드 채팅 복원 시 삽입되는 이모티콘 이미지(치지직 채팅 텍스트와 인라인 정렬) */
+img.chzzk-badge-moa-blind-emoji {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+/* 복원된 메시지: 다른 메시지와 구분되게 기울임 + _is_hidden 흐린 색 적용 */
+.chzzk-badge-moa-blind-restored-text {
+  font-style: italic;
+  color: rgba(var(--Content-Neutral-Cool-Strong-rgb), 0.3) !important;
+}
+
+/* 채팅 시간 표시: 닉네임 앞 회색 작은 글씨 HH:MM */
+.chzzk-badge-moa-chat-time {
+  margin-right: 4px;
+  font-size: 0.85em;
+  color: var(--Content-Neutral-Cool-Base);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* === 새 치지직 채팅 구조 하이라이트 ===
    새 빌드는 채팅 항목(_item_)의 직계 자식이 메시지 컨테이너(_container_)이고
    그 안에 _chatting_message_가 들어있다. 구버전 클래스(live/vod_chatting_
@@ -2358,19 +2383,25 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   border-color: transparent !important;
 }
 
-html.chzzk-badge-moa-hide-chat-ranking
-  .chzzk-badge-moa-hidden-chat-ranking,
+html.chzzk-badge-moa-hide-chat-ranking .chzzk-badge-moa-hidden-chat-ranking,
 html.chzzk-badge-moa-hide-chat-ranking
   aside
   .chzzk-badge-moa-hidden-chat-ranking {
   display: none !important;
 }
 
-html.chzzk-badge-moa-hide-chat-mission
-  .chzzk-badge-moa-hidden-chat-mission,
+html.chzzk-badge-moa-hide-chat-mission .chzzk-badge-moa-hidden-chat-mission,
 html.chzzk-badge-moa-hide-chat-mission
   aside
   .chzzk-badge-moa-hidden-chat-mission {
+  display: none !important;
+}
+
+html.chzzk-badge-moa-hide-chat-mission-message
+  .chzzk-badge-moa-hidden-chat-mission-message,
+html.chzzk-badge-moa-hide-chat-mission-message
+  aside
+  .chzzk-badge-moa-hidden-chat-mission-message {
   display: none !important;
 }
 
@@ -2382,8 +2413,15 @@ html.chzzk-badge-moa-hide-chat-prediction
   display: none !important;
 }
 
-html.chzzk-badge-moa-hide-chat-donation
-  .chzzk-badge-moa-hidden-chat-donation,
+html.chzzk-badge-moa-hide-chat-subscription
+  .chzzk-badge-moa-hidden-chat-subscription,
+html.chzzk-badge-moa-hide-chat-subscription
+  aside
+  .chzzk-badge-moa-hidden-chat-subscription {
+  display: none !important;
+}
+
+html.chzzk-badge-moa-hide-chat-donation .chzzk-badge-moa-hidden-chat-donation,
 html.chzzk-badge-moa-hide-chat-donation
   aside
   .chzzk-badge-moa-hidden-chat-donation {
@@ -2393,6 +2431,8 @@ html.chzzk-badge-moa-hide-chat-donation
 html.chzzk-badge-moa-chat-width-resize-enabled aside#aside-chatting,
 html.chzzk-badge-moa-chat-width-resize-enabled aside#vod-aside {
   position: relative !important;
+  width: var(--chzzk-badge-moa-chat-resized-width, 353px) !important;
+  flex-basis: var(--chzzk-badge-moa-chat-resized-width, 353px) !important;
   min-width: 220px !important;
 }
 
@@ -2441,7 +2481,7 @@ html.chzzk-badge-moa-chat-resizing
 
 html.chzzk-badge-moa-chat-width-resize-enabled
   aside#aside-chatting
-  textarea[placeholder*="채팅을 입력해주세요"]:placeholder-shown {
+  textarea[placeholder*="채팅"]:placeholder-shown {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -2449,7 +2489,7 @@ html.chzzk-badge-moa-chat-width-resize-enabled
 
 html.chzzk-badge-moa-chat-width-resize-enabled
   aside#aside-chatting
-  textarea[placeholder*="채팅을 입력해주세요"]::placeholder {
+  textarea[placeholder*="채팅"]::placeholder {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2499,8 +2539,7 @@ html.chzzk-badge-moa-chat-width-resize-enabled
   height: 100% !important;
 }
 
-html.chzzk-badge-moa-chat-width-resize-enabled
-  #live_player_layout.miniplayer {
+html.chzzk-badge-moa-chat-width-resize-enabled #live_player_layout.miniplayer {
   width: var(--chzzk-badge-moa-chat-resized-width, 353px) !important;
   max-width: var(--chzzk-badge-moa-chat-resized-width, 353px) !important;
   min-width: 0 !important;
@@ -2531,10 +2570,8 @@ html.chzzk-badge-moa-chat-width-resize-enabled
 
 html.chzzk-badge-moa-chat-width-resize-enabled
   aside#vod-aside
-  [class*="_banner_"],
-html.chzzk-badge-moa-chat-width-resize-enabled
-  aside#vod-aside
-  #vod_rs_banner,
+  [class*="_container_"][class*="_banner_"],
+html.chzzk-badge-moa-chat-width-resize-enabled aside#vod-aside #vod_rs_banner,
 html.chzzk-badge-moa-chat-width-resize-enabled
   aside#vod-aside
   #vod_rs_banner
@@ -2556,10 +2593,7 @@ html.chzzk-badge-moa-chat-width-resize-enabled
   aside#vod-aside
   [role="alertdialog"] {
   width: var(--chzzk-badge-moa-chat-profile-popup-width, 208px) !important;
-  max-width: var(
-    --chzzk-badge-moa-chat-profile-popup-width,
-    208px
-  ) !important;
+  max-width: var(--chzzk-badge-moa-chat-profile-popup-width, 208px) !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
@@ -2612,18 +2646,42 @@ html.chzzk-badge-moa-chat-font-scale-enabled
 /* === 치지직 원본 채팅 폰트/배지 크기 === */
 :root {
   --chzzk-badge-moa-chat-font-scale: 1;
-  --chzzk-badge-moa-chat-base-line-height: 20px;
+  --chzzk-badge-moa-chat-base-line-height: calc(
+    20px * var(--chzzk-badge-moa-chat-font-scale)
+  );
+  --chzzk-badge-moa-chat-badge-icon-size: 18px;
+  --chzzk-badge-moa-chat-nickname-mark-size: 14px;
   --chzzk-badge-moa-chat-emoji-size: 24px;
+  --chzzk-badge-moa-chat-emoji-gap: max(
+    1px,
+    calc(2px * var(--chzzk-badge-moa-chat-font-scale))
+  );
 }
 
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  [class*="_item_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="log"]
+  [class*="_item_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"],
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_button_chatting_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_button_chatting_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] {
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_button_chatting_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_button_chatting_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"] {
   font-size: calc(1em * var(--chzzk-badge-moa-chat-font-scale)) !important;
   line-height: var(--chzzk-badge-moa-chat-base-line-height) !important;
 }
@@ -2638,38 +2696,117 @@ html.chzzk-badge-moa-chat-font-scale-enabled
   line-height: var(--chzzk-badge-moa-chat-base-line-height) !important;
 }
 
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] button,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] em,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] p,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] strong,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  em,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  p,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  strong,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="log"]
+  button,
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] span,
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] em,
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] p,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] strong,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] button,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] em,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] button,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] em,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_button_chatting_"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_button_chatting_"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] button,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] em,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] strong,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] button,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] span,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] em,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] div,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] strong {
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="log"]
+  strong,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  em,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  div,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  em,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  div,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_button_chatting_"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_button_chatting_"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  em,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  div,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  strong,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  button,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  span,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  em,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  div,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  strong {
   font-size: inherit !important;
   line-height: inherit !important;
 }
@@ -2688,14 +2825,28 @@ html.chzzk-badge-moa-chat-font-scale-enabled
   button[class*="_button_"] {
   width: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
-      var(--chzzk-badge-moa-chat-font-scale)
+      var(--chzzk-badge-moa-chat-font-scale) +
+      var(--chzzk-badge-moa-chat-emoji-gap)
   ) !important;
   height: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
       var(--chzzk-badge-moa-chat-font-scale)
   ) !important;
+  margin-right: 0 !important;
 }
 
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="log"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
+  img,
 html.chzzk-badge-moa-chat-font-scale-enabled
   aside#aside-chatting
   [role="log"]
@@ -2718,28 +2869,241 @@ html.chzzk-badge-moa-chat-font-scale-enabled
     var(--chzzk-badge-moa-chat-emoji-size) *
       var(--chzzk-badge-moa-chat-font-scale)
   ) !important;
+  margin-right: var(--chzzk-badge-moa-chat-emoji-gap) !important;
+  transform: none !important;
 }
 
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] [class*="_icon_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] img,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="log"] svg,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="log"]
+  svg,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="log"]
+  [class*="_icon_"],
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] img,
 html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="log"] svg,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] [class*="_icon_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] img,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [class*="_fixed_"] svg,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] [class*="_icon_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] img,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [class*="_fixed_"] svg,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] [class*="_icon_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] img,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#aside-chatting [role="alertdialog"] svg,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] [class*="_icon_"],
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] img,
-html.chzzk-badge-moa-chat-font-scale-enabled aside#vod-aside [role="alertdialog"] svg {
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_fixed_"]
+  svg,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_fixed_"]
+  svg,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [role="alertdialog"]
+  svg,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  [class*="_icon_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [role="alertdialog"]
+  svg {
   transform: scale(var(--chzzk-badge-moa-chat-font-scale));
   transform-origin: center;
+}
+
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_nickname_o04z9_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_nickname_o04z9_"] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_ellipsis_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_ellipsis_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_ellipsis2_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_ellipsis2_dtc6c_"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  vertical-align: top !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_ellipsis_dtc6c_"]
+  > [class*="_text_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_ellipsis_dtc6c_"]
+  > [class*="_text_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_ellipsis2_dtc6c_"]
+  > [class*="_text_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_ellipsis2_dtc6c_"]
+  > [class*="_text_dtc6c_"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#aside-chatting
+  [class*="_icon_dtc6c_"],
+html.chzzk-badge-moa-chat-font-scale-ready
+  aside#vod-aside
+  [class*="_icon_dtc6c_"] {
+  width: calc(
+    var(--chzzk-badge-moa-chat-nickname-mark-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  height: calc(
+    var(--chzzk-badge-moa-chat-nickname-mark-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  min-width: calc(
+    var(--chzzk-badge-moa-chat-nickname-mark-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  flex: 0 0
+    calc(
+      var(--chzzk-badge-moa-chat-nickname-mark-size) *
+        var(--chzzk-badge-moa-chat-font-scale)
+    ) !important;
+  margin-left: calc(4px * var(--chzzk-badge-moa-chat-font-scale)) !important;
+  margin-top: calc(2px * var(--chzzk-badge-moa-chat-font-scale)) !important;
+  transform: none !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_wrapper_o04z9_"]
+  > [class*="_icon_o04z9_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_wrapper_o04z9_"]
+  > [class*="_icon_o04z9_"] {
+  width: calc(
+    var(--chzzk-badge-moa-chat-badge-icon-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  height: calc(
+    var(--chzzk-badge-moa-chat-badge-icon-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  min-width: calc(
+    var(--chzzk-badge-moa-chat-badge-icon-size) *
+      var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  flex: 0 0
+    calc(
+      var(--chzzk-badge-moa-chat-badge-icon-size) *
+        var(--chzzk-badge-moa-chat-font-scale)
+    ) !important;
+  transform: none !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  [class*="_container_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#aside-chatting
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  svg,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  [class*="_container_"],
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  img,
+html.chzzk-badge-moa-chat-font-scale-enabled
+  aside#vod-aside
+  [class*="_item_"]
+  [class*="_chatting_message_"]
+  button[class*="_nickname_"]
+  [class*="_wrapper_"]
+  > [class*="_icon_"]
+  svg {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  transform: none !important;
 }
 
 @keyframes chzzkBadgeMoaFlowDown {
