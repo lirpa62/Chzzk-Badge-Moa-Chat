@@ -57,10 +57,12 @@
     showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
+    placeChatOnLeft: false,
     enableChatWidthResize: false,
     chatWidth: 0,
     deleteWithoutConfirm: false,
     hidePillButton: false,
+    keepPopupOpen: false,
     pillGlowEnabled: true,
     enableSessionCache: false,
     autoPruneManagedHiddenOnReconnect: false,
@@ -118,6 +120,7 @@
     hideChatDonation: document.getElementById("hide-chat-donation"),
     restoreBlindedChat: document.getElementById("restore-blinded-chat"),
     showChatTimestamp: document.getElementById("show-chat-timestamp"),
+    placeChatOnLeft: document.getElementById("place-chat-on-left"),
     enableChatWidthResize: document.getElementById(
       "enable-chat-width-resize",
     ),
@@ -128,6 +131,7 @@
     chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
     hidePillButton: document.getElementById("hide-pill-button"),
+    keepPopupOpen: document.getElementById("keep-popup-open"),
     pillGlowEnabled: document.getElementById("pill-glow-enabled"),
     enableSessionCache: document.getElementById("enable-session-cache"),
     clearCurrentChannelSession: document.getElementById(
@@ -643,6 +647,11 @@
       await persistAndApply();
     });
 
+    el.placeChatOnLeft.addEventListener("change", async () => {
+      state.placeChatOnLeft = el.placeChatOnLeft.checked;
+      await persistAndApply();
+    });
+
     el.showPopupRoleBadgesOnly.addEventListener("change", async () => {
       state.showPopupRoleBadgesOnly = el.showPopupRoleBadgesOnly.checked;
       await persistAndApply();
@@ -683,6 +692,15 @@
       await persistAndApply();
     });
 
+    el.keepPopupOpen.addEventListener("change", async () => {
+      state.keepPopupOpen = el.keepPopupOpen.checked;
+      if (state.keepPopupOpen) {
+        state.hidePillButton = false;
+        el.hidePillButton.checked = false;
+      }
+      await persistAndApply();
+    });
+
     el.hidePillButton.addEventListener("change", async () => {
       const nextChecked = el.hidePillButton.checked;
       if (nextChecked) {
@@ -698,6 +716,10 @@
         }
       }
       state.hidePillButton = nextChecked;
+      if (state.hidePillButton) {
+        state.keepPopupOpen = false;
+        el.keepPopupOpen.checked = false;
+      }
       await persistAndApply();
     });
 
@@ -913,6 +935,7 @@
     el.hideChatDonation.checked = state.hideChatDonation === true;
     el.restoreBlindedChat.checked = state.restoreBlindedChat === true;
     el.showChatTimestamp.checked = state.showChatTimestamp === true;
+    el.placeChatOnLeft.checked = state.placeChatOnLeft === true;
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
       state.showPopupRoleBadgesOnly === true;
@@ -924,6 +947,8 @@
     syncCustomSelect(el.chatFontScale);
     el.deleteWithoutConfirm.checked = state.deleteWithoutConfirm === true;
     el.hidePillButton.checked = state.hidePillButton === true;
+    el.keepPopupOpen.checked =
+      state.hidePillButton !== true && state.keepPopupOpen === true;
     el.pillGlowEnabled.checked = state.pillGlowEnabled === true;
     el.enableSessionCache.checked = state.enableSessionCache === true;
     if (el.clearCurrentChannelSession) {
@@ -1861,6 +1886,7 @@
       hideChatDonation: state.hideChatDonation === true,
       restoreBlindedChat: state.restoreBlindedChat === true,
       showChatTimestamp: state.showChatTimestamp === true,
+      placeChatOnLeft: state.placeChatOnLeft === true,
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
@@ -1868,6 +1894,8 @@
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
       hidePillButton: state.hidePillButton === true,
+      keepPopupOpen:
+        state.hidePillButton === true ? false : state.keepPopupOpen === true,
       pillGlowEnabled: state.pillGlowEnabled,
       enableSessionCache: state.enableSessionCache,
       newTrackedNicknames: forceTrackedNicknames,
@@ -1942,6 +1970,7 @@
     state.hideChatDonation = settings.hideChatDonation === true;
     state.restoreBlindedChat = settings.restoreBlindedChat === true;
     state.showChatTimestamp = settings.showChatTimestamp === true;
+    state.placeChatOnLeft = settings.placeChatOnLeft === true;
     state.enableChatWidthResize = settings.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
     state.showPopupRoleBadgesOnly =
@@ -1950,6 +1979,8 @@
     state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
     state.hidePillButton = settings.hidePillButton === true;
+    state.keepPopupOpen =
+      state.hidePillButton !== true && settings.keepPopupOpen === true;
     state.pillGlowEnabled = settings.pillGlowEnabled !== false;
     if (typeof settings.enableSessionCache === "boolean") {
       state.enableSessionCache = settings.enableSessionCache;
@@ -2075,6 +2106,7 @@
     state.hideChatDonation = raw.hideChatDonation === true;
     state.restoreBlindedChat = raw.restoreBlindedChat === true;
     state.showChatTimestamp = raw.showChatTimestamp === true;
+    state.placeChatOnLeft = raw.placeChatOnLeft === true;
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
@@ -2088,6 +2120,9 @@
       state.deleteWithoutConfirm = false;
     }
     state.hidePillButton = raw.hidePillButton === true;
+    state.keepPopupOpen =
+      state.hidePillButton !== true &&
+      (raw.keepPopupOpen === true || raw.keepPillExpanded === true);
     state.pillGlowEnabled = raw.pillGlowEnabled !== false;
     state.enableSessionCache = raw.enableSessionCache === true;
     state.autoPruneManagedHiddenOnReconnect =
@@ -2177,6 +2212,7 @@
     raw.hideChatDonation = state.hideChatDonation === true;
     raw.restoreBlindedChat = state.restoreBlindedChat === true;
     raw.showChatTimestamp = state.showChatTimestamp === true;
+    raw.placeChatOnLeft = state.placeChatOnLeft === true;
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
@@ -2185,6 +2221,9 @@
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
     delete raw.confirmDeleteDialog;
     raw.hidePillButton = state.hidePillButton === true;
+    raw.keepPopupOpen =
+      state.hidePillButton === true ? false : state.keepPopupOpen === true;
+    delete raw.keepPillExpanded;
     raw.pillGlowEnabled = state.pillGlowEnabled !== false;
     raw.enableSessionCache = state.enableSessionCache === true;
     raw.autoPruneManagedHiddenOnReconnect =

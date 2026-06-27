@@ -43,10 +43,12 @@
       showPopupRoleBadgesOnly: false,
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,
       chatFontScale: DEFAULT_CHAT_FONT_SCALE,
+      placeChatOnLeft: false,
       enableChatWidthResize: false,
       chatWidth: 0,
       deleteWithoutConfirm: false,
       hidePillButton: false,
+      keepPopupOpen: false,
       pillGlowEnabled: true,
       enableSessionCache: false,
     };

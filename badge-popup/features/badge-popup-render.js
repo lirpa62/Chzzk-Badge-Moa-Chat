@@ -19,11 +19,21 @@
       typeof deps.renderPill === "function" ? deps.renderPill : () => {};
     const renderListFn =
       typeof deps.renderList === "function" ? deps.renderList : () => {};
+    const openPopupFn =
+      typeof deps.openPopup === "function" ? deps.openPopup : () => {};
 
     applySettingsClassesFn();
     updatePopupPinStateUiFn();
     syncPillPositionForHeaderFn();
     renderPillFn();
+    if (
+      state?.settings?.keepPopupOpen === true &&
+      state?.settings?.hidePillButton !== true &&
+      !state.isOpen
+    ) {
+      openPopupFn();
+      return;
+    }
     if (state && state.isOpen) {
       renderListFn(false);
     }
@@ -459,7 +469,9 @@
       const ownHash = String(entry.authorUserIdHash || "").trim();
       const fallbackHash = ownHash
         ? ""
-        : String(nicknameHashMap.get(String(entry.nickname || "").trim()) || "").trim();
+        : String(
+            nicknameHashMap.get(String(entry.nickname || "").trim()) || "",
+          ).trim();
       const effectiveHash = ownHash || fallbackHash;
       const canOpenProfileCard =
         !!profileCardApi &&
@@ -477,7 +489,11 @@
         nickname.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          profileCardApi.openProfileCardForEntry(state, entryForClick, nickname);
+          profileCardApi.openProfileCardForEntry(
+            state,
+            entryForClick,
+            nickname,
+          );
         });
         nickname.addEventListener("keydown", (event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -684,6 +700,40 @@
       typeof deps.deleteEntriesByNickname === "function"
         ? deps.deleteEntriesByNickname
         : () => {};
+    const syncPopupContentHeightFn =
+      typeof deps.syncPopupContentHeight === "function"
+        ? deps.syncPopupContentHeight
+        : () => {};
+    const schedulePopupContentHeightSync = () => {
+      syncPopupContentHeightFn();
+      const requestFrame =
+        typeof window !== "undefined" &&
+        typeof window.requestAnimationFrame === "function"
+          ? window.requestAnimationFrame.bind(window)
+          : (callback) => setTimeout(callback, 0);
+      requestFrame(syncPopupContentHeightFn);
+      setTimeout(syncPopupContentHeightFn, 280);
+      if (typeof filterBar._chzzkBadgeMoaFilterTransitionEnd === "function") {
+        filterBar.removeEventListener(
+          "transitionend",
+          filterBar._chzzkBadgeMoaFilterTransitionEnd,
+        );
+      }
+      const onTransitionEnd = (event) => {
+        if (event.target !== filterBar) return;
+        if (
+          event.propertyName !== "max-height" &&
+          event.propertyName !== "padding-bottom"
+        ) {
+          return;
+        }
+        filterBar.removeEventListener("transitionend", onTransitionEnd);
+        filterBar._chzzkBadgeMoaFilterTransitionEnd = null;
+        syncPopupContentHeightFn();
+      };
+      filterBar._chzzkBadgeMoaFilterTransitionEnd = onTransitionEnd;
+      filterBar.addEventListener("transitionend", onTransitionEnd);
+    };
 
     filterBar.innerHTML = "";
 
@@ -799,11 +849,14 @@
 
     filterBar.appendChild(fragment);
     filterBar.classList.toggle("is-collapsed", state.filterBarCollapsed);
+    schedulePopupContentHeightSync();
   }
 
   function applyFilterBarMaxHeight(state) {
     const popup = state?.ui?.popup;
     const filterBar = state?.ui?.filterBar;
+    const head = state?.ui?.popupHead;
+    const resizer = state?.ui?.resizer;
     if (!popup || !filterBar) return;
 
     const popupHeight =
@@ -813,7 +866,13 @@
       return;
     }
 
-    const maxHeight = Math.max(44, Math.floor(popupHeight - 20));
+    const getHeight = (element) =>
+      element instanceof HTMLElement
+        ? Math.ceil(element.getBoundingClientRect().height || 0)
+        : 0;
+    const reservedHeight = getHeight(head) + getHeight(resizer) + 32;
+    const availableHeight = Math.floor(popupHeight - reservedHeight);
+    const maxHeight = Math.max(90, Math.min(220, availableHeight));
     filterBar.style.setProperty("--chzzk-filter-max-height", `${maxHeight}px`);
   }
 
@@ -867,6 +926,8 @@
         : (value) => String(value || "").trim();
     const renderPillFn =
       typeof deps.renderPill === "function" ? deps.renderPill : () => {};
+    const openPopupFn =
+      typeof deps.openPopup === "function" ? deps.openPopup : () => {};
     const renderSettingsPanelFn =
       typeof deps.renderSettingsPanel === "function"
         ? deps.renderSettingsPanel
@@ -1033,6 +1094,35 @@
           state.settings.enableChatWidthResize = checked;
           saveSettingsFn();
           applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "채팅창 왼쪽 배치",
+        state.settings.placeChatOnLeft,
+        (checked) => {
+          state.settings.placeChatOnLeft = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "모아보기 팝업창 항상 펼침",
+        state.settings.keepPopupOpen,
+        (checked) => {
+          state.settings.keepPopupOpen = checked;
+          if (checked) {
+            state.settings.hidePillButton = false;
+          }
+          saveSettingsFn();
+          applySettingsClassesFn();
+          renderPillFn();
+          if (checked) {
+            openPopupFn();
+          }
         },
       ),
     );

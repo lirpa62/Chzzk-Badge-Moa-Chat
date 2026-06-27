@@ -376,7 +376,38 @@
   }
 
   const PROFILE_CARD_WIDTH = 340;
+  const PROFILE_CARD_MIN_WIDTH = 180;
   const PROFILE_CARD_EDGE_GAP = 7;
+
+  function getNumericCssPixelValue(element, propertyName) {
+    if (!(element instanceof Element)) return 0;
+    const ownerWindow = element.ownerDocument?.defaultView || window;
+    const raw = ownerWindow
+      .getComputedStyle(element)
+      .getPropertyValue(propertyName);
+    const numeric = Number.parseFloat(String(raw || ""));
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function getProfileCardWidth(moaRect = null) {
+    const viewportWidth =
+      window.innerWidth || document.documentElement.clientWidth || PROFILE_CARD_WIDTH;
+    const candidates = [PROFILE_CARD_WIDTH, Math.max(1, viewportWidth - 16)];
+    if (moaRect && Number.isFinite(Number(moaRect.width))) {
+      candidates.push(Math.max(1, Number(moaRect.width) - PROFILE_CARD_EDGE_GAP * 2));
+    }
+    const root = document.documentElement;
+    const chatProfileWidth = getNumericCssPixelValue(
+      root,
+      "--chzzk-badge-moa-chat-profile-popup-width",
+    );
+    if (chatProfileWidth > 0) {
+      candidates.push(chatProfileWidth);
+    }
+
+    const width = Math.floor(Math.min(...candidates.filter((value) => value > 0)));
+    return Math.max(PROFILE_CARD_MIN_WIDTH, width);
+  }
 
   function positionPopup(popup, anchorElement, state) {
     const viewportWidth =
@@ -384,9 +415,11 @@
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
     const moaRect = getMoaPopupRect(state);
+    const cardWidth = getProfileCardWidth(moaRect);
 
-    popup.style.width = `${PROFILE_CARD_WIDTH}px`;
-    const popupWidth = popup.offsetWidth || PROFILE_CARD_WIDTH;
+    popup.style.width = `${cardWidth}px`;
+    popup.style.maxWidth = "calc(100vw - 16px)";
+    const popupWidth = popup.offsetWidth || cardWidth;
     const popupHeight = popup.offsetHeight || 220;
 
     let anchorRect = null;
@@ -476,7 +509,10 @@
       window.innerWidth || document.documentElement.clientWidth;
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
-    const popupWidth = activePopupRoot.offsetWidth || PROFILE_CARD_WIDTH;
+    const nextWidth = getProfileCardWidth(moaRect);
+    activePopupRoot.style.width = `${nextWidth}px`;
+    activePopupRoot.style.maxWidth = "calc(100vw - 16px)";
+    const popupWidth = activePopupRoot.offsetWidth || nextWidth;
     const popupHeight = activePopupRoot.offsetHeight || 220;
 
     let left = moaRect.left + activeRelativeOffset.relLeft;

@@ -326,6 +326,14 @@
       typeof deps.syncTrackedTargetsToInject === "function"
         ? deps.syncTrackedTargetsToInject
         : () => {};
+    const syncBlindCaptureToInjectFn =
+      typeof deps.syncBlindCaptureToInject === "function"
+        ? deps.syncBlindCaptureToInject
+        : () => {};
+    const syncChatTimestampToInjectFn =
+      typeof deps.syncChatTimestampToInject === "function"
+        ? deps.syncChatTimestampToInject
+        : () => {};
     const isSessionCacheEnabledFn =
       typeof deps.isSessionCacheEnabled === "function"
         ? deps.isSessionCacheEnabled
@@ -378,6 +386,8 @@
       state.settings = normalizeSettingsFn(nextRawSettings, state.settingsScopeKey);
       applyNicknameFilterStateFromSettingsFn();
       syncTrackedTargetsToInjectFn();
+      syncBlindCaptureToInjectFn();
+      syncChatTimestampToInjectFn();
 
       const nextCacheEnabled = isSessionCacheEnabledFn();
       if (!nextCacheEnabled) {

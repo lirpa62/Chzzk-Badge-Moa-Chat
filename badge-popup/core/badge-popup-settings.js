@@ -271,6 +271,7 @@
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
+    defaults.placeChatOnLeft = raw.placeChatOnLeft === true;
     defaults.enableChatWidthResize = raw.enableChatWidthResize === true;
     defaults.chatWidth = normalizeChatWidth(raw.chatWidth);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
@@ -281,6 +282,10 @@
       defaults.deleteWithoutConfirm = false;
     }
     defaults.hidePillButton = raw.hidePillButton === true;
+    defaults.keepPopupOpen =
+      raw.hidePillButton === true
+        ? false
+        : raw.keepPopupOpen === true || raw.keepPillExpanded === true;
     defaults.pillGlowEnabled = raw.pillGlowEnabled !== false;
     defaults.enableSessionCache = raw.enableSessionCache === true;
     return defaults;
@@ -421,10 +426,15 @@
         state.settings.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
+      placeChatOnLeft: state.settings.placeChatOnLeft === true,
       enableChatWidthResize: state.settings.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.settings.chatWidth),
       deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
       hidePillButton: state.settings.hidePillButton === true,
+      keepPopupOpen:
+        state.settings.hidePillButton === true
+          ? false
+          : state.settings.keepPopupOpen === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
       enableSessionCache: state.settings.enableSessionCache === true,
     };
@@ -515,10 +525,15 @@
           state.settings.showPopupRoleBadgesOnly === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
         chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
+        placeChatOnLeft: state.settings.placeChatOnLeft === true,
         enableChatWidthResize: state.settings.enableChatWidthResize === true,
         chatWidth: normalizeChatWidth(state.settings.chatWidth),
         deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
         hidePillButton: state.settings.hidePillButton === true,
+        keepPopupOpen:
+          state.settings.hidePillButton === true
+            ? false
+            : state.settings.keepPopupOpen === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
         enableSessionCache: state.settings.enableSessionCache === true,
         hiddenPillNicknames: Array.from(state.settings.hiddenPillNicknames || []),
@@ -607,6 +622,9 @@
     if (typeof source.showPopupRoleBadgesOnly === "boolean") {
       state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
     }
+    if (typeof source.placeChatOnLeft === "boolean") {
+      state.settings.placeChatOnLeft = source.placeChatOnLeft;
+    }
     if (typeof source.enableChatWidthResize === "boolean") {
       state.settings.enableChatWidthResize = source.enableChatWidthResize;
     }
@@ -635,6 +653,21 @@
     }
     if (typeof source.hidePillButton === "boolean") {
       state.settings.hidePillButton = source.hidePillButton;
+      if (state.settings.hidePillButton) {
+        state.settings.keepPopupOpen = false;
+      }
+    }
+    if (
+      typeof source.keepPopupOpen === "boolean" ||
+      typeof source.keepPillExpanded === "boolean"
+    ) {
+      const sourceKeepPopupOpen =
+        typeof source.keepPopupOpen === "boolean"
+          ? source.keepPopupOpen
+          : source.keepPillExpanded;
+      state.settings.keepPopupOpen =
+        sourceKeepPopupOpen === true &&
+        state.settings.hidePillButton !== true;
     }
     if (typeof source.pillGlowEnabled === "boolean") {
       state.settings.pillGlowEnabled = source.pillGlowEnabled;

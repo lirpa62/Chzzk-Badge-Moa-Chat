@@ -262,6 +262,8 @@
       normalizeSettings,
       applyNicknameFilterStateFromSettings,
       syncTrackedTargetsToInject,
+      syncBlindCaptureToInject,
+      syncChatTimestampToInject,
       isSessionCacheEnabled,
       clearPersistChannelCacheTimer,
       clearSessionCachesForCurrentTab,
@@ -911,6 +913,7 @@
       syncPillPositionForHeader,
       renderPill,
       renderList,
+      openPopup,
     });
   }
 
@@ -1028,6 +1031,7 @@
       saveSettings,
       renderList,
       deleteEntriesByNickname,
+      syncPopupContentHeight,
     });
   }
 
@@ -1048,6 +1052,7 @@
       getPillNicknameSettingItems,
       normalizeNickname,
       renderPill,
+      openPopup,
       renderSettingsPanel,
       addTrackedTarget,
       getTrackedTargetSettingItems,

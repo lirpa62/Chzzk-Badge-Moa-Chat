@@ -116,6 +116,7 @@
     const popup = state?.ui?.popup;
     const pill = state?.ui?.pill;
     if (!root || !popup || !pill) return;
+    if (!immediate && state.settings?.keepPopupOpen === true) return;
     if (!immediate && state.popupPinned) return;
 
     resolveConfirmDialogFn(false);
@@ -162,27 +163,38 @@
     const root = state?.ui?.root;
     const pinButton = state?.ui?.pinButton;
     const closeButton = state?.ui?.closeButton;
+    const keepPopupOpen = state?.settings?.keepPopupOpen === true;
     if (root) {
       root.classList.toggle("is-popup-pinned", state.popupPinned === true);
+      root.classList.toggle("is-popup-locked-open", keepPopupOpen);
     }
     if (pinButton) {
+      pinButton.disabled = keepPopupOpen;
       pinButton.setAttribute(
         "aria-pressed",
         String(state.popupPinned === true),
       );
       pinButton.setAttribute(
         "aria-label",
-        state.popupPinned ? "배지 채팅 팝업 고정 해제" : "배지 채팅 팝업 고정",
+        keepPopupOpen
+          ? "모아보기 팝업창 항상 펼침 사용 중"
+          : state.popupPinned
+            ? "배지 채팅 팝업 고정 해제"
+            : "배지 채팅 팝업 고정",
       );
-      pinButton.title = state.popupPinned
-        ? "고정됨 - 클릭하여 고정 해제"
-        : "팝업창 고정";
+      pinButton.title = keepPopupOpen
+        ? "항상 펼침 설정 중에는 고정핀을 사용할 수 없습니다"
+        : state.popupPinned
+          ? "고정됨 - 클릭하여 고정 해제"
+          : "팝업창 고정";
     }
     if (closeButton) {
-      closeButton.disabled = state.popupPinned === true;
-      closeButton.title = state.popupPinned
-        ? "고정 해제 후 닫기 가능"
-        : "팝업 닫기";
+      closeButton.disabled = keepPopupOpen || state.popupPinned === true;
+      closeButton.title = keepPopupOpen
+        ? "항상 펼침 설정 중에는 닫을 수 없습니다"
+        : state.popupPinned
+          ? "고정 해제 후 닫기 가능"
+          : "팝업 닫기";
     }
   }
 
@@ -853,6 +865,15 @@
     );
   }
 
+  function isChatAsideLeftPositionEnabled(state, aside) {
+    return (
+      state?.settings?.placeChatOnLeft === true &&
+      aside instanceof HTMLElement &&
+      aside.id === "aside-chatting" &&
+      !isStandaloneChatPopupAside(aside)
+    );
+  }
+
   function getEffectiveChatFontScale(doc, chatFontScale) {
     const numeric = Number(chatFontScale);
     if (!Number.isFinite(numeric)) return 1;
@@ -935,6 +956,10 @@
       "--chzzk-badge-moa-chat-profile-popup-width",
       `${Math.max(1, numeric - 12)}px`,
     );
+    root.style.setProperty(
+      "--chzzk-badge-moa-chat-popover-width",
+      `${Math.max(1, numeric - 16)}px`,
+    );
   }
 
   function resetChatResizeCssVars(aside, deps = {}) {
@@ -944,6 +969,7 @@
     if (!(root instanceof HTMLElement)) return;
     root.style.removeProperty("--chzzk-badge-moa-chat-resized-width");
     root.style.removeProperty("--chzzk-badge-moa-chat-profile-popup-width");
+    root.style.removeProperty("--chzzk-badge-moa-chat-popover-width");
   }
 
   function syncLiveMiniPlayerSize(aside, width, deps = {}) {
@@ -1230,10 +1256,15 @@
     const enabled = state?.settings?.enableChatWidthResize === true;
     const aside = findResizableChatAside(doc);
     const stackedLayout = isChatWidthStackedLayout(doc, aside);
+    const placeChatOnLeft = isChatAsideLeftPositionEnabled(state, aside);
     if (rootElement) {
       rootElement.classList.toggle(
         "chzzk-badge-moa-chat-width-resize-enabled",
         enabled && !stackedLayout && aside instanceof HTMLElement,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-chat-left-position",
+        placeChatOnLeft && !stackedLayout,
       );
     }
 
@@ -1313,8 +1344,9 @@
       if (!resizeState.active) return;
       event.preventDefault();
       const deltaX = Number(event.clientX || 0) - resizeState.startX;
+      const direction = isChatAsideLeftPositionEnabled(state, aside) ? 1 : -1;
       const dragMaxWidth = getMaxChatWidth(doc, deps, aside);
-      const nextWidth = clampChatWidth(resizeState.startWidth - deltaX, {
+      const nextWidth = clampChatWidth(resizeState.startWidth + deltaX * direction, {
         ...deps,
         maxWidth: dragMaxWidth,
       });
@@ -1430,6 +1462,18 @@
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-pill",
         state.settings.hidePillButton === true,
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-chat-left-position",
+        isChatAsideLeftPositionEnabled(
+          state,
+          findResizableChatAside(doc),
+        ) && !isChatWidthStackedLayout(doc),
+      );
+      rootElement.classList.toggle(
+        "chzzk-badge-moa-keep-popup-open",
+        state.settings.keepPopupOpen === true &&
+          state.settings.hidePillButton !== true,
       );
       rootElement.classList.toggle(
         "chzzk-badge-moa-hide-chat-ranking",
