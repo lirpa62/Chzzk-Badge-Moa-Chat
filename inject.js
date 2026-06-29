@@ -921,6 +921,12 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       const next = payload.enabled === true;
       if (next === restoreBlindedChat) return;
       restoreBlindedChat = next;
+      // 다른 확장이 기능 ON 여부를 즉시 감지할 수 있도록 <html>에 표식을 둔다
+      // (가려진 채팅이 올라오기 전에도 중복 동작을 피하게 함).
+      document.documentElement.classList.toggle(
+        "chzzk-badge-moa-restore-blind-enabled",
+        restoreBlindedChat,
+      );
       if (restoreBlindedChat) {
         ensureChatRowObserver();
         sweepExistingRows();
@@ -936,6 +942,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       const next = payload.enabled === true;
       if (next === showChatTimestamp) return;
       showChatTimestamp = next;
+      document.documentElement.classList.toggle(
+        "chzzk-badge-moa-chat-timestamp-enabled",
+        showChatTimestamp,
+      );
       if (showChatTimestamp) {
         ensureChatRowObserver();
         sweepExistingRows();
