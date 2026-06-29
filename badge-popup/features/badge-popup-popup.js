@@ -889,22 +889,41 @@
       targetAside instanceof HTMLElement
         ? targetAside
         : findResizableChatAside(scope);
+    if (!(aside instanceof HTMLElement)) return false;
+
+    const view = scope.defaultView || window;
+
+    // 1차: 영상/채팅을 감싸는 플렉스 래퍼(_wrapper_gzfy8_)가 세로(column)로 쌓였는지로
+    // 판정한다. 치지직이 @media (aspect-ratio <= 1/1) 에서 flex-direction:column 을
+    // 주므로, 우리가 채팅창 폭을 강제로 줄여 놨더라도 영향받지 않는 신뢰 가능한 신호다.
+    let node = aside.parentElement;
+    while (node instanceof HTMLElement && node !== scope.documentElement) {
+      const className = String(node.className || "");
+      if (className.includes("_wrapper_") || className.includes("layout-body")) {
+        const style = view.getComputedStyle
+          ? view.getComputedStyle(node)
+          : null;
+        if (style) {
+          const direction = String(style.flexDirection || "");
+          if (style.display.includes("flex") && direction.startsWith("column")) {
+            return true;
+          }
+        }
+      }
+      node = node.parentElement;
+    }
+
+    // 2차(폴백): 채팅 aside 가 콘텐츠 영역보다 아래에 위치하면 세로 배치로 본다.
+    // (폭 비교는 우리가 폭을 줄여 놓으면 깨지므로 위치만 본다.)
     const container = scope.querySelector(
       'div#layout-body[aria-label="콘텐츠"] section[class*="_container_"]',
     );
-    if (
-      !(aside instanceof HTMLElement) ||
-      !(container instanceof HTMLElement)
-    ) {
-      return false;
+    if (container instanceof HTMLElement) {
+      const asideRect = aside.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      if (asideRect.top > containerRect.top + 40) return true;
     }
-
-    const asideRect = aside.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const isBelowContent = asideRect.top > containerRect.top + 40;
-    const isFullWidth =
-      Number(asideRect.width || 0) >= Number(containerRect.width || 0) - 8;
-    return isBelowContent && isFullWidth;
+    return false;
   }
 
   function setChatAsideWidth(aside, width, deps = {}) {
@@ -1269,6 +1288,9 @@
     }
 
     if (!enabled || stackedLayout) {
+      // 세로(위아래) 배치에서는 조절된 폭이 남아 영상과 너비가 어긋나므로,
+      // resizeState.aside 가 비어 있어도 현재 aside 폭을 직접 원복한다.
+      if (stackedLayout) resetChatAsideWidth(aside);
       cleanupChatWidthResize(state, { document: doc, resetWidth: true });
       return;
     }
