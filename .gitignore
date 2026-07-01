@@ -50,4 +50,7 @@ Temporary Items
 .claude
 
 dist/*
-scripts
+scripts/*
+!scripts/*.sh
+Chzzk-Badge-Moa-Chat-Firefox/
+chzzk-badge-moa-chat-firefox/
