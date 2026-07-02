@@ -3208,7 +3208,10 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   transform: none !important;
 }
 
-/* 9. 닉네임 말줄임 처리 */
+/* 9. 닉네임 말줄임 처리 — 닉네임이 실제로 넘칠 때만 치지직 네이티브 말줄임이 동작하도록
+   min-width:0 만 보강한다. max-width/overflow/flex 를 강제로 덮어쓰면 하이라이트
+   (_has_highlight_dtc6c_: max-width calc(100% + 4px), margin -2px)가 무시돼 넘치지
+   않는 닉네임에도 말줄임표가 붙으므로 강제하지 않는다. */
 html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
@@ -3221,7 +3224,6 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   )
   [class*="_nickname_o04z9_"] {
   min-width: 0 !important;
-  max-width: 100% !important;
 }
 
 html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
@@ -3235,31 +3237,8 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
     [class*="_floating_"]
   )
   :is([class*="_ellipsis_dtc6c_"], [class*="_ellipsis2_dtc6c_"]) {
-  display: inline-flex !important;
   align-items: center !important;
   min-width: 0 !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  vertical-align: top !important;
-}
-
-html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
-  :is(aside#aside-chatting, aside#vod-aside)
-  :is(
-    :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
-    [class*="_floating_"]
-  )
-  :is([class*="_ellipsis_dtc6c_"], [class*="_ellipsis2_dtc6c_"])
-  > [class*="_text_dtc6c_"] {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
 }
 
 /* 10. flex min-width:0 전파(닉네임 잘림 방지) */
