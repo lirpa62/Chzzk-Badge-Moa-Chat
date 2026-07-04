@@ -101,8 +101,20 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     "메시지가 블라인드 처리되었습니다.",
     "클린봇이 부적절한 표현을 감지했습니다.",
   ];
+  // 채팅 행 셀렉터: 임베디드 라이브(live_chatting_list_item)/다시보기(vod_chatting_item)/
+  // 채팅 팝업(_item_)에서 행 클래스가 서로 다르므로 셋 다 포함해야 한다.
+  // closest()에 _item_ 만 쓰면 라이브/다시보기 임베디드 채팅에서 행을 못 찾아
+  // 재복원/원복이 동작하지 않는다.
+  const CHAT_ROW_SELECTOR =
+    "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']";
   let chatRowObserver = null;
   let chatRowObserverRetryTimer = null;
+  let chatObserverHealthTimer = null;
+  // 현재 옵저버가 붙어 있는 컨테이너들. 치지직 React가 URL 변화 없이 채팅 리스트
+  // 컨테이너를 교체(detach)하면 옵저버가 죽은 노드를 계속 보게 되어 이후 채팅이
+  // 처리되지 않는다(가려진 채팅 복원이 조용히 멈추는 원인). 이 배열로 건강 상태를
+  // 주기 점검해 새 컨테이너에 재부착한다.
+  let observedChatContainers = [];
   let blindRestoreWriting = false;
   // 행 → { placeholder, nickname }: OFF 시 원래 가림 문구로 되돌리기 위함.
   const restoredRowInfo = new WeakMap();
@@ -326,7 +338,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     document
       .querySelectorAll(".chzzk-badge-moa-blind-restored-text")
       .forEach((span) => {
-        const row = span.closest("[class*='_item_']");
+        const row = span.closest(CHAT_ROW_SELECTOR);
         const info = row ? restoredRowInfo.get(row) : null;
         blindRestoreWriting = true;
         try {
@@ -372,7 +384,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   function reapplyRestoreForTarget(target) {
     if (!restoreBlindedChat || blindRestoreWriting) return;
     if (!(target instanceof Element)) return;
-    const row = target.closest("[class*='_item_']");
+    const row = target.closest(CHAT_ROW_SELECTOR);
     if (!(row instanceof HTMLElement)) return;
     const info = restoredRowInfo.get(row);
     if (!info) return;
@@ -413,18 +425,15 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   function isChatRowNode(node) {
     if (!(node instanceof HTMLElement)) return false;
     return (
-      node.matches(
-        "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
-      ) && !!node.querySelector("[class*='_chatting_message_']")
+      node.matches(CHAT_ROW_SELECTOR) &&
+      !!node.querySelector("[class*='_chatting_message_']")
     );
   }
 
   function sweepExistingRows() {
     findChatListContainers().forEach((container) => {
       container
-        .querySelectorAll(
-          "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
-        )
+        .querySelectorAll(CHAT_ROW_SELECTOR)
         .forEach((row) => {
           if (row.querySelector("[class*='_chatting_message_']")) processRow(row);
         });
@@ -441,6 +450,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     clearChatRowObserverRetry();
     if (chatRowObserver) chatRowObserver.disconnect();
     chatRowObserver = new MutationObserver((mutations) => {
+      // 우리가 DOM을 쓰는 중이면(복원/원복) 그 변화가 다시 콜백을 트리거하지 않도록 건너뛴다.
+      if (blindRestoreWriting) return;
       for (const mutation of mutations) {
         if (mutation.type !== "childList") continue;
         if (mutation.target instanceof Element) {
@@ -452,9 +463,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
             processRow(node);
           } else {
             node
-              .querySelectorAll(
-                "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']",
-              )
+              .querySelectorAll(CHAT_ROW_SELECTOR)
               .forEach((row) => {
                 if (row.querySelector("[class*='_chatting_message_']")) {
                   processRow(row);
@@ -467,7 +476,33 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     containers.forEach((c) =>
       chatRowObserver.observe(c, { childList: true, subtree: true }),
     );
+    observedChatContainers = containers;
     sweepExistingRows();
+    ensureChatObserverHealthCheck();
+  }
+
+  // 감시 중인 컨테이너가 모두 아직 문서에 연결돼 있고, 현재 찾아지는 컨테이너 집합과
+  // 동일한지 확인한다(개수/구성 변화 포함). 달라졌으면 컨테이너가 교체된 것.
+  function isChatObserverHealthy() {
+    if (!chatRowObserver || observedChatContainers.length === 0) return false;
+    if (observedChatContainers.some((c) => !c.isConnected)) return false;
+    const current = findChatListContainers();
+    if (current.length !== observedChatContainers.length) return false;
+    return current.every((c) => observedChatContainers.includes(c));
+  }
+
+  // URL 변화 없이 React가 채팅 컨테이너를 교체한 경우를 대비해 주기적으로 점검하고
+  // 필요하면 새 컨테이너에 재부착한다.
+  function ensureChatObserverHealthCheck() {
+    if (chatObserverHealthTimer) return;
+    chatObserverHealthTimer = setInterval(() => {
+      if (!restoreBlindedChat && !showChatTimestamp) {
+        clearInterval(chatObserverHealthTimer);
+        chatObserverHealthTimer = null;
+        return;
+      }
+      if (!isChatObserverHealthy()) ensureChatRowObserver();
+    }, 1000);
   }
 
   function scheduleChatRowObserverRetry() {
@@ -489,9 +524,14 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (!restoreBlindedChat && !showChatTimestamp && chatRowObserver) {
       chatRowObserver.disconnect();
       chatRowObserver = null;
+      observedChatContainers = [];
     }
     if (!restoreBlindedChat && !showChatTimestamp) {
       clearChatRowObserverRetry();
+      if (chatObserverHealthTimer) {
+        clearInterval(chatObserverHealthTimer);
+        chatObserverHealthTimer = null;
+      }
     }
   }
 
