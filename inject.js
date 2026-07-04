@@ -118,6 +118,37 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   let blindRestoreWriting = false;
   // 행 → { placeholder, nickname }: OFF 시 원래 가림 문구로 되돌리기 위함.
   const restoredRowInfo = new WeakMap();
+  // 원문 캐시: 메시지가 가려지면 치지직 React가 props의 원문(content)을 비울 수 있어
+  // 복원 시점엔 readChatOriginal 이 null 을 돌려주기도 한다. 가려지기 전 미리 원문을
+  // (userId|time 키로) 캐시해 두고, 복원 시 props에 없으면 이 캐시에서 꺼낸다.
+  const originalMsgCache = new Map();
+  const ORIGINAL_CACHE_MAX = 800; // 오래된 항목부터 버려 메모리 상한 유지
+
+  function chatCacheKey(chatMessage) {
+    if (!chatMessage || typeof chatMessage !== "object") return "";
+    const uid =
+      chatMessage.userId ||
+      chatMessage.uid ||
+      chatMessage.userIdHash ||
+      chatMessage.senderId ||
+      "";
+    const t = readChatEpochMs(chatMessage);
+    if (!uid || !t) return "";
+    return `${uid}|${t}`;
+  }
+
+  function cacheOriginalMessage(chatMessage) {
+    const key = chatCacheKey(chatMessage);
+    if (!key || originalMsgCache.has(key)) return;
+    const original = readChatOriginal(chatMessage);
+    if (!original || !original.text) return;
+    originalMsgCache.set(key, original);
+    if (originalMsgCache.size > ORIGINAL_CACHE_MAX) {
+      // 가장 오래된 항목 하나 제거(Map 은 삽입 순서 유지).
+      const firstKey = originalMsgCache.keys().next().value;
+      if (firstKey !== undefined) originalMsgCache.delete(firstKey);
+    }
+  }
 
   function getReactProps(node) {
     if (node == null) return null;
@@ -370,11 +401,21 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       if (epoch) applyTimestamp(row, epoch);
     }
 
+    // 복원 기능이 켜져 있으면, 아직 안 가려진 행의 원문을 미리 캐시해 둔다(가려진 뒤엔
+    // props의 원문이 비워질 수 있어 그때 읽으면 늦다).
+    if (restoreBlindedChat && !isHiddenRow(row)) {
+      cacheOriginalMessage(chatMessage);
+    }
+
     if (restoreBlindedChat && isHiddenRow(row)) {
       const span = getRowMessageSpan(row);
       // 이미 복원된 행이면 skip(클래스로 식별)
       if (span && !span.classList.contains("chzzk-badge-moa-blind-restored-text")) {
-        const original = readChatOriginal(chatMessage);
+        // props에 원문이 있으면 그걸, 없으면(치지직이 비웠으면) 캐시에서 꺼낸다.
+        const original =
+          readChatOriginal(chatMessage) ||
+          originalMsgCache.get(chatCacheKey(chatMessage)) ||
+          null;
         if (original) applyRestore(row, original);
       }
     }
@@ -398,7 +439,11 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     const current = String(span.textContent || "").trim();
     if (BLIND_PLACEHOLDER_TEXTS.includes(current)) {
       const chatMessage = getChatMessage(row);
-      const original = chatMessage ? readChatOriginal(chatMessage) : null;
+      const original = chatMessage
+        ? readChatOriginal(chatMessage) ||
+          originalMsgCache.get(chatCacheKey(chatMessage)) ||
+          null
+        : null;
       if (original) applyRestore(row, original);
     }
   }
