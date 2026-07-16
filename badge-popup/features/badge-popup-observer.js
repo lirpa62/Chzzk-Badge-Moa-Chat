@@ -355,7 +355,24 @@
         break;
       }
       const currentChannelId = normalizeChannelId(state.resolvedChannelId);
-      if (isStableChannelId(currentChannelId) && payload) {
+      // 이 탭이 아직 자기 채널을 확정하지 못했으면 append 를 보류한다. 확정 전에 붙이면
+      // 채널 없는 이벤트(미션 등)나 초기 채팅이 엉뚱한 채널로 귀속돼 캐시가 오염된다.
+      // 남은 payload 는 큐에 되돌려 두고, 채널이 잡히는 다음 flush(다음 수신 메시지나
+      // 위치 변경 시 자동 호출)에서 처리한다. 채널이 끝내 안 잡히는 경우(예: 홈)를 대비해
+      // 보류 큐 크기를 상한으로 제한한다.
+      if (!isStableChannelId(currentChannelId)) {
+        const remaining = queue.slice(i);
+        if (remaining.length > 0) {
+          const HELD_QUEUE_MAX = Number(deps.MAX_KEEP_ENTRIES) || 500;
+          const trimmed =
+            remaining.length > HELD_QUEUE_MAX
+              ? remaining.slice(remaining.length - HELD_QUEUE_MAX)
+              : remaining;
+          state.incoming.queue.unshift(...trimmed);
+        }
+        break;
+      }
+      if (payload) {
         const payloadChannelId = normalizeChannelId(
           payload.streamingChannelId || payload.channelId || "",
         );

@@ -220,6 +220,16 @@
 
     const authorUserIdHash = normalizeAuthorUserIdHash(payload.authorUserIdHash);
 
+    // 엔트리에 소속 채널 도장을 박는다. payload 에 채널이 있으면 그걸, 없으면(미션 등
+    // 채널 없는 이벤트) 이 탭이 확정한 채널로 귀속시킨다. 이 값으로 캐시 복원/저장 시
+    // 다른 채널 엔트리가 섞이는 것을 걸러낸다.
+    const entryChannelId = normalizeEntryChannelId(
+      payload.streamingChannelId ||
+        payload.channelId ||
+        state.resolvedChannelId ||
+        "",
+    );
+
     return {
       dedupeKey,
       timestamp,
@@ -236,8 +246,15 @@
       typeLabel: entryTypeMeta.pillLabel,
       typeTone: entryTypeMeta.pillTone,
       authorUserIdHash,
+      channelId: entryChannelId,
       sequence: state.sequence++,
     };
+  }
+
+  function normalizeEntryChannelId(value) {
+    const trimmed = String(value || "").trim();
+    if (!/^[a-f0-9]{32}$/i.test(trimmed)) return "";
+    return trimmed.toLowerCase();
   }
 
   function normalizeAuthorUserIdHash(value) {

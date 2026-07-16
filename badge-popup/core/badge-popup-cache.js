@@ -56,6 +56,31 @@
     return keys[0] || "";
   }
 
+  // 캐시 저장키(`...channel:{id}`)에서 채널 id 만 뽑는다.
+  function channelIdFromCacheStorageKey(storageKey) {
+    const raw = String(storageKey || "");
+    const marker = "channel:";
+    const idx = raw.lastIndexOf(marker);
+    if (idx === -1) return "";
+    const id = raw.slice(idx + marker.length).trim().toLowerCase();
+    return /^[a-f0-9]{32}$/i.test(id) ? id : "";
+  }
+
+  // 대상 채널과 다른 채널 도장이 찍힌 엔트리를 제거한다(오염 방지/자가 정화).
+  // 채널 도장이 없는 과거 엔트리(구버전 캐시)는 판단 불가라 통과시킨다.
+  function filterEntriesByTargetChannel(entries, targetChannelId) {
+    if (!Array.isArray(entries)) return [];
+    const target = String(targetChannelId || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{32}$/i.test(target)) return entries;
+    return entries.filter((entry) => {
+      const entryChannelId = String(entry && entry.channelId ? entry.channelId : "")
+        .trim()
+        .toLowerCase();
+      if (!/^[a-f0-9]{32}$/i.test(entryChannelId)) return true;
+      return entryChannelId === target;
+    });
+  }
+
   function clearPersistChannelCacheTimer(state) {
     if (state.cache.saveTimer) {
       clearTimeout(state.cache.saveTimer);
@@ -112,9 +137,25 @@
       }
     }
 
-    const mergedEntries = mergeCachedEntries(
-      Array.isArray(existing && existing.entries) ? existing.entries : [],
-      localEntries,
+    // 저장 대상 채널: 실제로 쓰는 키(storageKeys[0])의 채널.
+    const targetChannelId =
+      channelIdFromCacheStorageKey(storageKeys[0]) ||
+      normalizeChannelId(
+        channelIdCandidate == null ? state.resolvedChannelId : channelIdCandidate,
+      )
+        .trim()
+        .toLowerCase();
+
+    // 로컬/기존 캐시 양쪽에서 다른 채널 도장이 찍힌 엔트리를 걸러낸다(오염 차단 + 자가 정화).
+    const mergedEntries = filterEntriesByTargetChannel(
+      mergeCachedEntries(
+        filterEntriesByTargetChannel(
+          Array.isArray(existing && existing.entries) ? existing.entries : [],
+          targetChannelId,
+        ),
+        filterEntriesByTargetChannel(localEntries, targetChannelId),
+      ),
+      targetChannelId,
     );
     const mergedUnseen = mergeCachedUnseen(
       existing && existing.unseen,
@@ -271,23 +312,32 @@
         ? deps.getStorageValue
         : async () => null;
     let cached = null;
+    let matchedStorageKey = "";
     for (const storageKey of storageKeys) {
       const value = await getStorageValueFn(storageKey, "session");
       if (!value || typeof value !== "object") continue;
       cached = value;
+      matchedStorageKey = storageKey;
       break;
     }
     if (token !== state.cache.restoreToken) return;
+
+    // 이 캐시가 소속된 채널: 저장키에서 뽑거나, 없으면 캐시에 기록된 channelId.
+    const targetChannelId =
+      channelIdFromCacheStorageKey(matchedStorageKey) ||
+      String((cached && cached.channelId) || "").trim().toLowerCase();
 
     const normalizeCachedEntryFn =
       typeof deps.normalizeCachedEntry === "function"
         ? deps.normalizeCachedEntry
         : () => null;
     const rawEntries = Array.isArray(cached && cached.entries) ? cached.entries : [];
-    const restoredEntries = rawEntries
-      .map((entry, index) => normalizeCachedEntryFn(entry, index))
-      .filter((entry) => !!entry)
-      .sort((a, b) => a.timestamp - b.timestamp || a.sequence - b.sequence);
+    const restoredEntries = filterEntriesByTargetChannel(
+      rawEntries
+        .map((entry, index) => normalizeCachedEntryFn(entry, index))
+        .filter((entry) => !!entry),
+      targetChannelId,
+    ).sort((a, b) => a.timestamp - b.timestamp || a.sequence - b.sequence);
 
     if (restoredEntries.length > MAX_KEEP_ENTRIES) {
       restoredEntries.splice(0, restoredEntries.length - MAX_KEEP_ENTRIES);
@@ -455,6 +505,11 @@
     if (authorUserIdHash && /^[a-f0-9]{32}$/i.test(authorUserIdHash)) {
       serialized.authorUserIdHash = authorUserIdHash.toLowerCase();
     }
+    // 엔트리 소속 채널 도장(유효한 32자 hex일 때만) — 복원/저장 시 채널 검증에 쓴다.
+    const entryChannelId = String(entry.channelId || "").trim();
+    if (entryChannelId && /^[a-f0-9]{32}$/i.test(entryChannelId)) {
+      serialized.channelId = entryChannelId.toLowerCase();
+    }
     return serialized;
   }
 
@@ -515,6 +570,11 @@
     } else {
       restored.authorUserIdHash = "";
     }
+    const rawChannelId = String(rawEntry.channelId || "").trim();
+    restored.channelId =
+      rawChannelId && /^[a-f0-9]{32}$/i.test(rawChannelId)
+        ? rawChannelId.toLowerCase()
+        : "";
     return restored;
   }
 

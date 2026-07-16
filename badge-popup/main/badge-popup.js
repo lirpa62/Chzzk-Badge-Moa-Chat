@@ -310,6 +310,7 @@
       render,
       normalizeChannelId,
       isStableChannelId,
+      MAX_KEEP_ENTRIES,
     });
   }
 
