@@ -185,7 +185,6 @@
       onWindowMessage,
       onWindowResize,
       onPageHide,
-      onWindowUnload,
       onDocumentMouseDown,
       onStorageChanged,
       onAsideResize,
@@ -223,11 +222,6 @@
       clearPersistChannelCacheTimer,
       isSessionCacheEnabled,
       persistChannelCacheNow,
-    });
-  }
-
-  function onWindowUnload() {
-    lifecycleApi.onWindowUnload(state, {
       unbindEvents,
     });
   }
@@ -246,7 +240,6 @@
       onWindowMessage,
       onWindowResize,
       onPageHide,
-      onWindowUnload,
       onDocumentMouseDown,
       onStorageChanged,
     });

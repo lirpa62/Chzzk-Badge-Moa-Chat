@@ -96,8 +96,6 @@
       typeof deps.onWindowResize === "function" ? deps.onWindowResize : () => {};
     const onPageHide =
       typeof deps.onPageHide === "function" ? deps.onPageHide : () => {};
-    const onWindowUnload =
-      typeof deps.onWindowUnload === "function" ? deps.onWindowUnload : () => {};
     const onDocumentMouseDown =
       typeof deps.onDocumentMouseDown === "function"
         ? deps.onDocumentMouseDown
@@ -108,7 +106,6 @@
     windowObj.addEventListener("message", onWindowMessage);
     windowObj.addEventListener("resize", onWindowResize);
     windowObj.addEventListener("pagehide", onPageHide);
-    windowObj.addEventListener("unload", onWindowUnload);
     documentObj.addEventListener("mousedown", onDocumentMouseDown, true);
 
     if (
@@ -227,8 +224,6 @@
       typeof deps.onWindowResize === "function" ? deps.onWindowResize : () => {};
     const onPageHide =
       typeof deps.onPageHide === "function" ? deps.onPageHide : () => {};
-    const onWindowUnload =
-      typeof deps.onWindowUnload === "function" ? deps.onWindowUnload : () => {};
     const onDocumentMouseDown =
       typeof deps.onDocumentMouseDown === "function"
         ? deps.onDocumentMouseDown
@@ -239,7 +234,6 @@
     windowObj.removeEventListener("message", onWindowMessage);
     windowObj.removeEventListener("resize", onWindowResize);
     windowObj.removeEventListener("pagehide", onPageHide);
-    windowObj.removeEventListener("unload", onWindowUnload);
     documentObj.removeEventListener("mousedown", onDocumentMouseDown, true);
 
     if (
@@ -278,15 +272,16 @@
       typeof deps.persistChannelCacheNow === "function"
         ? deps.persistChannelCacheNow
         : () => {};
-
-    clearPersistChannelCacheTimerFn();
-    if (!isSessionCacheEnabledFn()) return;
-    persistChannelCacheNowFn();
-  }
-
-  function onWindowUnload(state, deps = {}) {
+    // 리스너/옵저버 정리는 예전에 'unload'에서 했지만, 치지직 Permissions-Policy가
+    // unload 를 금지해 콘솔 경고가 뜬다. pagehide 는 허용되고 동일한 종료 시점을
+    // (bfcache 포함) 커버하므로 여기서 정리한다.
     const unbindEventsFn =
       typeof deps.unbindEvents === "function" ? deps.unbindEvents : () => {};
+
+    clearPersistChannelCacheTimerFn();
+    if (isSessionCacheEnabledFn()) {
+      persistChannelCacheNowFn();
+    }
     unbindEventsFn();
   }
 
@@ -476,7 +471,6 @@
     bindEvents,
     unbindEvents,
     onPageHide,
-    onWindowUnload,
     onWindowResize,
     onStorageChanged,
     onDocumentMouseDown,

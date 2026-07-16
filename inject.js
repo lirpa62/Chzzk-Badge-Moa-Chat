@@ -1859,10 +1859,16 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       bdy.donationType === "MISSION" ||
       type === "DONATION_MISSION_IN_PROGRESS"
     ) {
-      // 3-1. 미션 참여(PARTICIPATION)는 93006에서 무시 (93102 채팅 패킷으로 처리)
+      // 3-1. 미션 참여(PARTICIPATION)는 93006에서 무시 (93102 채팅 패킷으로 처리).
+      // 참여는 개인 채팅(93102)이라 프로필·역할이 있어 역할 기반 필터가 그쪽에서 동작한다.
       if (bdy.missionDonationType === "PARTICIPATION") {
         return;
       }
+
+      // 미션 등록/진행/결과/거절은 채널 전체에 공개되는 이벤트(진행 중인 미션)이고
+      // 익명이면 nickname 조차 null 이라 역할 기반 필터로는 식별할 신원 정보가 없다.
+      // 따라서 이 계열은 개인 채팅이 아니라 이벤트로 보고, 대상 필터 없이 항상 수집한다.
+      // (참여 미션만 위에서 93102 로 넘겨 역할 필터를 유지한다.)
 
       // 3-2. 최초 미션 등록 (PENDING)
       if (bdy.status === "PENDING") {
@@ -1879,7 +1885,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
               message: bdy.missionText,
             });
 
-        postArchiveMessageIfTarget({
+        postArchiveMessage("CHZZK_CHAT_LOG", {
           uniqueKey: uniqueKey,
           nickname: nickname,
           message: bdy.missionText,
@@ -1897,7 +1903,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       // 3-3. 미션 결과 (COMPLETED) - 성공/실패/취소
       else if (bdy.status === "COMPLETED") {
         // 시스템 로그로 처리
-        postArchiveMessageIfTarget({
+        postArchiveMessage("CHZZK_CHAT_LOG", {
           uniqueKey: `SYSTEM_MISSION_${bdy.missionDonationId}_${timestamp}`,
           nickname: "미션 결과",
           message: bdy.missionText,
@@ -1916,7 +1922,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       }
       // 3-3. 미션 거절 (REJECTED)
       else if (bdy.status === "REJECTED") {
-        postArchiveMessageIfTarget({
+        postArchiveMessage("CHZZK_CHAT_LOG", {
           uniqueKey: `SYSTEM_MISSION_REJECTED_${bdy.missionDonationId}_${timestamp}`,
           nickname: "미션 거절",
           message: bdy.missionText,

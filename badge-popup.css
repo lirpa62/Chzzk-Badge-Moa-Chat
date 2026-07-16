@@ -1,3 +1,96 @@
+/* ── 치지직 색상 변수 폴백(테마 대응) ──────────────────────────────────────────
+   치지직이 색상 변수명을 개편(--Surface-Neutral-Base → --sem-color-surface-neutral-base
+   등, PascalCase → sem-color- 소문자)했다. 우리 CSS 는 이제
+   var(--sem-color-*, var(--chzzk-badge-moa-c-*)) 형태로 참조한다.
+   - 치지직 새 변수가 있으면 그걸 쓰고,
+   - 없거나 또 바뀌면 아래 우리 폴백 토큰이 라이트/다크를 자동 전환한다.
+   (치지직은 다크에서 상위 요소에 .theme_dark 를 붙인다. data-theme/color-scheme 도 대응) */
+:root {
+  --chzzk-badge-moa-c-surface-neutral-base: #e1e1e5;
+  --chzzk-badge-moa-c-surface-neutral-weak: rgba(0, 0, 0, 0.05);
+  --chzzk-badge-moa-c-surface-neutral-weaker: #fff;
+  --chzzk-badge-moa-c-surface-neutral-weakest: #f4f4f6;
+  --chzzk-badge-moa-c-surface-neutral-strong: #d4d7dc;
+  --chzzk-badge-moa-c-surface-neutral-strongest: #c0c1c2;
+  --chzzk-badge-moa-c-surface-neutral-subtle: #e8e9eb;
+  --chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static: rgba(
+    0,
+    0,
+    0,
+    0.05
+  );
+  --chzzk-badge-moa-c-surface-interaction-lighten-hovered: rgba(0, 0, 0, 0.05);
+  --chzzk-badge-moa-c-surface-brand-weaker: #d1f0e3;
+  --chzzk-badge-moa-c-border-neutral-base: #c0c1c2;
+  --chzzk-badge-moa-c-border-neutral-weak: #d4d5d7;
+  --chzzk-badge-moa-c-border-neutral-weaker: rgba(0, 0, 0, 0.08);
+  --chzzk-badge-moa-c-content-neutral-primary-static: #fff;
+  --chzzk-badge-moa-c-content-neutral-inverse: #fff;
+  --chzzk-badge-moa-c-content-neutral-cool-base: #4d4d4d;
+  --chzzk-badge-moa-c-content-neutral-cool-strong: #2e3033;
+  --chzzk-badge-moa-c-content-neutral-cool-strong-rgb: 46, 48, 51;
+  --chzzk-badge-moa-c-content-neutral-cool-stronger: #202224;
+  --chzzk-badge-moa-c-content-brand-base-static: #168f5c;
+  --chzzk-badge-moa-c-content-brand-strong: #23815a;
+  --chzzk-badge-moa-c-content-accent-cheese-static: #f2da00;
+  --chzzk-badge-moa-c-content-neutral-alpha-stronger-static: #fffc;
+  --chzzk-badge-moa-c-content-01: #141517;
+  --chzzk-badge-moa-c-content-02: #2e3033;
+  --chzzk-badge-moa-c-content-03: #4d4d4d;
+  --chzzk-badge-moa-c-content-04: #666;
+  /* 기능 색상(도네/구독): 라이트/다크 공통 반투명이라 그대로 둔다 */
+  --chzzk-badge-moa-c-surface-function-donation-brick: #c54952;
+  --chzzk-badge-moa-c-surface-function-donation-camel: #d18e3c;
+  --chzzk-badge-moa-c-surface-function-donation-cyan: #2d7b8b;
+  --chzzk-badge-moa-c-surface-function-donation-green: #23815a;
+  --chzzk-badge-moa-c-surface-function-donation-dark-violet: #574fa8;
+  --chzzk-badge-moa-c-surface-function-donation-neutral: #838383;
+  --chzzk-badge-moa-c-surface-function-subscribe-tier1: #3e34af;
+  --chzzk-badge-moa-c-ref-color-brand-neon-65: #00b272;
+  --chzzk-badge-moa-c-ref-color-red-60: #c00;
+}
+
+html.theme_dark,
+html[data-theme="dark"],
+html[style*="color-scheme: dark"] {
+  --chzzk-badge-moa-c-surface-neutral-base: #2e3033;
+  --chzzk-badge-moa-c-surface-neutral-weak: rgba(255, 255, 255, 0.06);
+  --chzzk-badge-moa-c-surface-neutral-weaker: #1c1d1f;
+  --chzzk-badge-moa-c-surface-neutral-weakest: #222325;
+  --chzzk-badge-moa-c-surface-neutral-strong: #4a5161;
+  --chzzk-badge-moa-c-surface-neutral-strongest: #697183;
+  --chzzk-badge-moa-c-surface-neutral-subtle: #2a2c2f;
+  --chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static: rgba(
+    0,
+    0,
+    0,
+    0.28
+  );
+  --chzzk-badge-moa-c-surface-interaction-lighten-hovered: rgba(
+    255,
+    255,
+    255,
+    0.05
+  );
+  --chzzk-badge-moa-c-surface-brand-weaker: #006641;
+  --chzzk-badge-moa-c-border-neutral-base: #4d4d4d;
+  --chzzk-badge-moa-c-border-neutral-weak: #3a3c3f;
+  --chzzk-badge-moa-c-border-neutral-weaker: rgba(255, 255, 255, 0.12);
+  --chzzk-badge-moa-c-content-neutral-primary-static: #fff;
+  --chzzk-badge-moa-c-content-neutral-inverse: #141517;
+  --chzzk-badge-moa-c-content-neutral-cool-base: #9da5b6;
+  --chzzk-badge-moa-c-content-neutral-cool-strong: #c9cedc;
+  --chzzk-badge-moa-c-content-neutral-cool-strong-rgb: 201, 206, 220;
+  --chzzk-badge-moa-c-content-neutral-cool-stronger: #dfe2ea;
+  --chzzk-badge-moa-c-content-brand-base-static: #00e693;
+  --chzzk-badge-moa-c-content-brand-strong: #00ffa3;
+  --chzzk-badge-moa-c-content-accent-cheese-static: #ffb200;
+  --chzzk-badge-moa-c-content-01: #fff;
+  --chzzk-badge-moa-c-content-02: #dfe2ea;
+  --chzzk-badge-moa-c-content-03: #cad0db;
+  --chzzk-badge-moa-c-content-04: #9da5b6;
+}
+
 .chzzk-badge-moa-root {
   position: absolute;
   inset: 0;
@@ -7,7 +100,10 @@
 
 .chzzk-badge-moa-pill {
   --pill-bg: rgba(255, 148, 183, 0.24);
-  --pill-text-color: var(--Content-Neutral-Primary-Static, #fff);
+  --pill-text-color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
   --pill-border-color: rgba(255, 255, 255, 0.32);
   --pill-hover-bg: rgba(255, 170, 198, 0.3);
   --pill-backdrop: blur(12px) saturate(120%);
@@ -18,7 +114,10 @@
     0 6px 18px rgba(31, 38, 135, 0.3),
     inset 0 14px 16px -8px rgba(255, 255, 255, 0.42);
   --pill-count-bg: rgba(255, 255, 255, 0.2);
-  --pill-count-color: var(--Content-Neutral-Primary-Static, #fff);
+  --pill-count-color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
   --pill-count-border: rgba(255, 255, 255, 0.28);
   --pill-roll-color: rgba(255, 235, 244, 0.95);
   --pill-glow-ring-color: rgba(255, 255, 255, 0.24);
@@ -221,7 +320,10 @@ html[style*="color-scheme: dark"] .chzzk-badge-moa-pill.is-attention::before {
 .chzzk-badge-moa-root.has-unseen .chzzk-badge-moa-pill-count {
   border-color: rgba(255, 255, 255, 0.42);
   background: rgba(255, 74, 124, 0.76);
-  color: var(--Content-Neutral-Primary-Static, #fff);
+  color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
 }
 
 html.theme_dark .chzzk-badge-moa-pill.is-empty,
@@ -396,8 +498,15 @@ html[style*="color-scheme: dark"]
   top: calc(100% - 1px);
   left: 0;
   width: 100%;
-  background: var(--Surface-Neutral-Weaker);
-  border: 1px solid var(--Border-Neutral-Weaker);
+  background: var(
+    --sem-color-surface-neutral-weaker,
+    var(--chzzk-badge-moa-c-surface-neutral-weaker)
+  );
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
   border-top: 0;
   border-radius: 10px;
   overflow: hidden;
@@ -441,11 +550,18 @@ html[style*="color-scheme: dark"]
   position: relative;
   width: min(92vw, 320px);
   border-radius: 12px;
-  border: 1px solid var(--Border-Neutral-Weaker, rgba(255, 255, 255, 0.16));
-  background: var(--Surface-Neutral-Base, rgba(34, 34, 34, 0.98));
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+  background: var(
+    --sem-color-surface-neutral-base,
+    var(--chzzk-badge-moa-c-surface-neutral-base)
+  );
   box-shadow: 0 20px 36px rgba(0, 0, 0, 0.4);
   padding: 14px 14px 12px;
-  color: var(--color-content-01);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -459,7 +575,7 @@ html[style*="color-scheme: dark"]
 
 .chzzk-badge-moa-confirm-message {
   margin: 0;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 11px;
   line-height: calc(12px * var(--popup-font-scale, 1));
   white-space: pre-wrap;
@@ -476,17 +592,27 @@ html[style*="color-scheme: dark"]
 .chzzk-badge-moa-confirm-btn {
   height: 28px;
   border-radius: 8px;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Weak);
-  color: var(--color-content-02);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 11px;
   padding: 0 10px;
   cursor: pointer;
 }
 
 .chzzk-badge-moa-confirm-btn:hover {
-  color: var(--color-content-01);
-  border-color: var(--Border-Neutral-Base);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  border-color: var(
+    --sem-color-border-neutral-base,
+    var(--chzzk-badge-moa-c-border-neutral-base)
+  );
   background: var(
     --Surface-Interaction-Lighten-Hovered,
     rgba(127, 127, 127, 0.2)
@@ -541,8 +667,11 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
   gap: 6px;
   padding: 6px 10px;
   border-bottom: 1px solid
-    var(--Border-Neutral-Weaker, rgba(255, 255, 255, 0.12));
-  color: var(--color-content-02);
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   flex: 0 0 auto;
 }
 
@@ -594,7 +723,10 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
   gap: 2px;
   padding: 2px;
   border-radius: 7px;
-  background: var(--Surface-Neutral-Weak);
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
 }
 
 .chzzk-badge-moa-view-mode-btn,
@@ -603,7 +735,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 .chzzk-badge-moa-popup-filter-toggle,
 .chzzk-badge-moa-popup-settings-toggle {
   border: 0;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -641,7 +773,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
     Arial,
     sans-serif;
   font-size: 11px;
-  color: var(--color-content-03);
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -669,7 +801,10 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 .chzzk-badge-moa-popup-filter-toggle {
   height: 26px;
   border-radius: 7px;
-  background: var(--Surface-Neutral-Weak);
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
   font-family:
     "Escoredream",
     "Pretendard Variable",
@@ -700,14 +835,14 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 .chzzk-badge-moa-popup-pin:disabled {
   opacity: 0.48;
   cursor: not-allowed;
-  color: var(--color-content-04);
+  color: var(--color-content-04, var(--chzzk-badge-moa-c-content-04));
   background: transparent;
   box-shadow: none;
 }
 
 .chzzk-badge-moa-popup-close:disabled:hover,
 .chzzk-badge-moa-popup-pin:disabled:hover {
-  color: var(--color-content-04);
+  color: var(--color-content-04, var(--chzzk-badge-moa-c-content-04));
   background: transparent;
   box-shadow: none;
 }
@@ -716,8 +851,11 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 .chzzk-badge-moa-popup-pin[aria-pressed="true"],
 .chzzk-badge-moa-popup-filter-toggle[aria-expanded="true"],
 .chzzk-badge-moa-popup-settings-toggle[aria-expanded="true"] {
-  color: var(--color-content-01);
-  background: var(--Surface-Neutral-Strong, #d4d7dc);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: none;
@@ -877,8 +1015,14 @@ html[style*="color-scheme: dark"]
   display: none;
   padding: 8px;
   border-bottom: 1px solid
-    var(--Border-Neutral-Weaker, rgba(255, 255, 255, 0.12));
-  background: var(--Surface-Neutral-Weak, rgba(127, 127, 127, 0.08));
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
   max-height: 180px;
   overflow-y: auto;
   gap: 8px;
@@ -896,7 +1040,7 @@ html[style*="color-scheme: dark"]
 }
 
 .chzzk-badge-moa-settings-title {
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 10px;
   font-weight: 700;
 }
@@ -919,17 +1063,24 @@ html[style*="color-scheme: dark"]
   gap: 6px;
   min-height: 22px;
   max-width: 100%;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 10px;
 }
 
 .chzzk-badge-moa-setting-row.is-chip {
   min-height: 24px;
-  border: 1px solid var(--Border-Neutral-Base);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-base,
+      var(--chzzk-badge-moa-c-border-neutral-base)
+    );
   border-radius: 999px;
   padding: 0 9px;
-  background: var(--Surface-Neutral-Weak);
-  color: var(--color-content-03);
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
   cursor: pointer;
   user-select: none;
   transition:
@@ -947,8 +1098,11 @@ html[style*="color-scheme: dark"]
 }
 
 .chzzk-badge-moa-setting-row.is-chip:hover {
-  border-color: var(--Border-Neutral-Weak);
-  color: var(--color-content-02);
+  border-color: var(
+    --sem-color-border-neutral-weak,
+    var(--chzzk-badge-moa-c-border-neutral-weak)
+  );
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
 }
 
 .chzzk-badge-moa-setting-row.is-chip.is-checked:hover {
@@ -1003,7 +1157,10 @@ html[style*="color-scheme: dark"]
   width: 12px;
   height: 12px;
   margin: 0;
-  accent-color: var(--Content-Brand-Strong, #5dbfff);
+  accent-color: var(
+    --sem-color-content-brand-strong,
+    var(--chzzk-badge-moa-c-content-brand-strong)
+  );
   cursor: pointer;
 }
 
@@ -1023,7 +1180,7 @@ html[style*="color-scheme: dark"]
 }
 
 .chzzk-badge-moa-settings-empty {
-  color: var(--color-content-03);
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
   font-size: 10px;
 }
 
@@ -1039,9 +1196,16 @@ html[style*="color-scheme: dark"]
   width: 100%;
   height: 26px;
   border-radius: 8px;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Base);
-  color: var(--color-content-01);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-base,
+    var(--chzzk-badge-moa-c-surface-neutral-base)
+  );
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
   font-size: 11px;
   padding: 0 8px;
   outline: none;
@@ -1058,17 +1222,27 @@ html[style*="color-scheme: dark"]
 .chzzk-badge-moa-tracked-add-btn {
   height: 26px;
   border-radius: 8px;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Weak);
-  color: var(--color-content-02);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 10px;
   padding: 0 8px;
   cursor: pointer;
 }
 
 .chzzk-badge-moa-tracked-add-btn:hover {
-  color: var(--color-content-01);
-  border-color: var(--Border-Neutral-Base);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  border-color: var(
+    --sem-color-border-neutral-base,
+    var(--chzzk-badge-moa-c-border-neutral-base)
+  );
 }
 
 .chzzk-badge-moa-tracked-chip {
@@ -1077,10 +1251,17 @@ html[style*="color-scheme: dark"]
   gap: 6px;
   max-width: 100%;
   min-height: 24px;
-  border: 1px solid var(--Border-Neutral-Base);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-base,
+      var(--chzzk-badge-moa-c-border-neutral-base)
+    );
   border-radius: 999px;
   padding: 0 8px;
-  background: var(--Surface-Neutral-Weak);
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
 }
 
 .chzzk-badge-moa-tracked-chip-text {
@@ -1089,7 +1270,7 @@ html[style*="color-scheme: dark"]
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 10px;
 }
 
@@ -1099,7 +1280,7 @@ html[style*="color-scheme: dark"]
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--color-content-03);
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -1108,7 +1289,7 @@ html[style*="color-scheme: dark"]
 
 .chzzk-badge-moa-tracked-chip-remove:hover {
   background: rgba(255, 255, 255, 0.14);
-  color: var(--color-content-01);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
 }
 
 .chzzk-badge-moa-popup-filters {
@@ -1122,8 +1303,14 @@ html[style*="color-scheme: dark"]
   overflow-y: auto;
   padding: 6px 8px;
   border-bottom: 1px solid
-    var(--Border-Neutral-Weaker, rgba(255, 255, 255, 0.12));
-  background: var(--Surface-Neutral-Weak, rgba(127, 127, 127, 0.08));
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
   opacity: 1;
   transition:
     max-height 0.24s cubic-bezier(0.16, 1, 0.3, 1),
@@ -1163,9 +1350,16 @@ html[style*="color-scheme: dark"]
 
 .chzzk-badge-moa-filter-action-btn {
   height: 20px;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Weak);
-  color: var(--color-content-02);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   border-radius: 999px;
   padding: 0 8px;
   font-size: 9px;
@@ -1183,9 +1377,15 @@ html[style*="color-scheme: dark"]
 }
 
 .chzzk-badge-moa-filter-action-btn:hover {
-  color: var(--color-content-01);
-  border-color: var(--Border-Neutral-Base);
-  background: var(--Surface-Interaction-Lighten-Hovered);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  border-color: var(
+    --sem-color-border-neutral-base,
+    var(--chzzk-badge-moa-c-border-neutral-base)
+  );
+  background: var(
+    --sem-color-surface-interaction-lighten-hovered,
+    var(--chzzk-badge-moa-c-surface-interaction-lighten-hovered)
+  );
 }
 
 .chzzk-badge-moa-filter-action-btn.is-danger {
@@ -1227,8 +1427,15 @@ html[style*="color-scheme: light"]
   max-width: 100%;
   padding: 2px 6px;
   border-radius: 999px;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Base);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-base,
+    var(--chzzk-badge-moa-c-surface-neutral-base)
+  );
 }
 
 .chzzk-badge-moa-filter-chip.is-checked {
@@ -1236,7 +1443,10 @@ html[style*="color-scheme: light"]
     --Border-Brand-Weak,
     rgba(var(--color-border-01-rgb, 102, 218, 255), 0.5)
   );
-  background: var(--Surface-Brand-Weaker);
+  background: var(
+    --sem-color-surface-brand-weaker,
+    var(--chzzk-badge-moa-c-surface-brand-weaker)
+  );
 }
 
 .chzzk-badge-moa-filter-toggle {
@@ -1266,9 +1476,16 @@ html[style*="color-scheme: light"]
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--Border-Neutral-Weak);
-  background: var(--Surface-Neutral-Weak);
-  color: var(--color-content-03);
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
   border-radius: 999px;
   width: 20px;
   height: 20px;
@@ -1302,7 +1519,7 @@ html[style*="color-scheme: light"]
   font-weight: 600;
   height: 20px;
   line-height: 21px;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
 }
 
 .chzzk-badge-moa-popup-list {
@@ -1343,7 +1560,7 @@ html[style*="color-scheme: light"]
   flex: 1;
   align-items: center;
   justify-content: center;
-  color: var(--color-content-02);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
   font-size: 13px;
 }
 
@@ -1352,7 +1569,7 @@ html[style*="color-scheme: light"]
   align-items: center;
   gap: 8px;
   margin: 2px 0;
-  color: var(--color-content-04);
+  color: var(--color-content-04, var(--chzzk-badge-moa-c-content-04));
 }
 
 .chzzk-badge-moa-date-divider::before,
@@ -1360,35 +1577,47 @@ html[style*="color-scheme: light"]
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--Border-Neutral-Weaker, rgba(255, 255, 255, 0.12));
+  background: var(
+    --sem-color-border-neutral-weaker,
+    var(--chzzk-badge-moa-c-border-neutral-weaker)
+  );
 }
 
 .chzzk-badge-moa-date-divider-text {
   flex: 0 0 auto;
   font-size: 10px;
   line-height: 1;
-  color: var(--color-content-04);
+  color: var(--color-content-04, var(--chzzk-badge-moa-c-content-04));
 }
 
 .chzzk-badge-moa-item {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 8px;
-  background: var(--Surface-Neutral-Weakest);
+  background: var(
+    --sem-color-surface-neutral-weakest,
+    var(--chzzk-badge-moa-c-surface-neutral-weakest)
+  );
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease;
 }
 
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"] {
-  color: var(--Content-Neutral-Primary-Static, #fff);
+  color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
 }
 
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
   .chzzk-badge-moa-item-nickname,
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
   .chzzk-badge-moa-item-message {
-  color: var(--Content-Neutral-Primary-Static, #fff);
+  color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
 }
 
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
@@ -1399,8 +1628,8 @@ html[style*="color-scheme: light"]
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
   .chzzk-badge-moa-item-time {
   color: var(
-    --Content-Neutral-Alpha-Stronger-Static,
-    rgba(255, 255, 255, 0.82)
+    --sem-color-content-neutral-alpha-stronger-static,
+    var(--chzzk-badge-moa-c-content-neutral-alpha-stronger-static)
   );
   font-family:
     "Escoredream",
@@ -1416,37 +1645,52 @@ html[style*="color-scheme: light"]
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-brick {
-  background: var(--Surface-Function-Donation-Brick, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-brick,
+    var(--chzzk-badge-moa-c-surface-function-donation-brick)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-camel {
-  background: var(--Surface-Function-Donation-Camel, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-camel,
+    var(--chzzk-badge-moa-c-surface-function-donation-camel)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-green {
-  background: var(--Surface-Function-Donation-Green, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-green,
+    var(--chzzk-badge-moa-c-surface-function-donation-green)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-cyan {
-  background: var(--Surface-Function-Donation-Cyan, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-cyan,
+    var(--chzzk-badge-moa-c-surface-function-donation-cyan)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-violet {
   background: var(
-    --Surface-Function-Donation-DarkViolet,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-dark-violet,
+    var(--chzzk-badge-moa-c-surface-function-donation-dark-violet)
   );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-donation-neutral {
   background: var(
-    --Surface-Function-Donation-Neutral,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-neutral,
+    var(--chzzk-badge-moa-c-surface-function-donation-neutral)
   );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-subscription {
-  background: var(--Surface-Function-Subscribe-Tier1, rgba(166, 83, 209, 0.24));
+  background: var(
+    --sem-color-surface-function-subscribe-tier1,
+    var(--chzzk-badge-moa-c-surface-function-subscribe-tier1)
+  );
   border-color: rgba(166, 83, 209, 0.58);
 }
 
@@ -1457,33 +1701,45 @@ html[style*="color-scheme: light"]
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-video:has(
     .chzzk-badge-moa-item-cheese-amount.is-donation-brick
   ) {
-  background: var(--Surface-Function-Donation-Brick, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-brick,
+    var(--chzzk-badge-moa-c-surface-function-donation-brick)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-video:has(
     .chzzk-badge-moa-item-cheese-amount.is-donation-camel
   ) {
-  background: var(--Surface-Function-Donation-Camel, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-camel,
+    var(--chzzk-badge-moa-c-surface-function-donation-camel)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-video:has(
     .chzzk-badge-moa-item-cheese-amount.is-donation-green
   ) {
-  background: var(--Surface-Function-Donation-Green, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-green,
+    var(--chzzk-badge-moa-c-surface-function-donation-green)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-video:has(
     .chzzk-badge-moa-item-cheese-amount.is-donation-cyan
   ) {
-  background: var(--Surface-Function-Donation-Cyan, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-cyan,
+    var(--chzzk-badge-moa-c-surface-function-donation-cyan)
+  );
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-video:has(
     .chzzk-badge-moa-item-cheese-amount.is-donation-violet
   ) {
   background: var(
-    --Surface-Function-Donation-DarkViolet,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-dark-violet,
+    var(--chzzk-badge-moa-c-surface-function-donation-dark-violet)
   );
 }
 
@@ -1491,8 +1747,8 @@ html[style*="color-scheme: light"]
     .chzzk-badge-moa-item-cheese-amount.is-donation-neutral
   ) {
   background: var(
-    --Surface-Function-Donation-Neutral,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-neutral,
+    var(--chzzk-badge-moa-c-surface-function-donation-neutral)
   );
 }
 
@@ -1502,35 +1758,50 @@ html[style*="color-scheme: light"]
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-type-mission-failed {
-  background: var(--Ref-Color-Red-60, rgba(230, 127, 39, 0.28));
+  background: var(
+    --ref-color-red-60,
+    var(--chzzk-badge-moa-c-ref-color-red-60)
+  );
 }
 
 .chzzk-badge-moa-item:is(
     .chzzk-badge-moa-item-type-mission,
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-brick) {
-  background: var(--Surface-Function-Donation-Brick, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-brick,
+    var(--chzzk-badge-moa-c-surface-function-donation-brick)
+  );
 }
 
 .chzzk-badge-moa-item:is(
     .chzzk-badge-moa-item-type-mission,
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-camel) {
-  background: var(--Surface-Function-Donation-Camel, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-camel,
+    var(--chzzk-badge-moa-c-surface-function-donation-camel)
+  );
 }
 
 .chzzk-badge-moa-item:is(
     .chzzk-badge-moa-item-type-mission,
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-green) {
-  background: var(--Surface-Function-Donation-Green, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-green,
+    var(--chzzk-badge-moa-c-surface-function-donation-green)
+  );
 }
 
 .chzzk-badge-moa-item:is(
     .chzzk-badge-moa-item-type-mission,
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-cyan) {
-  background: var(--Surface-Function-Donation-Cyan, rgba(160, 110, 32, 0.26));
+  background: var(
+    --sem-color-surface-function-donation-cyan,
+    var(--chzzk-badge-moa-c-surface-function-donation-cyan)
+  );
 }
 
 .chzzk-badge-moa-item:is(
@@ -1538,8 +1809,8 @@ html[style*="color-scheme: light"]
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-violet) {
   background: var(
-    --Surface-Function-Donation-DarkViolet,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-dark-violet,
+    var(--chzzk-badge-moa-c-surface-function-donation-dark-violet)
   );
 }
 
@@ -1548,8 +1819,8 @@ html[style*="color-scheme: light"]
     .chzzk-badge-moa-item-type-mission-success
   ):has(.chzzk-badge-moa-item-cheese-amount.is-donation-neutral) {
   background: var(
-    --Surface-Function-Donation-Neutral,
-    rgba(160, 110, 32, 0.26)
+    --sem-color-surface-function-donation-neutral,
+    var(--chzzk-badge-moa-c-surface-function-donation-neutral)
   );
 }
 
@@ -1638,7 +1909,7 @@ html[style*="color-scheme: light"]
 }
 
 .chzzk-badge-moa-item-time {
-  color: var(--color-content-04);
+  color: var(--color-content-04, var(--chzzk-badge-moa-c-content-04));
   font-family:
     "Escoredream",
     "Pretendard Variable",
@@ -1682,7 +1953,7 @@ html[style*="color-scheme: light"]
   border-radius: 999px;
   font-size: 9px;
   font-weight: 700;
-  color: var(--color-content-01);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
   background: rgba(255, 255, 255, 0.14);
   white-space: nowrap;
   overflow: hidden;
@@ -1690,29 +1961,59 @@ html[style*="color-scheme: light"]
 }
 
 .chzzk-badge-moa-item-tag.is-video {
-  color: var(--Content-Brand-Base-Static);
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  color: var(
+    --sem-color-content-brand-base-static,
+    var(--chzzk-badge-moa-c-content-brand-base-static)
+  );
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
 }
 
 .chzzk-badge-moa-item-tag.is-mission,
 .chzzk-badge-moa-item-tag.is-mission-success {
-  color: var(--Content-Brand-Base-Static);
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  color: var(
+    --sem-color-content-brand-base-static,
+    var(--chzzk-badge-moa-c-content-brand-base-static)
+  );
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
 }
 
 .chzzk-badge-moa-item-tag.is-mission-failed {
-  color: var(--Content-Accent-Cheese-Static);
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  color: var(
+    --sem-color-content-accent-cheese-static,
+    var(--chzzk-badge-moa-c-content-accent-cheese-static)
+  );
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
 }
 
 .chzzk-badge-moa-item-tag.is-party {
-  color: var(--Content-Brand-Base-Static);
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  color: var(
+    --sem-color-content-brand-base-static,
+    var(--chzzk-badge-moa-c-content-brand-base-static)
+  );
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
 }
 
 .chzzk-badge-moa-item-tag.is-subscription {
-  color: var(--Ref-Color-BrandNeon-45);
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  color: var(
+    --ref-color-brand-neon-65,
+    --chzzk-badge-moa-c-ref-color-brand-neon-65
+  );
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
 }
 
 .chzzk-badge-moa-item-cheese {
@@ -1731,11 +2032,17 @@ html[style*="color-scheme: light"]
   font-weight: 900;
   font-size: 12px;
   line-height: 1;
-  background-color: var(--Surface-Neutral-Alpha-Inverse-Weak-Static);
+  background-color: var(
+    --sem-color-surface-neutral-alpha-inverse-weak-static,
+    var(--chzzk-badge-moa-c-surface-neutral-alpha-inverse-weak-static)
+  );
   border-radius: 13px;
   padding: 0 9px 0 7px;
   min-height: 24px;
-  color: var(--Content-Neutral-Primary-Static);
+  color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static)
+  );
 }
 
 .chzzk-badge-moa-item-cheese-amount::before {
@@ -2308,14 +2615,23 @@ img.chzzk-badge-moa-blind-emoji {
 /* 복원된 메시지: 다른 메시지와 구분되게 기울임 + _is_hidden 흐린 색 적용 */
 .chzzk-badge-moa-blind-restored-text {
   font-style: italic;
-  color: rgba(var(--Content-Neutral-Cool-Strong-rgb), 0.3) !important;
+  color: rgba(
+    var(
+      --sem-color-content-neutral-cool-strong-rgb,
+      var(--chzzk-badge-moa-c-content-neutral-cool-strong-rgb)
+    ),
+    0.3
+  ) !important;
 }
 
 /* 채팅 시간 표시: 닉네임 앞 회색 작은 글씨 HH:MM */
 .chzzk-badge-moa-chat-time {
   margin-right: 4px;
   font-size: 0.85em;
-  color: var(--Content-Neutral-Cool-Base);
+  color: var(
+    --sem-color-content-neutral-cool-base,
+    var(--chzzk-badge-moa-c-content-neutral-cool-base)
+  );
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   white-space: nowrap;
@@ -2783,11 +3099,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="live_chatting_list_item"],
     [class*="vod_chatting_item"]
   )
-  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"]) {
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"]) {
   line-height: calc(
     14px * var(--chzzk-badge-moa-chat-font-scale) * 1.4
   ) !important;
@@ -2800,13 +3116,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="live_chatting_list_item"],
     [class*="vod_chatting_item"]
   )
-  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"]):has(
-    [class*="_button_"] img
-  ) {
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"]):has([class*="_button_"] img) {
   line-height: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
       var(--chzzk-badge-moa-chat-font-scale) + 2px
@@ -2819,25 +3133,26 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="_item_"],
     [class*="live_chatting_list_item"],
     [class*="vod_chatting_item"]
-  )  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"])
+  )
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"])
   > [class*="_text_"],
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"])
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"])
   > [class*="_text_"],
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_message_dswob_"] {
+  :is([class*="_message_dswob_"], [class*="_message_1cgzf_"]) {
   font-size: calc(14px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   line-height: calc(
     14px * var(--chzzk-badge-moa-chat-font-scale) * 1.4
@@ -2853,11 +3168,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="live_chatting_list_item"],
     [class*="vod_chatting_item"]
   )
-  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"])
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"])
   > [class*="_text_"]:has([class*="_button_"] img) {
   line-height: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
@@ -2870,7 +3185,7 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_button_chatting_dswob_"] {
+  :is([class*="_button_chatting_dswob_"], [class*="_button_chatting_1cgzf_"]) {
   height: calc(34px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   align-items: center !important;
 }
@@ -2882,7 +3197,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_button_chatting_dswob_"]  [class*="_username_dswob_"] {
+  :is([class*="_button_chatting_dswob_"], [class*="_button_chatting_1cgzf_"])
+  :is([class*="_username_dswob_"], [class*="_username_1cgzf_"]) {
   display: inline-flex !important;
   align-items: center !important;
   min-width: 0 !important;
@@ -2891,8 +3207,9 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_button_chatting_dswob_"]  [class*="_username_dswob_"]
-  [class*="_container_o04z9_"] {
+  :is([class*="_button_chatting_dswob_"], [class*="_button_chatting_1cgzf_"])
+  :is([class*="_username_dswob_"], [class*="_username_1cgzf_"])
+  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]) {
   align-items: center !important;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
@@ -2904,7 +3221,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_button_chatting_dswob_"]  [class*="_icon_dswob_"] {
+  :is([class*="_button_chatting_dswob_"], [class*="_button_chatting_1cgzf_"])
+  :is([class*="_icon_dswob_"], [class*="_icon_1cgzf_"]) {
   width: calc(22px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   height: calc(22px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   flex: 0 0 calc(22px * var(--chzzk-badge-moa-chat-font-scale)) !important;
@@ -2918,17 +3236,17 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_chatting_message_"]:not(
-    [class*="_is_mission_"]
-  ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
-    [class*="_is_subscription_"]
-  ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"])
+  [class*="_chatting_message_"]:not([class*="_is_mission_"]):not(
+    [class*="_is_donation_"]
+  ):not([class*="_donation_alarm_"]):not([class*="_is_subscription_"]):not(
+    [class*="_is_ticker_overlay_"]
+  ):not([class*="_is_overlay_"])
   > :is([class*="_nickname_1s877_"], [class*="_text_1s877_"]) {
   vertical-align: middle !important;
 }
@@ -2939,29 +3257,46 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_nickname_1s877_"]  > [class*="_container_o04z9_"] {
+  [class*="_nickname_1s877_"]
+  > :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]) {
   vertical-align: middle !important;
 }
 
-/* 2. 닉네임 영역(_container_o04z9_) + 닉네임 텍스트 노드(_text_dtc6c_).
-   닉네임 텍스트도 치지직 자체 font-size 가 있어 컨테이너에서 직접 지정한다. */
+/* 1-3b. 닉네임 컨테이너(_container_o04z9_/_zw6kq_)가 _is_ellipsis_ 변형이면 치지직
+   네이티브가 vertical-align: top 을 줘서, 폰트를 키우면 닉네임만 위로 어긋난다
+   (일반·특수 메시지 공통). baseline 으로 맞춰 배지·닉네임·텍스트가 같은 기준선에 오게 한다. */
+html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"]
+  )[class*="_is_ellipsis_"] {
+  vertical-align: baseline !important;
+}
+
+/* 2. 닉네임 영역(_container_o04z9_) + 닉네임 텍스트 노드.
+   닉네임 텍스트도 치지직 자체 font-size 가 있어 컨테이너에서 직접 지정한다.
+   ⚠ 텍스트 노드 클래스 해시가 자주 바뀐다(_text_dtc6c_ → _text_1iatj_ 등, 치지직 개편).
+   특정 해시 대신 닉네임 컨테이너(_container_o04z9_/_container_zw6kq_) 하위의 모든
+   [class*="_text_"] 에 적용해 해시 변경에 견디게 한다. 컨테이너가 이미 닉네임 영역으로
+   한정돼 있어 메시지 텍스트(_chatting_message_ 하위)는 잡히지 않는다. */
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_container_o04z9_"]:not(
+  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]):not(
     [class*="_is_mission_"]
   ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
     [class*="_is_subscription_"]
@@ -2970,18 +3305,18 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_container_o04z9_"]:not(
+  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]):not(
     [class*="_is_mission_"]
   ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
     [class*="_is_subscription_"]
   ):not([class*="_is_ticker_overlay_"]):not([class*="_is_overlay_"])
-  [class*="_text_dtc6c_"] {
+  [class*="_text_"] {
   font-size: calc(14px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   line-height: calc(
     14px * var(--chzzk-badge-moa-chat-font-scale) * 1.2
@@ -3011,7 +3346,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="_welcome_"],
     [class*="_filter_"],
     [class*="_default_"]
-  )  [class*="_title_1fbww_"] {
+  )
+  [class*="_title_1fbww_"] {
   font-size: calc(13px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   line-height: calc(
     13px * var(--chzzk-badge-moa-chat-font-scale) * 1.4
@@ -3024,7 +3360,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="_welcome_"],
     [class*="_filter_"],
     [class*="_default_"]
-  )  [class*="_description_1fbww_"] {
+  )
+  [class*="_description_1fbww_"] {
   font-size: calc(12px * var(--chzzk-badge-moa-chat-font-scale)) !important;
   line-height: calc(
     12px * var(--chzzk-badge-moa-chat-font-scale) * 1.4
@@ -3049,13 +3386,14 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_chatting_message_"]  [class*="_text_"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
   button[class*="_button_"] {
   width: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
@@ -3075,18 +3413,19 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_chatting_message_"]  [class*="_text_"]
+  [class*="_chatting_message_"]
+  [class*="_text_"]
   img,
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [class*="_floating_"]
-  [class*="_message_dswob_"]
+  :is([class*="_message_dswob_"], [class*="_message_1cgzf_"])
   > img {
   width: calc(
     var(--chzzk-badge-moa-chat-emoji-size) *
@@ -3107,10 +3446,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
   [class*="_chatting_message_"]
@@ -3128,13 +3467,14 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_wrapper_o04z9_"]  > [class*="_icon_o04z9_"] {
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
+  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"]) {
   width: calc(
     var(--chzzk-badge-moa-chat-badge-icon-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -3160,13 +3500,14 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_wrapper_o04z9_"]  > [class*="_icon_o04z9_"]
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
+  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"])
   :is([class*="_container_"], img, svg) {
   width: 100% !important;
   height: 100% !important;
@@ -3179,13 +3520,13 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_icon_dtc6c_"] {
+  :is([class*="_icon_dtc6c_"], [class*="_icon_1iatj_"]) {
   width: calc(
     var(--chzzk-badge-moa-chat-nickname-mark-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -3216,13 +3557,13 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_nickname_o04z9_"] {
+  :is([class*="_nickname_o04z9_"], [class*="_nickname_zw6kq_"]) {
   min-width: 0 !important;
 }
 
@@ -3230,13 +3571,16 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  :is([class*="_ellipsis_dtc6c_"], [class*="_ellipsis2_dtc6c_"]) {
+  :is(
+    :is([class*="_ellipsis_dtc6c_"], [class*="_ellipsis_1iatj_"]),
+    [class*="_ellipsis2_dtc6c_"]
+  ) {
   align-items: center !important;
   min-width: 0 !important;
 }
@@ -3246,13 +3590,16 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  :is([class*="_container_o04z9_"], [class*="_wrapper_o04z9_"]) {
+  :is(
+    :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]),
+    :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
+  ) {
   min-width: 0 !important;
 }
 
@@ -3261,15 +3608,51 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     :is(
-        [class*="_item_"],
-        [class*="live_chatting_list_item"],
-        [class*="vod_chatting_item"]
-      ),
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
     [class*="_floating_"]
   )
-  [class*="_wrapper_o04z9_"] {
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"]) {
   align-items: center !important;
   gap: calc(5px * var(--chzzk-badge-moa-chat-font-scale)) !important;
+}
+
+/* 12. 프로필 다이얼로그/카드 제외 — 닉네임을 누르면 뜨는 프로필 카드나 편집 다이얼로그는
+   채팅 행(_item_) 안에 [role="alertdialog"] 로 렌더돼 위 스케일 규칙에 함께 걸린다.
+   role 서브트리에서 배율 변수를 1 로 리셋해 모든 스케일 규칙(× 배율)을 자동 무력화하고,
+   변수로 안 잡히는 절대값 규칙(gap/margin)만 네이티브 값으로 되돌린다. */
+html.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  [role="alertdialog"] {
+  --chzzk-badge-moa-chat-font-scale: 1;
+  --chzzk-badge-moa-chat-badge-icon-size: 18px;
+  --chzzk-badge-moa-chat-nickname-mark-size: 14px;
+  --chzzk-badge-moa-chat-emoji-size: 24px;
+}
+
+html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  [role="alertdialog"]
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"]) {
+  /* 네이티브값(gap 4px·margin-right 4px)으로 명시 — initial 은 gap 을 0 으로 만들어
+     배지 사이 간격이 사라진다. */
+  gap: 4px !important;
+  margin-right: 4px !important;
+  align-items: initial !important;
+}
+
+/* 버튼형 배지 래퍼(_is_button_badge_)는 네이티브가 gap 을 갖지 않는다(배지 선택 UI).
+   위 4px 을 되돌려 다이얼로그 배지 선택 영역이 벌어지지 않게 한다. */
+html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  [role="alertdialog"]
+  :is(
+    [class*="_wrapper_o04z9_"],
+    [class*="_wrapper_zw6kq_"]
+  )[class*="_is_button_badge_"] {
+  gap: initial !important;
 }
 
 @keyframes chzzkBadgeMoaFlowDown {
@@ -3391,7 +3774,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 }
 
 .chzzk-badge-moa-item-nickname {
-  color: var(--Content-Neutral-Cool-Stronger);
+  color: var(
+    --sem-color-content-neutral-cool-stronger,
+    var(--chzzk-badge-moa-c-content-neutral-cool-stronger)
+  );
 }
 
 .chzzk-badge-moa-item-nickname-clickable {
@@ -3414,7 +3800,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   width: min(340px, var(--chzzk-badge-moa-chat-profile-popup-width, 340px));
   max-width: calc(100vw - 16px);
   min-height: 140px;
-  background-color: var(--Surface-Neutral-Weaker);
+  background-color: var(
+    --sem-color-surface-neutral-weaker,
+    var(--chzzk-badge-moa-c-surface-neutral-weaker)
+  );
   color: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -3440,7 +3829,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--Content-Neutral-Cool-Base);
+  color: var(
+    --sem-color-content-neutral-cool-base,
+    var(--chzzk-badge-moa-c-content-neutral-cool-base)
+  );
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -3451,8 +3843,14 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 
 .chzzk-badge-moa-profile-card-close:hover,
 .chzzk-badge-moa-profile-card-close:focus-visible {
-  background: var(--Surface-Neutral-Base);
-  color: var(--Content-Neutral-Cool-Stronger);
+  background: var(
+    --sem-color-surface-neutral-base,
+    var(--chzzk-badge-moa-c-surface-neutral-base)
+  );
+  color: var(
+    --sem-color-content-neutral-cool-stronger,
+    var(--chzzk-badge-moa-c-content-neutral-cool-stronger)
+  );
   outline: none;
 }
 
@@ -3501,7 +3899,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 .chzzk-badge-moa-profile-card-name {
   font-size: 16px;
   font-weight: 700;
-  color: var(--Content-Neutral-Cool-Stronger);
+  color: var(
+    --sem-color-content-neutral-cool-stronger,
+    var(--chzzk-badge-moa-c-content-neutral-cool-stronger)
+  );
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3536,8 +3937,14 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   top: calc(100% + 8px);
   transform: translateX(-50%);
   padding: 8px 12px;
-  background: var(--Surface-Neutral-Strongest);
-  color: var(--Content-Neutral-Inverse);
+  background: var(
+    --sem-color-surface-neutral-strongest,
+    var(--chzzk-badge-moa-c-surface-neutral-strongest)
+  );
+  color: var(
+    --sem-color-content-neutral-inverse,
+    var(--chzzk-badge-moa-c-content-neutral-inverse)
+  );
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.35;
@@ -3563,7 +3970,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-bottom-color: var(--Surface-Neutral-Strongest);
+  border-bottom-color: var(
+    --sem-color-surface-neutral-strongest,
+    var(--chzzk-badge-moa-c-surface-neutral-strongest)
+  );
 }
 
 .chzzk-badge-moa-profile-card-tooltip-title {
@@ -3572,7 +3982,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 
 .chzzk-badge-moa-profile-card-tooltip-desc {
   font-weight: 400;
-  color: var(--Content-Neutral-Inverse);
+  color: var(
+    --sem-color-content-neutral-inverse,
+    var(--chzzk-badge-moa-c-content-neutral-inverse)
+  );
 }
 
 .chzzk-badge-moa-profile-card-badge:hover .chzzk-badge-moa-profile-card-tooltip,
@@ -3587,7 +4000,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   flex-direction: column;
   gap: 8px;
   padding-top: 14px;
-  border-top: 1px solid var(--Border-Neutral-Weak);
+  border-top: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
 }
 
 .chzzk-badge-moa-profile-card-row {
@@ -3595,7 +4012,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--Content-Neutral-Cool-Strong);
+  color: var(
+    --sem-color-content-neutral-cool-strong,
+    var(--chzzk-badge-moa-c-content-neutral-cool-strong)
+  );
 }
 
 .chzzk-badge-moa-profile-card-row img,
@@ -3612,7 +4032,10 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   justify-content: center;
   width: 18px;
   height: 18px;
-  color: var(--Content-Neutral-Cool-Base);
+  color: var(
+    --sem-color-content-neutral-cool-base,
+    var(--chzzk-badge-moa-c-content-neutral-cool-base)
+  );
   flex: 0 0 auto;
 }
 
