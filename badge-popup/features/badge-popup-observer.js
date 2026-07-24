@@ -269,6 +269,20 @@
       typeof deps.scheduleChatHighlightScan === "function"
         ? deps.scheduleChatHighlightScan
         : () => {};
+    const syncBlindCaptureToInject =
+      typeof deps.syncBlindCaptureToInject === "function"
+        ? deps.syncBlindCaptureToInject
+        : () => {};
+    const syncChatTimestampToInject =
+      typeof deps.syncChatTimestampToInject === "function"
+        ? deps.syncChatTimestampToInject
+        : () => {};
+
+    if (data.type === deps.INJECT_CHAT_FEATURES_REQUEST_TYPE) {
+      syncBlindCaptureToInject();
+      syncChatTimestampToInject();
+      return;
+    }
 
     if (data.type === "CHZZK_URL_CHANGED") {
       handleLocationChange(true);

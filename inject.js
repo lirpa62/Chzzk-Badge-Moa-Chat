@@ -15,6 +15,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // content→inject 토글 (constants.js와 동일 문자열)
   const INJECT_BLIND_CAPTURE_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_BLIND_CAPTURE";
   const INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_CHAT_TIMESTAMP";
+  const INJECT_CHAT_FEATURES_REQUEST_TYPE =
+    "CHZZK_BADGE_MOA_REQUEST_CHAT_FEATURES";
   // 가려진 채팅 표시 / 채팅 시간 표시 토글 상태(원문은 MAIN world 메모리에만).
   let restoreBlindedChat = false;
   let showChatTimestamp = false;
@@ -110,6 +112,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   let chatRowObserver = null;
   let chatRowObserverRetryTimer = null;
   let chatObserverHealthTimer = null;
+  const chatRowRetryState = new WeakMap();
+  const CHAT_ROW_RETRY_DELAYS = [50, 150, 350, 700];
   // 현재 옵저버가 붙어 있는 컨테이너들. 치지직 React가 URL 변화 없이 채팅 리스트
   // 컨테이너를 교체(detach)하면 옵저버가 죽은 노드를 계속 보게 되어 이후 채팅이
   // 처리되지 않는다(가려진 채팅 복원이 조용히 멈추는 원인). 이 배열로 건강 상태를
@@ -212,6 +216,39 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     return null;
   }
 
+  // 채팅 본문은 보통 문자열이지만 렌더링 전환 중 세그먼트 배열/객체로 전달되기도 한다.
+  function normalizeChatContent(content) {
+    if (content == null) return "";
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((segment) => {
+          if (typeof segment === "string") return segment;
+          if (segment && typeof segment === "object") {
+            const text =
+              segment.text ??
+              segment.value ??
+              segment.content ??
+              segment.message ??
+              segment.msg;
+            return typeof text === "string" ? text : "";
+          }
+          return "";
+        })
+        .join("");
+    }
+    if (typeof content === "object") {
+      const text =
+        content.text ??
+        content.value ??
+        content.content ??
+        content.message ??
+        content.msg;
+      return typeof text === "string" ? text : "";
+    }
+    return String(content);
+  }
+
   // chatMessage에서 원문 텍스트와 이모티콘 맵을 읽는다(객체/JSON 문자열 모두).
   function readChatOriginal(chatMessage) {
     if (!chatMessage || typeof chatMessage !== "object") return null;
@@ -220,7 +257,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (msgTypeCode === 30 || msgTypeCode === 11 || msgTypeCode === 12) {
       return null; // 시스템/구독 합성 메시지 제외
     }
-    const text = String(chatMessage.content || chatMessage.msg || "");
+    const text =
+      normalizeChatContent(chatMessage.content) ||
+      normalizeChatContent(chatMessage.msg);
     if (!text) return null;
     let extras = chatMessage.extras;
     if (typeof extras === "string") extras = parseJsonSafe(extras);
@@ -257,7 +296,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // {:emojiKey:} 토큰을 텍스트 노드 + <img>로 조립.
   function buildRestoredMessageFragment(text, emojiMap) {
     const fragment = document.createDocumentFragment();
-    const messageText = String(text || "");
+    const messageText =
+      typeof text === "string" ? text : normalizeChatContent(text);
     if (!messageText) return fragment;
     const hasEmojis =
       emojiMap &&
@@ -392,9 +432,16 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
   // 채팅 행 하나 처리: 시간 삽입 + 가림 복원.
   function processRow(row) {
-    if (!(row instanceof HTMLElement)) return;
+    if (!(row instanceof HTMLElement)) return false;
+    if (!row.querySelector("[class*='_chatting_message_']")) {
+      scheduleChatRowRetry(row);
+      return false;
+    }
     const chatMessage = getChatMessage(row);
-    if (!chatMessage) return;
+    if (!chatMessage) {
+      scheduleChatRowRetry(row);
+      return false;
+    }
 
     if (showChatTimestamp) {
       const epoch = readChatEpochMs(chatMessage);
@@ -419,23 +466,58 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         if (original) applyRestore(row, original);
       }
     }
+    clearChatRowRetry(row);
+    return true;
   }
 
-  // React 재렌더로 다시 가림 문구가 된 복원행을 재복원.
+  function scheduleChatRowRetry(row) {
+    if (
+      !(row instanceof HTMLElement) ||
+      !row.isConnected ||
+      (!restoreBlindedChat && !showChatTimestamp)
+    ) {
+      return;
+    }
+    const state = chatRowRetryState.get(row) || { attempt: 0, timer: 0 };
+    if (state.timer || state.attempt >= CHAT_ROW_RETRY_DELAYS.length) return;
+    const delay = CHAT_ROW_RETRY_DELAYS[state.attempt];
+    state.attempt += 1;
+    state.timer = window.setTimeout(() => {
+      state.timer = 0;
+      if (
+        !row.isConnected ||
+        (!restoreBlindedChat && !showChatTimestamp)
+      ) {
+        chatRowRetryState.delete(row);
+        return;
+      }
+      processRow(row);
+    }, delay);
+    chatRowRetryState.set(row, state);
+  }
+
+  function clearChatRowRetry(row) {
+    const state = chatRowRetryState.get(row);
+    if (state?.timer) clearTimeout(state.timer);
+    chatRowRetryState.delete(row);
+  }
+
+  // React 재렌더와 최초 가림 전환을 모두 처리한다.
   function reapplyRestoreForTarget(target) {
     if (!restoreBlindedChat || blindRestoreWriting) return;
     if (!(target instanceof Element)) return;
     const row = target.closest(CHAT_ROW_SELECTOR);
     if (!(row instanceof HTMLElement)) return;
+    if (!row.querySelector("[class*='_chatting_message_']")) return;
     const info = restoredRowInfo.get(row);
-    if (!info) return;
-    // 노드 재활용 가드
-    if (getRowNickname(row) !== info.nickname) {
+    // 복원 이력이 있는 행만 노드 재활용 여부를 확인한다. 최초 가림 행에는 info가 없다.
+    if (info && getRowNickname(row) !== info.nickname) {
       restoredRowInfo.delete(row);
       return;
     }
     const span = getRowMessageSpan(row);
     if (!(span instanceof HTMLElement)) return;
+    if (span.classList.contains("chzzk-badge-moa-blind-restored-text")) return;
     const current = String(span.textContent || "").trim();
     if (BLIND_PLACEHOLDER_TEXTS.includes(current)) {
       const chatMessage = getChatMessage(row);
@@ -501,6 +583,13 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         if (mutation.type !== "childList") continue;
         if (mutation.target instanceof Element) {
           reapplyRestoreForTarget(mutation.target);
+          const targetRow = mutation.target.closest(CHAT_ROW_SELECTOR);
+          if (
+            targetRow instanceof HTMLElement &&
+            targetRow.querySelector("[class*='_chatting_message_']")
+          ) {
+            processRow(targetRow);
+          }
         }
         mutation.addedNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
@@ -977,6 +1066,32 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     }
   }
 
+  let blindCaptureSettingReceived = false;
+  let chatTimestampSettingReceived = false;
+  let chatFeaturesRequestTimer = null;
+  let chatFeaturesRequestTries = 0;
+
+  function stopChatFeaturesRequestRetry() {
+    if (!chatFeaturesRequestTimer) return;
+    clearInterval(chatFeaturesRequestTimer);
+    chatFeaturesRequestTimer = null;
+  }
+
+  function markChatFeatureSettingReceived(type) {
+    if (type === INJECT_BLIND_CAPTURE_TOGGLE_TYPE) {
+      blindCaptureSettingReceived = true;
+    } else if (type === INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE) {
+      chatTimestampSettingReceived = true;
+    }
+    if (blindCaptureSettingReceived && chatTimestampSettingReceived) {
+      stopChatFeaturesRequestRetry();
+    }
+  }
+
+  function requestChatFeatureSettings() {
+    postArchiveMessage(INJECT_CHAT_FEATURES_REQUEST_TYPE, {});
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
     if (event.origin !== CHZZK_BADGE_MOA_TARGET_ORIGIN) return;
@@ -1003,6 +1118,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
     // 가려진 채팅 표시 on/off
     if (messageType === INJECT_BLIND_CAPTURE_TOGGLE_TYPE) {
+      markChatFeatureSettingReceived(messageType);
       const next = payload.enabled === true;
       if (next === restoreBlindedChat) return;
       restoreBlindedChat = next;
@@ -1024,6 +1140,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
     // 채팅 시간 표시 on/off
     if (messageType === INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE) {
+      markChatFeatureSettingReceived(messageType);
       const next = payload.enabled === true;
       if (next === showChatTimestamp) return;
       showChatTimestamp = next;
@@ -1041,6 +1158,21 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       return;
     }
   });
+
+  // 격리 world의 설정 로드와 MAIN world 실행 순서는 보장되지 않는다. 첫 메시지가
+  // 유실되어도 현재 값을 다시 받을 수 있도록 두 설정을 모두 받을 때까지 짧게 요청한다.
+  requestChatFeatureSettings();
+  chatFeaturesRequestTimer = window.setInterval(() => {
+    chatFeaturesRequestTries += 1;
+    if (
+      (blindCaptureSettingReceived && chatTimestampSettingReceived) ||
+      chatFeaturesRequestTries > 20
+    ) {
+      stopChatFeaturesRequestRetry();
+      return;
+    }
+    requestChatFeatureSettings();
+  }, 300);
 
   function normalizeUrlForMatching(url) {
     if (!url) return "";

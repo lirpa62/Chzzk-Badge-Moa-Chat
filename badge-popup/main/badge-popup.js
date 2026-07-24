@@ -39,6 +39,7 @@
   const {
     MESSAGE_MARK,
     INJECT_TRACKED_SYNC_TYPE,
+    INJECT_CHAT_FEATURES_REQUEST_TYPE,
     STORAGE_HEIGHT_KEY,
     STORAGE_HEIGHT_KEY_LIVE,
     STORAGE_HEIGHT_KEY_LIVE_WIDE,
@@ -285,9 +286,12 @@
   function onWindowMessage(event) {
     observerApi.onWindowMessage(state, observerRefs, event, {
       MESSAGE_MARK,
+      INJECT_CHAT_FEATURES_REQUEST_TYPE,
       handleLocationChange,
       enqueueIncomingPayload,
       scheduleChatHighlightScan,
+      syncBlindCaptureToInject,
+      syncChatTimestampToInject,
     });
   }
 
