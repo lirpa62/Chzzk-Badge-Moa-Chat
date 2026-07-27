@@ -103,6 +103,16 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     "메시지가 블라인드 처리되었습니다.",
     "클린봇이 부적절한 표현을 감지했습니다.",
   ];
+
+  function isBlindPlaceholderText(value) {
+    return BLIND_PLACEHOLDER_TEXTS.includes(String(value || "").trim());
+  }
+  // 복원 쓰기 시도 상한: 리액트가 계속 가림 문구로 되돌리는 병리적 상황에서
+  // 무한 재복원 루프를 막는다. 행별로 (원문키|닉네임|가림문구) 시그니처가 같은 동안
+  // 이 횟수만큼만 다시 쓴다.
+  const RESTORE_WRITE_MAX = 5;
+  // 행 → { signature, attempts }
+  const restoreWriteState = new WeakMap();
   // 채팅 행 셀렉터: 임베디드 라이브(live_chatting_list_item)/다시보기(vod_chatting_item)/
   // 채팅 팝업(_item_)에서 행 클래스가 서로 다르므로 셋 다 포함해야 한다.
   // closest()에 _item_ 만 쓰면 라이브/다시보기 임베디드 채팅에서 행을 못 찾아
@@ -260,7 +270,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     const text =
       normalizeChatContent(chatMessage.content) ||
       normalizeChatContent(chatMessage.msg);
-    if (!text) return null;
+    // React props 자체가 이미 가림 문구로 교체된 경우엔 원문으로 취급하지 않는다.
+    // 이 값을 다시 DOM에 쓰면 치지직 렌더와 확장이 같은 문구를 무한 교체할 수 있다.
+    if (!text || isBlindPlaceholderText(text)) return null;
     let extras = chatMessage.extras;
     if (typeof extras === "string") extras = parseJsonSafe(extras);
     const emojis =
@@ -369,14 +381,35 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       .forEach((el) => el.remove());
   }
 
+  // 복원 쓰기 허용 여부: 같은 시그니처(원문키|닉네임|가림문구)로 RESTORE_WRITE_MAX 회를
+  // 넘겨 쓰려 하면 거부한다(리액트 재렌더 ↔ 확장 복원 무한 루프 차단).
+  function canWriteRestore(row, chatMessage, placeholder) {
+    const signature = [
+      chatCacheKey(chatMessage),
+      getRowNickname(row),
+      String(placeholder || ""),
+    ].join("|");
+    const previous = restoreWriteState.get(row);
+    const writeState =
+      previous && previous.signature === signature
+        ? previous
+        : { signature, attempts: 0 };
+    if (writeState.attempts >= RESTORE_WRITE_MAX) return false;
+    writeState.attempts += 1;
+    restoreWriteState.set(row, writeState);
+    return true;
+  }
+
   // 가려진 행을 원문(텍스트+이모티콘)으로 복원.
-  function applyRestore(row, original) {
+  function applyRestore(row, original, chatMessage) {
     const span = getRowMessageSpan(row);
     if (!(span instanceof HTMLElement)) return;
+    const currentPlaceholder = String(span.textContent || "");
+    if (!canWriteRestore(row, chatMessage, currentPlaceholder)) return;
     // 원래 가림 문구 보관(OFF 시 되돌리기). 이미 복원된 경우 덮지 않음.
     if (!restoredRowInfo.has(row)) {
       restoredRowInfo.set(row, {
-        placeholder: String(span.textContent || ""),
+        placeholder: currentPlaceholder,
         nickname: getRowNickname(row),
       });
     }
@@ -426,7 +459,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
             });
           }
         }
-        if (row) restoredRowInfo.delete(row);
+        if (row) {
+          restoredRowInfo.delete(row);
+          restoreWriteState.delete(row);
+        }
       });
   }
 
@@ -463,7 +499,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
           readChatOriginal(chatMessage) ||
           originalMsgCache.get(chatCacheKey(chatMessage)) ||
           null;
-        if (original) applyRestore(row, original);
+        if (original) applyRestore(row, original, chatMessage);
       }
     }
     clearChatRowRetry(row);
@@ -519,14 +555,14 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (!(span instanceof HTMLElement)) return;
     if (span.classList.contains("chzzk-badge-moa-blind-restored-text")) return;
     const current = String(span.textContent || "").trim();
-    if (BLIND_PLACEHOLDER_TEXTS.includes(current)) {
+    if (isBlindPlaceholderText(current)) {
       const chatMessage = getChatMessage(row);
       const original = chatMessage
         ? readChatOriginal(chatMessage) ||
           originalMsgCache.get(chatCacheKey(chatMessage)) ||
           null
         : null;
-      if (original) applyRestore(row, original);
+      if (original) applyRestore(row, original, chatMessage);
     }
   }
 

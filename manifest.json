@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "배지 모아 챗 - 치지직 배지 채팅 모아보기",
   "description": "치지직 스트리머, 매니저, 파트너 등의 배지 채팅을 놓치지 않게 한눈에 모아서 보여주는 도구입니다.",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "https://chzzk.naver.com/*",
