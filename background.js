@@ -1,4 +1,6 @@
 const CHZZK_TAB_MATCH_PATTERNS = ["https://chzzk.naver.com/*"];
+const UPDATE_BANNER_ENABLED_KEY =
+  "chzzk_badge_moa_update_banner_enabled";
 const SESSION_CACHE_PREFIX_V1 = "chzzk_badge_moa_tab_channel_cache_v1:";
 const SESSION_CACHE_PREFIX_LEGACY = "chzzk_badge_moa_channel_cache_v1:";
 
@@ -202,6 +204,7 @@ async function reinjectChzzkContentScripts(tabId) {
 
 async function showUpdateBannerOnTab(tabId) {
   if (!Number.isInteger(tabId)) return;
+  if (!(await isUpdateBannerEnabled())) return;
   await chrome.scripting
     .executeScript({
       target: { tabId },
@@ -209,6 +212,44 @@ async function showUpdateBannerOnTab(tabId) {
     })
     .catch(() => {});
 }
+
+async function isUpdateBannerEnabled() {
+  try {
+    const result = await chrome.storage.local.get([UPDATE_BANNER_ENABLED_KEY]);
+    return result[UPDATE_BANNER_ENABLED_KEY] !== false;
+  } catch (_error) {
+    return true;
+  }
+}
+
+function removeUpdateNotificationBanner() {
+  document.getElementById("chzzk-badge-moa-ext-update-banner")?.remove();
+}
+
+async function removeUpdateBannersFromChzzkTabs() {
+  const tabs = await chrome.tabs.query({
+    url: CHZZK_TAB_MATCH_PATTERNS,
+  });
+  await Promise.all(
+    tabs.map((tab) => {
+      const tabId = Number(tab && tab.id);
+      if (!Number.isInteger(tabId)) return Promise.resolve();
+      return chrome.scripting
+        .executeScript({
+          target: { tabId },
+          func: removeUpdateNotificationBanner,
+        })
+        .catch(() => {});
+    }),
+  );
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  const change = changes[UPDATE_BANNER_ENABLED_KEY];
+  if (!change || change.newValue !== false) return;
+  void removeUpdateBannersFromChzzkTabs();
+});
 
 // 설치 및 업데이트 감지 리스너
 chrome.runtime.onInstalled.addListener(async (details) => {

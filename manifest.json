@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "배지 모아 챗 - 치지직 배지 채팅 모아보기",
   "description": "치지직 스트리머, 매니저, 파트너 등의 배지 채팅을 놓치지 않게 한눈에 모아서 보여주는 도구입니다.",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "https://chzzk.naver.com/*",
@@ -19,12 +19,21 @@
   "content_scripts": [
     {
       "matches": ["https://chzzk.naver.com/*"],
+      "exclude_matches": ["https://chzzk.naver.com/live/*/chat*"],
       "js": ["inject.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
+      "matches": ["https://chzzk.naver.com/live/*/chat*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
       "matches": ["https://chzzk.naver.com/*"],
+      "exclude_matches": ["https://chzzk.naver.com/live/*/chat*"],
       "js": [
         "badge-popup/core/badge-popup-fonts.js",
         "badge-popup/core/badge-popup-constants.js",
@@ -51,6 +60,36 @@
       ],
       "css": ["badge-popup.css"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://chzzk.naver.com/live/*/chat*"],
+      "js": [
+        "badge-popup/core/badge-popup-fonts.js",
+        "badge-popup/core/badge-popup-constants.js",
+        "badge-popup/core/badge-popup-state.js",
+        "badge-popup/core/badge-popup-storage.js",
+        "badge-popup/core/badge-popup-sync.js",
+        "badge-popup/core/badge-popup-channel.js",
+        "badge-popup/core/badge-popup-cache.js",
+        "badge-popup/core/badge-popup-settings.js",
+        "badge-popup/features/badge-popup-bootstrap.js",
+        "badge-popup/features/badge-popup-filter.js",
+        "badge-popup/features/badge-popup-feed.js",
+        "badge-popup/features/badge-popup-pill.js",
+        "badge-popup/features/badge-popup-confirm.js",
+        "badge-popup/features/badge-popup-tracked.js",
+        "badge-popup/features/badge-popup-observer.js",
+        "badge-popup/features/badge-popup-entry.js",
+        "badge-popup/features/badge-popup-ui-core.js",
+        "badge-popup/features/badge-popup-profile-card.js",
+        "badge-popup/features/badge-popup-render.js",
+        "badge-popup/features/badge-popup-lifecycle.js",
+        "badge-popup/features/badge-popup-popup.js",
+        "badge-popup/main/badge-popup.js"
+      ],
+      "css": ["badge-popup.css"],
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [

@@ -1,5 +1,7 @@
 (() => {
   const STORAGE_SETTINGS_KEY = "chzzk_badge_moa_popup_settings";
+  const UPDATE_BANNER_ENABLED_KEY =
+    "chzzk_badge_moa_update_banner_enabled";
   const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
   const STATUS_IDLE_CONNECTED = "현재 탭에 즉시 반영됩니다.";
   const STATUS_IDLE_DISCONNECTED =
@@ -67,6 +69,7 @@
     enableSessionCache: false,
     autoPruneManagedHiddenOnReconnect: false,
     popupTheme: "system",
+    updateBannerEnabled: true,
     statusTimer: null,
     hiddenChipsCollapsed: true,
     trackedChipsCollapsed: true,
@@ -137,6 +140,7 @@
     clearCurrentChannelSession: document.getElementById(
       "clear-current-channel-session",
     ),
+    updateBannerToggle: document.getElementById("update-banner-toggle"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleCurrent: document.getElementById("theme-toggle-current"),
     themeToggleOptions: Array.from(
@@ -173,7 +177,11 @@
     state.scopeKey = getScopeKeyFromUrl(state.tabUrl);
     state.scopeLabel = formatScopeLabel(state.scopeKey);
 
-    const raw = await getStorageLocal(STORAGE_SETTINGS_KEY);
+    const [raw, updateBannerEnabled] = await Promise.all([
+      getStorageLocal(STORAGE_SETTINGS_KEY),
+      getStorageLocal(UPDATE_BANNER_ENABLED_KEY),
+    ]);
+    state.updateBannerEnabled = updateBannerEnabled !== false;
     state.rawSettings = normalizeRawSettings(raw);
     applyStateFromRawForScope(state.scopeKey);
     applyPopupTheme();
@@ -241,6 +249,17 @@
       const value = normalizePopupTheme(button.dataset.themeValue);
       button.setAttribute("aria-checked", String(value === current));
     });
+  }
+
+  function syncUpdateBannerToggleUi() {
+    if (!(el.updateBannerToggle instanceof HTMLButtonElement)) return;
+    const enabled = state.updateBannerEnabled !== false;
+    const actionLabel = enabled
+      ? "업데이트 배너 끄기"
+      : "업데이트 배너 켜기";
+    el.updateBannerToggle.setAttribute("aria-pressed", String(enabled));
+    el.updateBannerToggle.setAttribute("aria-label", actionLabel);
+    el.updateBannerToggle.title = actionLabel;
   }
 
   function triggerHintPulse(element) {
@@ -528,6 +547,23 @@
 
   function bindEvents() {
     initializeCustomSelects([el.popupFontScale, el.chatFontScale]);
+
+    if (el.updateBannerToggle) {
+      el.updateBannerToggle.addEventListener("click", async () => {
+        state.updateBannerEnabled = state.updateBannerEnabled === false;
+        syncUpdateBannerToggleUi();
+        await setStorageLocal(
+          UPDATE_BANNER_ENABLED_KEY,
+          state.updateBannerEnabled,
+        );
+        setStatus(
+          state.updateBannerEnabled
+            ? "업데이트 배너를 표시합니다."
+            : "업데이트 배너를 표시하지 않습니다.",
+          { autoResetMs: 1800 },
+        );
+      });
+    }
 
     if (
       darkThemeMedia &&
@@ -922,6 +958,7 @@
     el.scopeInfo.textContent = `채널: ${state.scopeLabel || formatScopeLabel(state.scopeKey)}`;
 
     syncThemeToggleUi();
+    syncUpdateBannerToggleUi();
     el.hideChatBg.checked = state.hideChatBackground;
     el.hideChatBorder.checked = state.hideChatBorder;
     el.hidePopupBg.checked = state.hidePopupBackground;
