@@ -1839,15 +1839,47 @@ html[style*="color-scheme: light"]
   border-color: rgba(94, 157, 255, 0.55);
 }
 
+.chzzk-badge-moa-item-highlight-partner,
+.chzzk-badge-moa-chat-highlight-partner {
+  --chzzk-badge-moa-partner-highlight-text: #4ade80;
+}
+
+html[data-theme="light"]
+  :is(
+    .chzzk-badge-moa-item-highlight-partner,
+    .chzzk-badge-moa-chat-highlight-partner
+  ),
+html[style*="color-scheme: light"]
+  :is(
+    .chzzk-badge-moa-item-highlight-partner,
+    .chzzk-badge-moa-chat-highlight-partner
+  ),
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  :is(
+    .chzzk-badge-moa-item-highlight-partner,
+    .chzzk-badge-moa-chat-highlight-partner
+  ) {
+  --chzzk-badge-moa-partner-highlight-text: #15803d;
+}
+
 .chzzk-badge-moa-item-highlight-partner:not(
   [class*="chzzk-badge-moa-item-type-"]
 ) {
   background: linear-gradient(
     90deg,
-    rgba(255, 179, 64, 0.2),
-    rgba(255, 179, 64, 0.06)
+    rgba(34, 197, 94, 0.2),
+    rgba(34, 197, 94, 0.06)
   );
-  border-color: rgba(255, 179, 64, 0.58);
+  border-color: rgba(34, 197, 94, 0.58);
+}
+
+.chzzk-badge-moa-item-highlight-partner:not(
+    [class*="chzzk-badge-moa-item-type-"]
+  )
+  :is(.chzzk-badge-moa-item-nickname, .chzzk-badge-moa-item-message) {
+  color: var(--chzzk-badge-moa-partner-highlight-text) !important;
 }
 
 .chzzk-badge-moa-item-highlight-channel_owner:not(
@@ -2460,10 +2492,22 @@ body[style*="color-scheme: light"] .chzzk-badge-moa-popup-resizer::before {
   > [class*="vod_chatting_message_container"] {
   background: linear-gradient(
     90deg,
-    rgba(255, 179, 64, 0.2),
-    rgba(255, 179, 64, 0.06)
+    rgba(34, 197, 94, 0.2),
+    rgba(34, 197, 94, 0.06)
   );
-  border-color: rgba(255, 179, 64, 0.58);
+  border-color: rgba(34, 197, 94, 0.58);
+}
+
+.chzzk-badge-moa-chat-highlight-partner
+  :is(
+    [class*="_nickname_"],
+    [class*="chatting_message_nickname"],
+    [class*="chatting_message_text"]
+  ),
+.chzzk-badge-moa-chat-highlight-partner
+  [class*="_chatting_message_"]
+  > [class*="_text_"] {
+  color: var(--chzzk-badge-moa-partner-highlight-text) !important;
 }
 
 .chzzk-badge-moa-chat-highlight-channel_owner
@@ -2693,10 +2737,10 @@ img.chzzk-badge-moa-blind-emoji {
   > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   background: linear-gradient(
     90deg,
-    rgba(255, 179, 64, 0.2),
-    rgba(255, 179, 64, 0.06)
+    rgba(34, 197, 94, 0.2),
+    rgba(34, 197, 94, 0.06)
   );
-  border-color: rgba(255, 179, 64, 0.58);
+  border-color: rgba(34, 197, 94, 0.58);
 }
 .chzzk-badge-moa-chat-highlight-channel_owner
   > [class*="_container_"]:has(> [class*="_chatting_message_"]),
