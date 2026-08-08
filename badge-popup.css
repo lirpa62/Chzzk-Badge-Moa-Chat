@@ -2159,6 +2159,36 @@ html[style*="color-scheme: light"]
   vertical-align: text-top;
 }
 
+.chzzk-badge-moa-popup-list.is-inline
+  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-head,
+.chzzk-badge-moa-popup-list.is-inline
+  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-head-main {
+  max-width: 100%;
+}
+
+.chzzk-badge-moa-popup-list.is-inline
+  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-user {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.chzzk-badge-moa-popup-list.is-inline
+  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-nickname {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chzzk-badge-moa-popup-list.is-inline
+  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-tags {
+  flex: 0 1 auto;
+}
+
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-tag {
   flex: 0 1 auto;
 }

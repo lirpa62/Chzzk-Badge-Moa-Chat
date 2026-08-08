@@ -438,6 +438,9 @@
       if (typeToneClass) {
         item.classList.add(typeToneClass);
       }
+      if (String(entry.typeLabel || "").trim() === "구독 선물") {
+        item.classList.add("chzzk-badge-moa-item-gift-subscription");
+      }
       const useTypeToneItem = !!typeToneClass;
 
       const head = document.createElement("div");
