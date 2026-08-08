@@ -132,6 +132,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   let blindRestoreWriting = false;
   // 행 → { placeholder, nickname }: OFF 시 원래 가림 문구로 되돌리기 위함.
   const restoredRowInfo = new WeakMap();
+  // 복원할 원문이 아예 없다고 판명된 행(진입 전 이미 가려짐, 쓰기 한도 소진 등)을
+  // 표시해 무한 재시도를 멈춘다.
+  let restoreUnavailableRows = new WeakSet();
   // 원문 캐시: 메시지가 가려지면 치지직 React가 props의 원문(content)을 비울 수 있어
   // 복원 시점엔 readChatOriginal 이 null 을 돌려주기도 한다. 가려지기 전 미리 원문을
   // (userId|time 키로) 캐시해 두고, 복원 시 props에 없으면 이 캐시에서 꺼낸다.
@@ -305,6 +308,27 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     );
   }
 
+  // 이 행이 지금 '복원 가능한 가림 문구'를 보여주고 있으면 그 문구를 돌려준다.
+  // _is_hidden_ 클래스만 보지 않고 메시지 텍스트가 실제 가림 문구(블라인드/클린봇)인지
+  // 확인해, 클래스는 붙었지만 아직 문구로 바뀌지 않은 행에 섣불리 쓰지 않는다.
+  // 이미 우리가 복원한 행은, 저장해 둔 원래 가림 문구가 유효하면 그 값을 돌려준다.
+  function getRestorablePlaceholder(row) {
+    if (!isHiddenRow(row)) return "";
+    const span = getRowMessageSpan(row);
+    if (!(span instanceof HTMLElement)) return "";
+    const current = String(span.textContent || "").trim();
+    if (isBlindPlaceholderText(current)) return current;
+    const restored = restoredRowInfo.get(row);
+    const originalPlaceholder = String(restored?.placeholder || "").trim();
+    if (
+      span.classList.contains("chzzk-badge-moa-blind-restored-text") &&
+      isBlindPlaceholderText(originalPlaceholder)
+    ) {
+      return originalPlaceholder;
+    }
+    return "";
+  }
+
   // {:emojiKey:} 토큰을 텍스트 노드 + <img>로 조립.
   function buildRestoredMessageFragment(text, emojiMap) {
     const fragment = document.createDocumentFragment();
@@ -400,12 +424,12 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     return true;
   }
 
-  // 가려진 행을 원문(텍스트+이모티콘)으로 복원.
-  function applyRestore(row, original, chatMessage) {
+  // 가려진 행을 원문(텍스트+이모티콘)으로 복원. 쓰기 한도(canWriteRestore) 판단은
+  // 호출부에서 처리한다(중복 증가 방지).
+  function applyRestore(row, original) {
     const span = getRowMessageSpan(row);
     if (!(span instanceof HTMLElement)) return;
     const currentPlaceholder = String(span.textContent || "");
-    if (!canWriteRestore(row, chatMessage, currentPlaceholder)) return;
     // 원래 가림 문구 보관(OFF 시 되돌리기). 이미 복원된 경우 덮지 않음.
     if (!restoredRowInfo.has(row)) {
       restoredRowInfo.set(row, {
@@ -462,8 +486,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         if (row) {
           restoredRowInfo.delete(row);
           restoreWriteState.delete(row);
+          restoreUnavailableRows.delete(row);
         }
       });
+    restoreUnavailableRows = new WeakSet();
   }
 
   // 채팅 행 하나 처리: 시간 삽입 + 가림 복원.
@@ -487,10 +513,15 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     // 복원 기능이 켜져 있으면, 아직 안 가려진 행의 원문을 미리 캐시해 둔다(가려진 뒤엔
     // props의 원문이 비워질 수 있어 그때 읽으면 늦다).
     if (restoreBlindedChat && !isHiddenRow(row)) {
+      restoreUnavailableRows.delete(row);
       cacheOriginalMessage(chatMessage);
     }
 
-    if (restoreBlindedChat && isHiddenRow(row)) {
+    const restorablePlaceholder =
+      restoreBlindedChat && !restoreUnavailableRows.has(row)
+        ? getRestorablePlaceholder(row)
+        : "";
+    if (restorablePlaceholder) {
       const span = getRowMessageSpan(row);
       // 이미 복원된 행이면 skip(클래스로 식별)
       if (span && !span.classList.contains("chzzk-badge-moa-blind-restored-text")) {
@@ -499,7 +530,15 @@ if (!window.__chzzkBadgeMoaMainInjected) {
           readChatOriginal(chatMessage) ||
           originalMsgCache.get(chatCacheKey(chatMessage)) ||
           null;
-        if (original) applyRestore(row, original, chatMessage);
+        if (!original) {
+          // 진입 전에 이미 가려져 원문이 아예 없는 경우엔 다시 시도하지 않는다.
+          restoreUnavailableRows.add(row);
+        } else if (canWriteRestore(row, chatMessage, restorablePlaceholder)) {
+          applyRestore(row, original);
+        } else {
+          // 쓰기 한도를 모두 쓴 행도 더 이상 재시도하지 않는다.
+          restoreUnavailableRows.add(row);
+        }
       }
     }
     clearChatRowRetry(row);
@@ -544,6 +583,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (!(target instanceof Element)) return;
     const row = target.closest(CHAT_ROW_SELECTOR);
     if (!(row instanceof HTMLElement)) return;
+    if (restoreUnavailableRows.has(row)) return;
     if (!row.querySelector("[class*='_chatting_message_']")) return;
     const info = restoredRowInfo.get(row);
     // 복원 이력이 있는 행만 노드 재활용 여부를 확인한다. 최초 가림 행에는 info가 없다.
@@ -562,7 +602,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
           originalMsgCache.get(chatCacheKey(chatMessage)) ||
           null
         : null;
-      if (original) applyRestore(row, original, chatMessage);
+      if (original && canWriteRestore(row, chatMessage, current)) {
+        applyRestore(row, original);
+      }
     }
   }
 
