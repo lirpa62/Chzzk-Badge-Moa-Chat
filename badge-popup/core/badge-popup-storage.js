@@ -142,6 +142,71 @@
     });
   }
 
+  async function persistOriginalChatHtml(entry) {
+    if (!entry || typeof entry !== "object") return "";
+    const html = String(entry.originalChatHtml || "").trim();
+    const kind = String(entry.originalChatKind || "").trim().toLowerCase();
+    if (!html || !kind) return "";
+    const response = await sendRuntimeMessage({
+      type: "chzzk_badge_moa_original_html_put",
+      ref: String(entry.originalChatRef || "").trim(),
+      cacheId: `${String(entry.channelId || "").trim()}:${String(
+        entry.dedupeKey || entry.sourceKey || "",
+      ).trim()}`,
+      html,
+      kind,
+    });
+    return response?.ok === true ? String(response.ref || "").trim() : "";
+  }
+
+  async function persistOriginalChatHtmlBatch(entries) {
+    const safeEntries = Array.isArray(entries) ? entries : [];
+    const startIndex = Math.max(0, safeEntries.length - 200);
+    const entriesToPersist = safeEntries.slice(startIndex);
+    const response = await sendRuntimeMessage({
+      type: "chzzk_badge_moa_original_html_put_batch",
+      items: entriesToPersist.map((entry) => ({
+        ref: String(entry?.originalChatRef || "").trim(),
+        cacheId: `${String(entry?.channelId || "").trim()}:${String(
+          entry?.dedupeKey || entry?.sourceKey || "",
+        ).trim()}`,
+        html: String(entry?.originalChatHtml || "").trim(),
+        kind: String(entry?.originalChatKind || "").trim().toLowerCase(),
+      })),
+    });
+    const refs = Array(safeEntries.length).fill("");
+    if (response?.ok !== true || !Array.isArray(response.refs)) return refs;
+    response.refs.forEach((ref, index) => {
+      refs[startIndex + index] = String(ref || "").trim();
+    });
+    return refs;
+  }
+
+  async function loadOriginalChatHtml(refs) {
+    const response = await sendRuntimeMessage({
+      type: "chzzk_badge_moa_original_html_get",
+      refs: Array.isArray(refs) ? refs : [],
+    });
+    const result = new Map();
+    if (response?.ok !== true || !Array.isArray(response.items)) return result;
+    response.items.forEach((item) => {
+      const ref = String(item?.ref || "").trim();
+      const html = String(item?.html || "").trim();
+      const kind = String(item?.kind || "").trim().toLowerCase();
+      if (!ref || !html || !kind) return;
+      result.set(ref, { html, kind });
+    });
+    return result;
+  }
+
+  async function removeOriginalChatHtmlRefs(refs) {
+    const response = await sendRuntimeMessage({
+      type: "chzzk_badge_moa_original_html_remove",
+      refs: Array.isArray(refs) ? refs : [],
+    });
+    return response?.ok === true;
+  }
+
   async function sendRuntimeMessage(message) {
     return new Promise((resolve) => {
       try {
@@ -243,6 +308,10 @@
     setSessionCacheValue,
     removeSessionCacheValue,
     clearSessionCachesForCurrentTab,
+    persistOriginalChatHtml,
+    persistOriginalChatHtmlBatch,
+    loadOriginalChatHtml,
+    removeOriginalChatHtmlRefs,
     sendRuntimeMessage,
     clearSessionFallbackStorage,
     getSessionFallbackStorageKey,

@@ -306,6 +306,13 @@
             <input type="checkbox" id="show-popup-role-badges-only" />
             <span>팝업창 역할 배지만 표시</span>
           </label>
+          <label
+            class="toggle-row"
+            title="모아보기 팝업의 후원·구독·미션·구매 메시지를 치지직 원본 모양으로 표시합니다."
+          >
+            <input type="checkbox" id="use-original-special-chat-style" />
+            <span>후원·구독·미션·구매 원본 스타일</span>
+          </label>
           <label class="toggle-row">
             <input type="checkbox" id="pill-glow-enabled" />
             <span>채팅창 배지 알림 효과 사용</span>
@@ -370,6 +377,20 @@
             모아보기 제외
           </button>
         </div>
+        <div
+          id="hidden-exclude-scope-tabs"
+          class="scope-segmented"
+          role="group"
+          aria-label="모아보기 제외 적용 범위"
+          hidden
+        >
+          <button type="button" data-scope="channel" aria-pressed="true">
+            현재 채널
+          </button>
+          <button type="button" data-scope="global" aria-pressed="false">
+            모든 방문 채널
+          </button>
+        </div>
         <div class="advanced-row hidden-prune-row">
           <label class="toggle-row hidden-auto-prune-toggle">
             <input type="checkbox" id="hidden-auto-prune-toggle" />
@@ -403,6 +424,19 @@
             </button>
             <button id="tracked-delete-all" type="button">전체 삭제</button>
           </div>
+        </div>
+        <div
+          id="tracked-scope-tabs"
+          class="scope-segmented"
+          role="group"
+          aria-label="모아보기 대상 적용 범위"
+        >
+          <button type="button" data-scope="channel" aria-pressed="true">
+            현재 채널
+          </button>
+          <button type="button" data-scope="global" aria-pressed="false">
+            모든 방문 채널
+          </button>
         </div>
         <div id="tracked-add-row" class="add-row">
           <input

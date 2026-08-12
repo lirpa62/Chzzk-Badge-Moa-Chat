@@ -8,6 +8,13 @@
   if (ns.cache && typeof ns.cache === "object") return;
 
   const { STORAGE_CHANNEL_CACHE_PREFIX, MAX_KEEP_ENTRIES } = constants;
+  const ORIGINAL_HTML_LOCAL_PREFIX = "chzzk_badge_moa_original_html_v1:";
+  const ORIGINAL_CHAT_KINDS = new Set([
+    "donation",
+    "subscription",
+    "mission",
+    "purchase",
+  ]);
 
   function isSessionCacheEnabled(state) {
     return state.settings.enableSessionCache === true;
@@ -120,12 +127,47 @@
       typeof deps.getStorageValue === "function"
         ? deps.getStorageValue
         : async () => null;
+    const persistOriginalChatHtmlFn =
+      typeof deps.persistOriginalChatHtml === "function"
+        ? deps.persistOriginalChatHtml
+        : async () => "";
+    const persistOriginalChatHtmlBatchFn =
+      typeof deps.persistOriginalChatHtmlBatch === "function"
+        ? deps.persistOriginalChatHtmlBatch
+        : null;
 
-    const localEntries = Array.isArray(state.entries)
-      ? state.entries
-          .map((entry) => serializeEntryForCacheFn(entry))
-          .filter((entry) => !!entry)
-      : [];
+    const entries = Array.isArray(state.entries) ? state.entries : [];
+    const originalEntriesToPersist = entries.filter((entry) => {
+      const hasOriginalHtml =
+        !!String(entry?.originalChatHtml || "").trim() &&
+        ORIGINAL_CHAT_KINDS.has(
+          String(entry?.originalChatKind || "").trim().toLowerCase(),
+        );
+      return hasOriginalHtml && entry.originalChatPersisted !== true;
+    });
+    if (originalEntriesToPersist.length > 0) {
+      const refs = persistOriginalChatHtmlBatchFn
+        ? await persistOriginalChatHtmlBatchFn(originalEntriesToPersist)
+        : await Promise.all(
+            originalEntriesToPersist.map((entry) =>
+              persistOriginalChatHtmlFn(entry),
+            ),
+          );
+      originalEntriesToPersist.forEach((entry, index) => {
+        const ref = String(refs?.[index] || "").trim();
+        if (!ref) {
+          entry.originalChatRef = "";
+          entry.originalChatPersisted = false;
+          return;
+        }
+        entry.originalChatRef = ref;
+        entry.originalChatPersisted = true;
+      });
+    }
+
+    const localEntries = entries
+      .map((entry) => serializeEntryForCacheFn(entry))
+      .filter((entry) => !!entry);
     const localUnseen = serializeUnseenStateForCacheFn();
 
     let existing = null;
@@ -343,6 +385,31 @@
       restoredEntries.splice(0, restoredEntries.length - MAX_KEEP_ENTRIES);
     }
 
+    const loadOriginalChatHtmlFn =
+      typeof deps.loadOriginalChatHtml === "function"
+        ? deps.loadOriginalChatHtml
+        : async () => new Map();
+    const originalRefs = restoredEntries
+      .map((entry) => String(entry?.originalChatRef || "").trim())
+      .filter((ref) => ref.startsWith(ORIGINAL_HTML_LOCAL_PREFIX));
+    const restoredOriginals = await loadOriginalChatHtmlFn(originalRefs);
+    if (token !== state.cache.restoreToken) return;
+    restoredEntries.forEach((entry) => {
+      const ref = String(entry.originalChatRef || "").trim();
+      const original =
+        restoredOriginals instanceof Map ? restoredOriginals.get(ref) : null;
+      if (!original) {
+        entry.originalChatRef = "";
+        entry.originalChatPersisted = false;
+        return;
+      }
+      entry.originalChatHtml = String(original.html || "").trim();
+      entry.originalChatKind = String(original.kind || "")
+        .trim()
+        .toLowerCase();
+      entry.originalChatPersisted = !!entry.originalChatHtml;
+    });
+
     state.entries = restoredEntries;
     if (typeof deps.syncRoleBadgeCacheFromEntries === "function") {
       deps.syncRoleBadgeCacheFromEntries(state.entries);
@@ -510,6 +577,33 @@
     if (entryChannelId && /^[a-f0-9]{32}$/i.test(entryChannelId)) {
       serialized.channelId = entryChannelId.toLowerCase();
     }
+    const originalChatRef = String(entry.originalChatRef || "").trim();
+    const originalChatKind = String(entry.originalChatKind || "")
+      .trim()
+      .toLowerCase();
+    if (
+      originalChatRef.startsWith(ORIGINAL_HTML_LOCAL_PREFIX) &&
+      ORIGINAL_CHAT_KINDS.has(originalChatKind)
+    ) {
+      serialized.originalChatRef = originalChatRef.slice(0, 240);
+      serialized.originalChatKind = originalChatKind;
+    }
+    serialized.sourceKey = String(entry.sourceKey || "").slice(0, 200);
+    serialized.sourceMessageKey = String(entry.sourceMessageKey || "").slice(
+      0,
+      160,
+    );
+    serialized.sourcePlayerMessageTime =
+      Number(entry.sourcePlayerMessageTime || 0) || 0;
+    serialized.sourceTimestamp = Number(entry.sourceTimestamp || 0) || 0;
+    serialized.sourceNickname = String(entry.sourceNickname || "").slice(0, 80);
+    serialized.sourceReceiverNickname = String(
+      entry.sourceReceiverNickname || "",
+    ).slice(0, 80);
+    serialized.sourceMessage = String(entry.sourceMessage || "").slice(0, 500);
+    serialized.sourceChatKind = String(entry.sourceChatKind || "")
+      .trim()
+      .toLowerCase();
     return serialized;
   }
 
@@ -575,6 +669,39 @@
       rawChannelId && /^[a-f0-9]{32}$/i.test(rawChannelId)
         ? rawChannelId.toLowerCase()
         : "";
+    const originalChatRef = String(rawEntry.originalChatRef || "").trim();
+    const originalChatKind = String(rawEntry.originalChatKind || "")
+      .trim()
+      .toLowerCase();
+    restored.originalChatRef = originalChatRef.startsWith(
+      ORIGINAL_HTML_LOCAL_PREFIX,
+    )
+      ? originalChatRef.slice(0, 240)
+      : "";
+    restored.originalChatKind = ORIGINAL_CHAT_KINDS.has(originalChatKind)
+      ? originalChatKind
+      : "";
+    restored.originalChatHtml = "";
+    restored.originalChatPersisted = false;
+    restored.sourceKey = String(rawEntry.sourceKey || "").slice(0, 200);
+    restored.sourceMessageKey = String(rawEntry.sourceMessageKey || "").slice(
+      0,
+      160,
+    );
+    restored.sourcePlayerMessageTime =
+      Number(rawEntry.sourcePlayerMessageTime || 0) || 0;
+    restored.sourceTimestamp = Number(rawEntry.sourceTimestamp || 0) || 0;
+    restored.sourceNickname = String(rawEntry.sourceNickname || "").slice(0, 80);
+    restored.sourceReceiverNickname = String(
+      rawEntry.sourceReceiverNickname || "",
+    ).slice(0, 80);
+    restored.sourceMessage = String(rawEntry.sourceMessage || "").slice(0, 500);
+    const sourceChatKind = String(rawEntry.sourceChatKind || "")
+      .trim()
+      .toLowerCase();
+    restored.sourceChatKind = ORIGINAL_CHAT_KINDS.has(sourceChatKind)
+      ? sourceChatKind
+      : "";
     return restored;
   }
 

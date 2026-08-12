@@ -13,7 +13,21 @@
     INJECT_TRACKED_SYNC_TYPE,
     INJECT_BLIND_CAPTURE_TOGGLE_TYPE,
     INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE,
+    INJECT_ORIGINAL_CHAT_CAPTURE_TOGGLE_TYPE,
+    MAX_TRACKED_GLOBAL_NICKNAMES,
   } = constants;
+
+  function normalizeNicknameSet(rawValues, normalizeValue, maxSize = 0) {
+    const set = new Set();
+    if (!Array.isArray(rawValues)) return set;
+    for (const value of rawValues) {
+      const normalized = normalizeValue(value);
+      if (!normalized) continue;
+      set.add(normalized);
+      if (maxSize > 0 && set.size >= maxSize) break;
+    }
+    return set;
+  }
 
   function normalizeHiddenByScope(rawMap, deps = {}) {
     const normalized = {};
@@ -214,9 +228,17 @@
       scopedExcluded.forEach((nickname) => {
         const normalized = normalizeNickname(nickname);
         if (!normalized) return;
-        defaults.excludedCollectNicknames.add(normalized);
+        defaults.excludedCollectScopedNicknames.add(normalized);
       });
     }
+    defaults.excludedCollectGlobalNicknames = normalizeNicknameSet(
+      raw.excludedCollectGlobalNicknames,
+      normalizeNickname,
+    );
+    defaults.excludedCollectNicknames = new Set([
+      ...defaults.excludedCollectScopedNicknames,
+      ...defaults.excludedCollectGlobalNicknames,
+    ]);
     const scopedTracked = trackedByScope[scope];
     if (scopedTracked && typeof scopedTracked === "object") {
       const nicknames = Array.isArray(scopedTracked.nicknames)
@@ -228,7 +250,15 @@
         defaults.trackedScopedNicknames.add(normalized);
       });
     }
-    defaults.trackedNicknames = new Set([...defaults.trackedScopedNicknames]);
+    defaults.trackedGlobalNicknames = normalizeNicknameSet(
+      raw.trackedGlobalNicknames,
+      normalizeTrackedNickname,
+      MAX_TRACKED_GLOBAL_NICKNAMES,
+    );
+    defaults.trackedNicknames = new Set([
+      ...defaults.trackedScopedNicknames,
+      ...defaults.trackedGlobalNicknames,
+    ]);
 
     const scopedNicknameFilter = nicknameFiltersByScope[scope];
     if (scopedNicknameFilter && typeof scopedNicknameFilter === "object") {
@@ -268,6 +298,8 @@
     defaults.hideChatDonation = raw.hideChatDonation === true;
     defaults.restoreBlindedChat = raw.restoreBlindedChat === true;
     defaults.showChatTimestamp = raw.showChatTimestamp === true;
+    defaults.useOriginalSpecialChatStyle =
+      raw.useOriginalSpecialChatStyle === true;
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
@@ -348,6 +380,22 @@
     } catch (_error) {}
   }
 
+  // 후원/구독/미션 원본 DOM 캡처 on/off를 inject(MAIN world)에 통지한다.
+  function syncOriginalChatCaptureToInject(state) {
+    try {
+      window.postMessage(
+        {
+          [MESSAGE_MARK]: true,
+          type: INJECT_ORIGINAL_CHAT_CAPTURE_TOGGLE_TYPE,
+          payload: {
+            enabled: state.settings.useOriginalSpecialChatStyle === true,
+          },
+        },
+        window.location.origin,
+      );
+    } catch (_error) {}
+  }
+
   function saveSettings(state, deps = {}) {
     const getSettingsScopeKey =
       typeof deps.getSettingsScopeKey === "function"
@@ -382,7 +430,9 @@
     state.settings.hiddenPillNicknamesByScope = hiddenByScope;
     const excludedCollectByScope = {
       ...(state.settings.excludedCollectNicknamesByScope || {}),
-      [scopeKey]: Array.from(state.settings.excludedCollectNicknames || []),
+      [scopeKey]: Array.from(
+        state.settings.excludedCollectScopedNicknames || [],
+      ),
     };
     state.settings.excludedCollectNicknamesByScope = excludedCollectByScope;
     const trackedByScope = {
@@ -405,8 +455,13 @@
     const payload = {
       hiddenPillNicknamesByChannel: hiddenByScope,
       excludedCollectNicknamesByChannel: excludedCollectByScope,
+      excludedCollectGlobalNicknames: Array.from(
+        state.settings.excludedCollectGlobalNicknames || [],
+      ),
       trackedTargetsByChannel: trackedByScope,
-      trackedGlobalNicknames: [],
+      trackedGlobalNicknames: Array.from(
+        state.settings.trackedGlobalNicknames || [],
+      ).slice(0, MAX_TRACKED_GLOBAL_NICKNAMES),
       nicknameFiltersByChannel: nicknameFiltersByScope,
       hideChatBackground: state.settings.hideChatBackground === true,
       hideChatBorder: state.settings.hideChatBorder === true,
@@ -422,6 +477,8 @@
       hideChatDonation: state.settings.hideChatDonation === true,
       restoreBlindedChat: state.settings.restoreBlindedChat === true,
       showChatTimestamp: state.settings.showChatTimestamp === true,
+      useOriginalSpecialChatStyle:
+        state.settings.useOriginalSpecialChatStyle === true,
       showPopupRoleBadgesOnly:
         state.settings.showPopupRoleBadgesOnly === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
@@ -521,6 +578,8 @@
         hideChatDonation: state.settings.hideChatDonation === true,
         restoreBlindedChat: state.settings.restoreBlindedChat === true,
         showChatTimestamp: state.settings.showChatTimestamp === true,
+        useOriginalSpecialChatStyle:
+          state.settings.useOriginalSpecialChatStyle === true,
         showPopupRoleBadgesOnly:
           state.settings.showPopupRoleBadgesOnly === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
@@ -540,9 +599,18 @@
         excludedCollectNicknames: Array.from(
           state.settings.excludedCollectNicknames || [],
         ),
+        excludedCollectScopedNicknames: Array.from(
+          state.settings.excludedCollectScopedNicknames || [],
+        ),
+        excludedCollectGlobalNicknames: Array.from(
+          state.settings.excludedCollectGlobalNicknames || [],
+        ),
         trackedNicknames: Array.from(state.settings.trackedNicknames || []),
         trackedScopedNicknames: Array.from(
           state.settings.trackedScopedNicknames || [],
+        ),
+        trackedGlobalNicknames: Array.from(
+          state.settings.trackedGlobalNicknames || [],
         ),
       },
     };
@@ -618,6 +686,10 @@
     }
     if (typeof source.showChatTimestamp === "boolean") {
       state.settings.showChatTimestamp = source.showChatTimestamp;
+    }
+    if (typeof source.useOriginalSpecialChatStyle === "boolean") {
+      state.settings.useOriginalSpecialChatStyle =
+        source.useOriginalSpecialChatStyle;
     }
     if (typeof source.showPopupRoleBadgesOnly === "boolean") {
       state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
@@ -713,25 +785,63 @@
           .filter((value) => !!value),
       );
     }
-    if (Array.isArray(source.excludedCollectNicknames)) {
-      state.settings.excludedCollectNicknames = new Set(
-        source.excludedCollectNicknames
-          .map((value) => normalizeNickname(value))
-          .filter((value) => !!value),
+    const hasScopedExcluded = Array.isArray(
+      source.excludedCollectScopedNicknames,
+    );
+    const hasLegacyExcluded = Array.isArray(source.excludedCollectNicknames);
+    const hasGlobalExcluded = Array.isArray(
+      source.excludedCollectGlobalNicknames,
+    );
+    if (hasScopedExcluded || hasLegacyExcluded) {
+      const scopedExcluded = hasScopedExcluded
+        ? source.excludedCollectScopedNicknames
+        : source.excludedCollectNicknames;
+      state.settings.excludedCollectScopedNicknames = normalizeNicknameSet(
+        scopedExcluded,
+        normalizeNickname,
       );
+    }
+    if (hasGlobalExcluded) {
+      state.settings.excludedCollectGlobalNicknames = normalizeNicknameSet(
+        source.excludedCollectGlobalNicknames,
+        normalizeNickname,
+      );
+    }
+    if (hasScopedExcluded || hasLegacyExcluded || hasGlobalExcluded) {
+      state.settings.excludedCollectNicknames = new Set([
+        ...(state.settings.excludedCollectScopedNicknames || []),
+        ...(state.settings.excludedCollectGlobalNicknames || []),
+      ]);
       shouldPruneExcludedEntries = source.pruneExcludedEntries === true;
     }
 
-    if (Array.isArray(source.trackedNicknames)) {
-      state.settings.trackedScopedNicknames = new Set(
-        source.trackedNicknames
-          .map((value) => normalizeTrackedNickname(value))
-          .filter((value) => !!value),
+    const hasScopedTracked = Array.isArray(source.trackedScopedNicknames);
+    const hasLegacyTracked = Array.isArray(source.trackedNicknames);
+    const hasGlobalTracked = Array.isArray(source.trackedGlobalNicknames);
+    if (hasScopedTracked || hasLegacyTracked) {
+      const scopedTracked = hasScopedTracked
+        ? source.trackedScopedNicknames
+        : source.trackedNicknames;
+      state.settings.trackedScopedNicknames = normalizeNicknameSet(
+        scopedTracked,
+        normalizeTrackedNickname,
       );
     }
-    if (Array.isArray(source.trackedNicknames)) {
+    if (hasGlobalTracked) {
+      state.settings.trackedGlobalNicknames = normalizeNicknameSet(
+        source.trackedGlobalNicknames,
+        normalizeTrackedNickname,
+        MAX_TRACKED_GLOBAL_NICKNAMES,
+      );
+    }
+    if (hasScopedTracked || hasLegacyTracked || hasGlobalTracked) {
       if (typeof deps.rebuildEffectiveTrackedNicknames === "function") {
         deps.rebuildEffectiveTrackedNicknames();
+      } else {
+        state.settings.trackedNicknames = new Set([
+          ...(state.settings.trackedScopedNicknames || []),
+          ...(state.settings.trackedGlobalNicknames || []),
+        ]);
       }
 
       state.settings.trackedNicknames.forEach((nickname) => {
@@ -764,12 +874,15 @@
     if (typeof deps.saveSettings === "function") {
       deps.saveSettings();
     }
-    // 가려진 채팅 표시 / 채팅 시간 표시 토글을 inject에 통지(ON-sweep/OFF-revert는 inject가 처리).
+    // MAIN world에서 처리하는 채팅 DOM 기능을 즉시 동기화한다.
     if (typeof deps.syncBlindCaptureToInject === "function") {
       deps.syncBlindCaptureToInject();
     }
     if (typeof deps.syncChatTimestampToInject === "function") {
       deps.syncChatTimestampToInject();
+    }
+    if (typeof deps.syncOriginalChatCaptureToInject === "function") {
+      deps.syncOriginalChatCaptureToInject();
     }
     if (typeof deps.render === "function") {
       deps.render();
@@ -787,6 +900,7 @@
     syncTrackedTargetsToInject,
     syncBlindCaptureToInject,
     syncChatTimestampToInject,
+    syncOriginalChatCaptureToInject,
     buildSettingsContextResponse,
     applySettingsFromPopupPayload,
   };

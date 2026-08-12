@@ -2,6 +2,141 @@
   const ns = (window.__chzzkBadgeMoa = window.__chzzkBadgeMoa || {});
   if (ns.entryApi && typeof ns.entryApi === "object") return;
 
+  const ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH = 80000;
+  const ORIGINAL_CHAT_SNAPSHOT_MAX_COUNT = 200;
+  const ORIGINAL_CHAT_SNAPSHOT_KINDS = new Set([
+    "donation",
+    "subscription",
+    "mission",
+    "purchase",
+  ]);
+
+  function normalizeOriginalChatMatchText(value) {
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeOriginalChatNicknames(values) {
+    const result = [];
+    const seen = new Set();
+    for (const value of Array.isArray(values) ? values : [values]) {
+      const nickname = normalizeOriginalChatMatchText(value);
+      if (!nickname || seen.has(nickname)) continue;
+      seen.add(nickname);
+      result.push(nickname);
+    }
+    return result;
+  }
+
+  function getOriginalChatKindFromPayload(payload) {
+    if (!payload || typeof payload !== "object") return "";
+    if (payload.isCommercePurchase === true) return "purchase";
+    if (payload.isMissionDonation === true) return "mission";
+    if (
+      payload.subscription ||
+      payload.isSubscription === true ||
+      payload.giftSubscription ||
+      payload.isGift === true
+    ) {
+      return "subscription";
+    }
+    if (payload.isDonation === true) return "donation";
+    return "";
+  }
+
+  function isOriginalChatSnapshotMatch(entry, snapshot) {
+    if (!entry || !snapshot) return false;
+
+    const sourceKind = String(entry.sourceChatKind || "").trim();
+    if (!sourceKind || sourceKind !== snapshot.kind) return false;
+
+    const sourceReceiverNickname = normalizeOriginalChatMatchText(
+      entry.sourceReceiverNickname,
+    );
+    const snapshotReceiverNickname = normalizeOriginalChatMatchText(
+      snapshot.receiverNickname,
+    );
+    if (sourceReceiverNickname || snapshotReceiverNickname) {
+      if (
+        !sourceReceiverNickname ||
+        !snapshotReceiverNickname ||
+        sourceReceiverNickname !== snapshotReceiverNickname
+      ) {
+        return false;
+      }
+    }
+
+    const sourceKey = String(entry.sourceKey || "").trim();
+    if (sourceKey && sourceKey === snapshot.uniqueKey) return true;
+
+    const sourceMessageKey = String(entry.sourceMessageKey || "").trim();
+    if (
+      sourceMessageKey &&
+      snapshot.messageKey &&
+      sourceMessageKey === snapshot.messageKey
+    ) {
+      return true;
+    }
+
+    const sourceNicknames = normalizeOriginalChatNicknames([
+      entry.sourceNickname,
+      entry.nickname,
+    ]);
+    const snapshotNicknames = normalizeOriginalChatNicknames([
+      snapshot.nickname,
+      ...(Array.isArray(snapshot.relatedNicknames)
+        ? snapshot.relatedNicknames
+        : []),
+    ]);
+    if (
+      sourceNicknames.length === 0 ||
+      snapshotNicknames.length === 0 ||
+      !sourceNicknames.some((nickname) => snapshotNicknames.includes(nickname))
+    ) {
+      return false;
+    }
+
+    const sourcePlayerTime = Number(entry.sourcePlayerMessageTime || 0) || 0;
+    const snapshotPlayerTime = Number(snapshot.playerMessageTime || 0) || 0;
+    if (
+      sourcePlayerTime > 0 &&
+      snapshotPlayerTime > 0 &&
+      Math.abs(sourcePlayerTime - snapshotPlayerTime) <= 50
+    ) {
+      return true;
+    }
+
+    const sourceMessage = normalizeOriginalChatMatchText(entry.sourceMessage);
+    const snapshotMessage = normalizeOriginalChatMatchText(snapshot.message);
+    if (
+      sourceMessage &&
+      snapshotMessage &&
+      sourceMessage !== snapshotMessage
+    ) {
+      return false;
+    }
+
+    const sourceTimestamp =
+      Number(entry.sourceTimestamp || entry.timestamp || 0) || 0;
+    const snapshotTimestamp = Number(snapshot.timestamp || 0) || 0;
+    return (
+      sourceTimestamp > 1e12 &&
+      snapshotTimestamp > 1e12 &&
+      Math.abs(sourceTimestamp - snapshotTimestamp) <= 1000
+    );
+  }
+
+  function takePendingOriginalChatSnapshot(state, entryMeta) {
+    if (!(state?.originalChatSnapshots instanceof Map)) return null;
+    for (const [key, snapshot] of state.originalChatSnapshots) {
+      if (!isOriginalChatSnapshotMatch(entryMeta, snapshot)) continue;
+      state.originalChatSnapshots.delete(key);
+      return snapshot;
+    }
+    return null;
+  }
+
   function appendBadgeChat(state, payload, options = {}, deps = {}) {
     if (!payload || typeof payload !== "object") return null;
     const normalizeNickname =
@@ -209,6 +344,29 @@
 
     const uniqueBase =
       payload.uniqueKey || `${nickname}_${timestamp}_${message.slice(0, 16)}`;
+    const sourceMeta = {
+      sourceKey: String(uniqueBase),
+      sourceMessageKey: String(
+        payload.messageKey ||
+          payload.key ||
+          payload.msgTid ||
+          payload.messageId ||
+          "",
+      ).trim(),
+      sourcePlayerMessageTime: Number(payload.playerMessageTime || 0) || 0,
+      sourceTimestamp:
+        Number(payload.sourceTimestamp || payload.timestamp || timestamp) ||
+        timestamp,
+      sourceNickname: normalizeOriginalChatMatchText(
+        payload.sourceNickname || nickname,
+      ),
+      sourceReceiverNickname: normalizeOriginalChatMatchText(
+        payload.giftSubscription?.receiverNickname,
+      ),
+      sourceMessage: message,
+      sourceChatKind: getOriginalChatKindFromPayload(payload),
+    };
+    const pendingSnapshot = takePendingOriginalChatSnapshot(state, sourceMeta);
 
     const dedupeKey = `${uniqueBase}:${badgeType}`;
     const pillBadges = buildPillBadges(profile, roleInfo);
@@ -232,6 +390,7 @@
 
     return {
       dedupeKey,
+      ...sourceMeta,
       timestamp,
       nickname,
       message: entryTypeMeta.message,
@@ -247,7 +406,79 @@
       typeTone: entryTypeMeta.pillTone,
       authorUserIdHash,
       channelId: entryChannelId,
+      originalChatHtml: pendingSnapshot?.html || "",
+      originalChatKind: pendingSnapshot?.kind || "",
       sequence: state.sequence++,
+    };
+  }
+
+  function applyOriginalChatSnapshot(state, rawSnapshot, deps = {}) {
+    const snapshot = normalizeOriginalChatSnapshot(rawSnapshot);
+    if (!snapshot) return false;
+
+    const entries = Array.isArray(state?.entries) ? state.entries : [];
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (!isOriginalChatSnapshotMatch(entry, snapshot)) continue;
+      const originalChanged =
+        entry.originalChatHtml !== snapshot.html ||
+        entry.originalChatKind !== snapshot.kind;
+      entry.originalChatHtml = snapshot.html;
+      entry.originalChatKind = snapshot.kind;
+      if (originalChanged) entry.originalChatPersisted = false;
+      if (
+        originalChanged &&
+        typeof deps.schedulePersistChannelCache === "function"
+      ) {
+        deps.schedulePersistChannelCache();
+      }
+      if (
+        originalChanged &&
+        state?.isOpen === true &&
+        state?.settings?.useOriginalSpecialChatStyle === true &&
+        typeof deps.renderList === "function"
+      ) {
+        deps.renderList("preserve-bottom");
+      }
+      return true;
+    }
+
+    if (!(state.originalChatSnapshots instanceof Map)) {
+      state.originalChatSnapshots = new Map();
+    }
+    state.originalChatSnapshots.set(snapshot.uniqueKey, snapshot);
+    while (state.originalChatSnapshots.size > ORIGINAL_CHAT_SNAPSHOT_MAX_COUNT) {
+      const oldestKey = state.originalChatSnapshots.keys().next().value;
+      if (oldestKey === undefined) break;
+      state.originalChatSnapshots.delete(oldestKey);
+    }
+    return false;
+  }
+
+  function normalizeOriginalChatSnapshot(rawSnapshot) {
+    if (!rawSnapshot || typeof rawSnapshot !== "object") return null;
+    const uniqueKey = String(rawSnapshot.uniqueKey || "").trim();
+    const kind = String(rawSnapshot.kind || "").trim().toLowerCase();
+    const html = String(rawSnapshot.html || "").trim();
+    if (!uniqueKey || !ORIGINAL_CHAT_SNAPSHOT_KINDS.has(kind)) return null;
+    if (!html || html.length > ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH) return null;
+    return {
+      uniqueKey,
+      kind,
+      html,
+      messageKey: String(rawSnapshot.messageKey || "").trim(),
+      playerMessageTime:
+        Number(rawSnapshot.playerMessageTime || 0) || 0,
+      timestamp: Number(rawSnapshot.timestamp || 0) || 0,
+      nickname: normalizeOriginalChatMatchText(rawSnapshot.nickname),
+      receiverNickname: normalizeOriginalChatMatchText(
+        rawSnapshot.receiverNickname,
+      ),
+      relatedNicknames: normalizeOriginalChatNicknames(
+        rawSnapshot.relatedNicknames,
+      ),
+      message: normalizeOriginalChatMatchText(rawSnapshot.message),
+      capturedAt: Number(rawSnapshot.capturedAt || Date.now()) || Date.now(),
     };
   }
 
@@ -619,6 +850,7 @@
     insertEntrySorted,
     isBadgeTargetProfile,
     normalizeEntry,
+    applyOriginalChatSnapshot,
     normalizeAuthorUserIdHash,
     buildEntryTypeMeta,
     getDonationTone,

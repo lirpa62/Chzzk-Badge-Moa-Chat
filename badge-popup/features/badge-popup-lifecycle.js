@@ -329,6 +329,10 @@
       typeof deps.syncChatTimestampToInject === "function"
         ? deps.syncChatTimestampToInject
         : () => {};
+    const syncOriginalChatCaptureToInjectFn =
+      typeof deps.syncOriginalChatCaptureToInject === "function"
+        ? deps.syncOriginalChatCaptureToInject
+        : () => {};
     const isSessionCacheEnabledFn =
       typeof deps.isSessionCacheEnabled === "function"
         ? deps.isSessionCacheEnabled
@@ -383,6 +387,7 @@
       syncTrackedTargetsToInjectFn();
       syncBlindCaptureToInjectFn();
       syncChatTimestampToInjectFn();
+      syncOriginalChatCaptureToInjectFn();
 
       const nextCacheEnabled = isSessionCacheEnabledFn();
       if (!nextCacheEnabled) {

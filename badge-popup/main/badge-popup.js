@@ -59,6 +59,7 @@
     MIN_POPUP_HEIGHT,
     MAX_KEEP_ENTRIES,
     MAX_TRACKED_NICKNAMES_PER_SCOPE,
+    MAX_TRACKED_GLOBAL_NICKNAMES,
     OPEN_ANIMATION_MS,
     CLOSE_ANIMATION_MS,
     PILL_CYCLE_INTERVAL_MS,
@@ -89,6 +90,10 @@
     setSessionCacheValue,
     removeSessionCacheValue,
     clearSessionCachesForCurrentTab,
+    persistOriginalChatHtml,
+    persistOriginalChatHtmlBatch,
+    loadOriginalChatHtml,
+    removeOriginalChatHtmlRefs,
     sendRuntimeMessage,
     clearSessionFallbackStorage,
     getSessionFallbackStorageKey,
@@ -172,6 +177,7 @@
     // 설정 로드 후 inject에 블라인드 캡처 on/off 동기화
     syncBlindCaptureToInject();
     syncChatTimestampToInject();
+    syncOriginalChatCaptureToInject();
   }
 
   let _lastHeightKey = "";
@@ -258,6 +264,7 @@
       syncTrackedTargetsToInject,
       syncBlindCaptureToInject,
       syncChatTimestampToInject,
+      syncOriginalChatCaptureToInject,
       isSessionCacheEnabled,
       clearPersistChannelCacheTimer,
       clearSessionCachesForCurrentTab,
@@ -292,6 +299,8 @@
       scheduleChatHighlightScan,
       syncBlindCaptureToInject,
       syncChatTimestampToInject,
+      syncOriginalChatCaptureToInject,
+      applyOriginalChatSnapshot,
     });
   }
 
@@ -345,6 +354,7 @@
     });
     syncBlindCaptureToInject();
     syncChatTimestampToInject();
+    syncOriginalChatCaptureToInject();
   }
 
   function getLocationKey() {
@@ -654,6 +664,7 @@
   function rebuildEffectiveTrackedNicknames() {
     state.settings.trackedNicknames = new Set([
       ...(state.settings.trackedScopedNicknames || []),
+      ...(state.settings.trackedGlobalNicknames || []),
     ]);
   }
 
@@ -695,6 +706,7 @@
       render,
       syncBlindCaptureToInject,
       syncChatTimestampToInject,
+      syncOriginalChatCaptureToInject,
     });
   }
 
@@ -714,6 +726,17 @@
 
   function syncChatTimestampToInject() {
     settingsApi.syncChatTimestampToInject(state);
+  }
+
+  function syncOriginalChatCaptureToInject() {
+    settingsApi.syncOriginalChatCaptureToInject(state);
+  }
+
+  function applyOriginalChatSnapshot(payload) {
+    return entryApi.applyOriginalChatSnapshot(state, payload, {
+      renderList,
+      schedulePersistChannelCache,
+    });
   }
 
   function findChatListContainer() {
@@ -1055,6 +1078,7 @@
       addTrackedTarget,
       getTrackedTargetSettingItems,
       createTrackedTargetChip,
+      syncOriginalChatCaptureToInject,
     });
   }
 
@@ -1085,13 +1109,15 @@
     });
   }
 
-  function addTrackedTarget(rawValue) {
+  function addTrackedTarget(rawValue, scope = state.settingsTrackedScope) {
     return trackedApi.addTrackedTarget(state, rawValue, {
+      scope,
       normalizeTrackedNickname,
       rebuildEffectiveTrackedNicknames,
       saveSettings,
       renderList,
       MAX_TRACKED_NICKNAMES_PER_SCOPE,
+      MAX_TRACKED_GLOBAL_NICKNAMES,
     });
   }
 
@@ -1122,8 +1148,9 @@
     );
   }
 
-  function getTrackedTargetSettingItems() {
+  function getTrackedTargetSettingItems(scope = state.settingsTrackedScope) {
     return trackedApi.getTrackedTargetSettingItems(state, {
+      scope,
       normalizeTrackedNickname,
     });
   }
@@ -1562,6 +1589,8 @@
       getStorageValue,
       removeStorageValue,
       setStorageValue,
+      persistOriginalChatHtml,
+      persistOriginalChatHtmlBatch,
       serializeEntryForCache,
       serializeUnseenStateForCache,
     }, channelIdCandidate);
@@ -1598,6 +1627,12 @@
   async function clearCurrentChannelEntries() {
     clearPersistChannelCacheTimer();
 
+    await removeOriginalChatHtmlRefs(
+      state.entries
+        .map((entry) => String(entry?.originalChatRef || "").trim())
+        .filter((ref) => !!ref),
+    );
+
     const storageKeys = cacheApi.getChannelCacheStorageKeys(
       state,
       state.resolvedChannelId,
@@ -1632,6 +1667,7 @@
       getChannelIdFromLocationPath,
       getRawChannelIdFromLocationPath,
       getStorageValue,
+      loadOriginalChatHtml,
       normalizeCachedEntry,
       syncRoleBadgeCacheFromEntries,
       normalizeCachedUnseenState,

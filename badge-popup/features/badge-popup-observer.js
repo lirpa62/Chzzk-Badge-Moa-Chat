@@ -164,11 +164,16 @@
   function applyHiddenChatElementsInScope(state, scope) {
     if (!hasHiddenChatElementSettings(state)) return;
     if (!(scope instanceof Element)) return;
+    if (scope.closest(".chzzk-badge-moa-original-chat")) return;
     const settings = state?.settings || {};
+    const outsideOriginalSnapshot = (element) =>
+      element instanceof Element &&
+      !element.closest(".chzzk-badge-moa-original-chat");
 
     if (settings.hideChatRanking === true) {
       queryAllWithSelf(scope, "button[class*='_ranking_button_']").forEach(
         (button) => {
+          if (!outsideOriginalSnapshot(button)) return;
           addHiddenClass(
             findClosestContainer(button),
             "chzzk-badge-moa-hidden-chat-ranking",
@@ -180,6 +185,7 @@
     if (settings.hideChatMission === true) {
       queryAllWithSelf(scope, "button[class*='_mission_button_']").forEach(
         (button) => {
+          if (!outsideOriginalSnapshot(button)) return;
           addHiddenClass(
             findClosestContainer(button),
             "chzzk-badge-moa-hidden-chat-mission",
@@ -190,6 +196,7 @@
 
     if (settings.hideChatMissionMessage === true) {
       queryAllWithSelf(scope, "[class*='_is_mission_']").forEach((badge) => {
+        if (!outsideOriginalSnapshot(badge)) return;
         addHiddenClass(
           findClosestChatItem(badge),
           "chzzk-badge-moa-hidden-chat-mission-message",
@@ -199,6 +206,7 @@
 
     if (settings.hideChatPrediction === true) {
       queryAllWithSelf(scope, "[class*='_status_']").forEach((status) => {
+        if (!outsideOriginalSnapshot(status)) return;
         const container = findClosestContainer(status);
         if (container && container.querySelector("button[class*='_title_']")) {
           addHiddenClass(container, "chzzk-badge-moa-hidden-chat-prediction");
@@ -209,6 +217,7 @@
     if (settings.hideChatSubscription === true) {
       queryAllWithSelf(scope, "[class*='_is_subscription_']").forEach(
         (badge) => {
+          if (!outsideOriginalSnapshot(badge)) return;
           addHiddenClass(
             findClosestChatItem(badge),
             "chzzk-badge-moa-hidden-chat-subscription",
@@ -219,6 +228,7 @@
 
     if (settings.hideChatDonation === true) {
       queryAllWithSelf(scope, "[class*='_is_donation_']").forEach((badge) => {
+        if (!outsideOriginalSnapshot(badge)) return;
         addHiddenClass(
           findClosestChatItem(badge),
           "chzzk-badge-moa-hidden-chat-donation",
@@ -277,10 +287,19 @@
       typeof deps.syncChatTimestampToInject === "function"
         ? deps.syncChatTimestampToInject
         : () => {};
+    const syncOriginalChatCaptureToInject =
+      typeof deps.syncOriginalChatCaptureToInject === "function"
+        ? deps.syncOriginalChatCaptureToInject
+        : () => {};
+    const applyOriginalChatSnapshot =
+      typeof deps.applyOriginalChatSnapshot === "function"
+        ? deps.applyOriginalChatSnapshot
+        : () => {};
 
     if (data.type === deps.INJECT_CHAT_FEATURES_REQUEST_TYPE) {
       syncBlindCaptureToInject();
       syncChatTimestampToInject();
+      syncOriginalChatCaptureToInject();
       return;
     }
 
@@ -297,6 +316,11 @@
       if (chatChannelId && /^[A-Za-z0-9_-]{2,32}$/.test(chatChannelId)) {
         state.chatChannelId = chatChannelId;
       }
+      return;
+    }
+
+    if (data.type === "CHZZK_SPECIAL_CHAT_SNAPSHOT") {
+      applyOriginalChatSnapshot(data.payload);
       return;
     }
 

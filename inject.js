@@ -15,11 +15,14 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // content→inject 토글 (constants.js와 동일 문자열)
   const INJECT_BLIND_CAPTURE_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_BLIND_CAPTURE";
   const INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE = "CHZZK_BADGE_MOA_SET_CHAT_TIMESTAMP";
+  const INJECT_ORIGINAL_CHAT_CAPTURE_TOGGLE_TYPE =
+    "CHZZK_BADGE_MOA_SET_ORIGINAL_CHAT_CAPTURE";
   const INJECT_CHAT_FEATURES_REQUEST_TYPE =
     "CHZZK_BADGE_MOA_REQUEST_CHAT_FEATURES";
   // 가려진 채팅 표시 / 채팅 시간 표시 토글 상태(원문은 MAIN world 메모리에만).
   let restoreBlindedChat = false;
   let showChatTimestamp = false;
+  let captureOriginalSpecialChats = false;
   const trackedNicknameTargets = new Set();
   const PROFILE_CACHE_MAX = 600;
   const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -140,6 +143,249 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // (userId|time 키로) 캐시해 두고, 복원 시 props에 없으면 이 캐시에서 꺼낸다.
   const originalMsgCache = new Map();
   const ORIGINAL_CACHE_MAX = 800; // 오래된 항목부터 버려 메모리 상한 유지
+  const ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH = 80000;
+  const originalChatSnapshotKeys = new WeakMap();
+  let originalChatSnapshotSequence = 0;
+
+  function hasActiveChatDomFeatures() {
+    return (
+      restoreBlindedChat ||
+      showChatTimestamp ||
+      captureOriginalSpecialChats
+    );
+  }
+
+  function getOriginalSpecialChatKind(row) {
+    if (!(row instanceof HTMLElement)) return "";
+    if (isCommercePurchaseChatRow(row)) return "purchase";
+    if (row.querySelector("[class*='_is_mission_']")) return "mission";
+    if (row.querySelector("[class*='_is_subscription_']")) {
+      return "subscription";
+    }
+    if (row.querySelector("[class*='_is_donation_']")) return "donation";
+    return "";
+  }
+
+  function isCommercePurchaseChatRow(row) {
+    if (!(row instanceof HTMLElement)) return false;
+    const content = row.querySelector("[class*='_content_']");
+    if (!(content instanceof HTMLElement)) return false;
+    const contentText = String(content.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!/\d[\d,]*\s*원\s*구매!?/.test(contentText)) return false;
+    return !!row.querySelector("[class*='_thumbnail_'] img");
+  }
+
+  function shouldProcessChatRow(row) {
+    if (!(row instanceof HTMLElement)) return false;
+    if (
+      (restoreBlindedChat || showChatTimestamp) &&
+      row.querySelector("[class*='_chatting_message_']")
+    ) {
+      return true;
+    }
+    return (
+      captureOriginalSpecialChats &&
+      getOriginalSpecialChatKind(row) !== ""
+    );
+  }
+
+  function adaptChatMessageForArchive(chatMessage) {
+    if (!chatMessage || typeof chatMessage !== "object") return null;
+    return {
+      ...chatMessage,
+      uid:
+        chatMessage.uid ||
+        chatMessage.userIdHash ||
+        chatMessage.userId ||
+        chatMessage.senderId ||
+        "",
+      msgTypeCode:
+        chatMessage.msgTypeCode || chatMessage.messageTypeCode || 1,
+      msg:
+        chatMessage.msg != null
+          ? chatMessage.msg
+          : normalizeChatContent(chatMessage.content),
+      msgTime:
+        chatMessage.msgTime ||
+        chatMessage.messageTime ||
+        chatMessage.time ||
+        Date.now(),
+      messageKey:
+        chatMessage.messageKey ||
+        chatMessage.key ||
+        chatMessage.msgTid ||
+        chatMessage.messageId ||
+        "",
+      playerMessageTime:
+        Number(chatMessage.playerMessageTime || 0) || 0,
+    };
+  }
+
+  function sanitizeOriginalChatRow(row) {
+    const clone = row.cloneNode(true);
+    if (!(clone instanceof HTMLElement)) return "";
+
+    clone
+      .querySelectorAll(
+        "script, style, link, iframe, object, embed, form, input, textarea, select, option, meta, base, [role='alertdialog'], [role='dialog'], [role='menu']",
+      )
+      .forEach((node) => node.remove());
+    clone
+      .querySelectorAll(".chzzk-badge-moa-chat-time")
+      .forEach((node) => node.remove());
+
+    const idPrefix = `chzzk-badge-moa-snapshot-${Date.now()}-${
+      originalChatSnapshotSequence++
+    }-`;
+    const idMap = new Map();
+    const elements = [clone, ...clone.querySelectorAll("*")];
+    elements.forEach((element) => {
+      if (!(element instanceof Element)) return;
+      const originalId = String(element.getAttribute("id") || "").trim();
+      if (originalId) {
+        const nextId = `${idPrefix}${idMap.size}`;
+        idMap.set(originalId, nextId);
+        element.setAttribute("id", nextId);
+      }
+
+      Array.from(element.attributes).forEach((attribute) => {
+        const name = attribute.name.toLowerCase();
+        const value = String(attribute.value || "");
+        if (
+          name.startsWith("on") ||
+          name === "srcdoc" ||
+          name === "action" ||
+          name === "formaction" ||
+          ((name === "href" || name === "src") &&
+            /^\s*javascript:/i.test(value))
+        ) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+
+      if (element instanceof HTMLAnchorElement) {
+        element.removeAttribute("href");
+        element.removeAttribute("target");
+        element.removeAttribute("rel");
+      }
+      if (element instanceof HTMLButtonElement) {
+        element.type = "button";
+        element.tabIndex = -1;
+        element.setAttribute("aria-disabled", "true");
+      }
+
+      const safeClasses = Array.from(element.classList).filter(
+        (className) => !className.startsWith("chzzk-badge-moa-"),
+      );
+      if (safeClasses.length !== element.classList.length) {
+        element.setAttribute("class", safeClasses.join(" "));
+      }
+    });
+
+    if (idMap.size > 0) {
+      elements.forEach((element) => {
+        if (!(element instanceof Element)) return;
+        Array.from(element.attributes).forEach((attribute) => {
+          let value = String(attribute.value || "");
+          idMap.forEach((nextId, originalId) => {
+            value = value
+              .replaceAll(`url(#${originalId})`, `url(#${nextId})`)
+              .replaceAll(`#${originalId}`, `#${nextId}`)
+              .split(/\s+/)
+              .map((part) => (part === originalId ? nextId : part))
+              .join(" ");
+          });
+          if (value !== attribute.value) {
+            element.setAttribute(attribute.name, value);
+          }
+        });
+      });
+    }
+
+    const html = clone.outerHTML;
+    if (!html || html.length > ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH) return "";
+    return html;
+  }
+
+  function captureOriginalSpecialChatRow(row, chatMessage) {
+    if (!captureOriginalSpecialChats) return;
+    const kind = getOriginalSpecialChatKind(row);
+    if (!kind) return;
+
+    const adapted = adaptChatMessageForArchive(chatMessage);
+    if (!adapted) return;
+    const extras = adapted ? parseJsonSafe(adapted.extras) || {} : {};
+    const isInitialMission =
+      kind === "mission" &&
+      extras.missionDonationType === "ALONE" &&
+      extras.donationType === "MISSION";
+    const initialMissionId = String(extras.missionDonationId || "").trim();
+    const initialMissionKey =
+      isInitialMission && initialMissionId ? `MISSION_${initialMissionId}` : "";
+    const messageKey = String(
+      adapted.messageKey ||
+        adapted.key ||
+        adapted.msgTid ||
+        adapted.messageId ||
+        "",
+    ).trim();
+    const playerMessageTime = Number(adapted.playerMessageTime || 0) || 0;
+    const timestamp = Number(readChatEpochMs(chatMessage) || 0) || 0;
+    const nickname = String(getRowNickname(row) || "").trim();
+    let receiverNickname = "";
+    const relatedNicknames = [nickname];
+    if (kind === "subscription") {
+      receiverNickname = getGiftReceiverNicknameFromRow(row);
+      if (receiverNickname && receiverNickname !== nickname) {
+        relatedNicknames.push(receiverNickname);
+      }
+    }
+
+    const baseUniqueKey = String(
+      initialMissionKey ||
+        (messageKey ? `CHAT_${messageKey}` : "") ||
+        makeUniqueKey({
+          prefix: "SNAPSHOT",
+          timestamp: playerMessageTime || timestamp || Date.now(),
+          nickname,
+          message: kind,
+        }),
+    ).trim();
+    const uniqueKey = receiverNickname
+      ? `${baseUniqueKey}_RECEIVER_${sanitizeKeyPart(receiverNickname, 24)}`
+      : baseUniqueKey;
+    if (!uniqueKey || originalChatSnapshotKeys.get(row) === uniqueKey) return;
+    const html = sanitizeOriginalChatRow(row);
+    if (!html) return;
+
+    originalChatSnapshotKeys.set(row, uniqueKey);
+    postArchiveMessage("CHZZK_SPECIAL_CHAT_SNAPSHOT", {
+      uniqueKey,
+      kind,
+      html,
+      messageKey,
+      playerMessageTime,
+      timestamp,
+      nickname,
+      receiverNickname,
+      relatedNicknames,
+      message: "",
+      capturedAt: Date.now(),
+    });
+
+    // 커머스 구매 알림은 WebSocket 분기에서 시스템 메시지로 분류될 수 있다.
+    // DOM에 연결된 React 채팅 데이터로 한 번 더 일반 프로필 판별을 수행해,
+    // 구매자가 배지/추가 모아보기 대상인 경우에만 원본 행과 함께 수집한다.
+    if (kind === "purchase") {
+      const purchasePayload = parseNormalMessage(adapted);
+      if (purchasePayload && typeof purchasePayload === "object") {
+        purchasePayload.isCommercePurchase = true;
+        postArchiveMessageIfTarget(purchasePayload);
+      }
+    }
+  }
 
   function chatCacheKey(chatMessage) {
     if (!chatMessage || typeof chatMessage !== "object") return "";
@@ -220,6 +466,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       chatMessage.ctime,
       chatMessage.regTime,
       chatMessage.msgTime,
+      chatMessage.timestamp,
     ];
     for (const value of candidates) {
       const n = Number(value);
@@ -288,6 +535,21 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   function getRowNickname(row) {
     const node = row.querySelector("[class*='_nickname_'] [class*='_text_']");
     return node ? String(node.textContent || "").trim() : "";
+  }
+
+  function getGiftReceiverNicknameFromRow(row) {
+    const paragraphs = row.querySelectorAll("p");
+    for (const paragraph of paragraphs) {
+      const text = String(paragraph.textContent || "").replace(/\s+/g, " ");
+      if (!/(?:님에게|님께)/.test(text)) continue;
+      const emphasis = paragraph.querySelector("em");
+      if (!emphasis) continue;
+      const nicknameNode =
+        emphasis.querySelector("[class*='_text_']") || emphasis;
+      const nickname = String(nicknameNode.textContent || "").trim();
+      if (nickname) return nickname;
+    }
+    return "";
   }
 
   // 메시지 텍스트 span = _chatting_message_ 하위 _text_ 중 _nickname_ 버튼 밖의 것.
@@ -492,10 +754,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     restoreUnavailableRows = new WeakSet();
   }
 
-  // 채팅 행 하나 처리: 시간 삽입 + 가림 복원.
+  // 채팅 행 하나 처리: 시간 삽입 + 가림 복원 + 특수 채팅 원본 캡처.
   function processRow(row) {
     if (!(row instanceof HTMLElement)) return false;
-    if (!row.querySelector("[class*='_chatting_message_']")) {
+    if (!shouldProcessChatRow(row)) {
       scheduleChatRowRetry(row);
       return false;
     }
@@ -504,6 +766,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       scheduleChatRowRetry(row);
       return false;
     }
+
+    captureOriginalSpecialChatRow(row, chatMessage);
 
     if (showChatTimestamp) {
       const epoch = readChatEpochMs(chatMessage);
@@ -549,7 +813,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (
       !(row instanceof HTMLElement) ||
       !row.isConnected ||
-      (!restoreBlindedChat && !showChatTimestamp)
+      !hasActiveChatDomFeatures()
     ) {
       return;
     }
@@ -561,7 +825,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       state.timer = 0;
       if (
         !row.isConnected ||
-        (!restoreBlindedChat && !showChatTimestamp)
+        !hasActiveChatDomFeatures()
       ) {
         chatRowRetryState.delete(row);
         return;
@@ -615,7 +879,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     );
     if (live) containers.push(live);
     const vod = document.querySelector(
-      "aside#vod-aside [class*='vod_chatting_list_container'], aside#vod-aside [role='log']",
+      "aside#vod-aside [class*='vod_chatting_list_container'], " +
+        "aside#vod-aside [role='log'], aside#vod-aside [class*='_list_']",
     );
     if (vod) containers.push(vod);
     if (containers.length === 0) {
@@ -630,8 +895,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   function isChatRowNode(node) {
     if (!(node instanceof HTMLElement)) return false;
     return (
-      node.matches(CHAT_ROW_SELECTOR) &&
-      !!node.querySelector("[class*='_chatting_message_']")
+      node.matches(CHAT_ROW_SELECTOR) && shouldProcessChatRow(node)
     );
   }
 
@@ -640,13 +904,13 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       container
         .querySelectorAll(CHAT_ROW_SELECTOR)
         .forEach((row) => {
-          if (row.querySelector("[class*='_chatting_message_']")) processRow(row);
+          if (shouldProcessChatRow(row)) processRow(row);
         });
     });
   }
 
   function ensureChatRowObserver() {
-    if (!restoreBlindedChat && !showChatTimestamp) return;
+    if (!hasActiveChatDomFeatures()) return;
     const containers = findChatListContainers();
     if (containers.length === 0) {
       scheduleChatRowObserverRetry();
@@ -663,8 +927,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
           reapplyRestoreForTarget(mutation.target);
           const targetRow = mutation.target.closest(CHAT_ROW_SELECTOR);
           if (
-            targetRow instanceof HTMLElement &&
-            targetRow.querySelector("[class*='_chatting_message_']")
+            targetRow instanceof HTMLElement && shouldProcessChatRow(targetRow)
           ) {
             processRow(targetRow);
           }
@@ -677,7 +940,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
             node
               .querySelectorAll(CHAT_ROW_SELECTOR)
               .forEach((row) => {
-                if (row.querySelector("[class*='_chatting_message_']")) {
+                if (shouldProcessChatRow(row)) {
                   processRow(row);
                 }
               });
@@ -708,7 +971,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   function ensureChatObserverHealthCheck() {
     if (chatObserverHealthTimer) return;
     chatObserverHealthTimer = setInterval(() => {
-      if (!restoreBlindedChat && !showChatTimestamp) {
+      if (!hasActiveChatDomFeatures()) {
         clearInterval(chatObserverHealthTimer);
         chatObserverHealthTimer = null;
         return;
@@ -718,7 +981,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   }
 
   function scheduleChatRowObserverRetry() {
-    if (!restoreBlindedChat && !showChatTimestamp) return;
+    if (!hasActiveChatDomFeatures()) return;
     if (chatRowObserverRetryTimer) return;
     chatRowObserverRetryTimer = setTimeout(() => {
       chatRowObserverRetryTimer = null;
@@ -733,12 +996,12 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   }
 
   function disconnectChatRowObserverIfIdle() {
-    if (!restoreBlindedChat && !showChatTimestamp && chatRowObserver) {
+    if (!hasActiveChatDomFeatures() && chatRowObserver) {
       chatRowObserver.disconnect();
       chatRowObserver = null;
       observedChatContainers = [];
     }
-    if (!restoreBlindedChat && !showChatTimestamp) {
+    if (!hasActiveChatDomFeatures()) {
       clearChatRowObserverRetry();
       if (chatObserverHealthTimer) {
         clearInterval(chatObserverHealthTimer);
@@ -880,32 +1143,68 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
   function buildProfileLiteFromGiftReceiverEvent(bdy) {
     const safeBody = bdy && typeof bdy === "object" ? bdy : {};
+    const receiver = parseJsonSafe(safeBody.receiver || null);
+    const safeReceiver =
+      receiver && typeof receiver === "object" ? receiver : {};
 
     const receiverProfile = parseJsonSafe(
-      safeBody.receiverProfile || safeBody.profile || null,
+      safeBody.receiverProfile ||
+        safeReceiver.profile ||
+        safeReceiver.userProfile ||
+        safeBody.profile ||
+        null,
     );
+    const receiverNickname = normalizeNickname(
+      safeBody.receiverNickname ||
+        safeBody.receiverName ||
+        safeReceiver.nickname ||
+        safeReceiver.name ||
+        receiverProfile?.nickname ||
+        "",
+    );
+    const receiverRoleCode = String(
+      safeBody.receiverUserRoleCode ||
+        safeReceiver.userRoleCode ||
+        receiverProfile?.userRoleCode ||
+        "",
+    ).trim();
+    const receiverVerifiedMark =
+      safeBody.receiverVerifiedMark === true ||
+      safeBody.receiverVerifiedMark === "true" ||
+      safeReceiver.verifiedMark === true ||
+      safeReceiver.verifiedMark === "true" ||
+      receiverProfile?.verifiedMark === true;
+    const receiverBadgeImageUrl = String(
+      safeBody?.receiverBadge?.imageUrl ||
+        safeReceiver?.badge?.imageUrl ||
+        safeBody.receiverBadgeImageUrl ||
+        safeBody.badgeImageUrl ||
+        receiverProfile?.badge?.imageUrl ||
+        "",
+    ).trim();
     if (receiverProfile && typeof receiverProfile === "object") {
       const lite = buildProfileLite(receiverProfile);
       if (lite) {
+        if (!lite.nickname) lite.nickname = receiverNickname;
+        if (!lite.userRoleCode) lite.userRoleCode = receiverRoleCode;
+        if (receiverVerifiedMark) lite.verifiedMark = true;
+        if (!lite.badge?.imageUrl && receiverBadgeImageUrl) {
+          lite.badge = { imageUrl: receiverBadgeImageUrl };
+        }
         rememberProfileLite(lite);
         return lite;
       }
     }
 
-    const cached = getCachedProfileLiteForReceiver(safeBody.receiverNickname);
+    const cached = getCachedProfileLiteForReceiver(receiverNickname);
     if (cached) {
       return cached;
     }
 
-    const badgeImageUrl = String(
-      safeBody?.receiverBadge?.imageUrl ||
-        safeBody.receiverBadgeImageUrl ||
-        safeBody.badgeImageUrl ||
-        "",
-    ).trim();
-    const nickname = normalizeNickname(safeBody.receiverNickname || "");
-    const roleCode = String(safeBody.receiverUserRoleCode || "").trim();
-    const verifiedMark = safeBody.receiverVerifiedMark === true;
+    const nickname = receiverNickname;
+    const roleCode = receiverRoleCode;
+    const verifiedMark = receiverVerifiedMark;
+    const badgeImageUrl = receiverBadgeImageUrl;
     if (!nickname && !roleCode && !verifiedMark && !badgeImageUrl) {
       return null;
     }
@@ -932,9 +1231,128 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     };
   }
 
-  function getGiftEventSenderDisplayNickname(bdy) {
+  function makeGiftReceiverStableId(stableId, receiverNickname) {
+    const safeStableId = sanitizeKeyPart(stableId, 36);
+    if (!safeStableId) return "";
+    const safeReceiver = sanitizeKeyPart(receiverNickname, 24) || "unknown";
+    return `${safeStableId}_${safeReceiver}`;
+  }
+
+  function buildGiftReceiverPayloadFromChatItem(item, overrides = {}) {
+    const safeItem = item && typeof item === "object" ? item : null;
+    if (!safeItem) return null;
+
+    const msgTypeCode = Number(
+      safeItem.msgTypeCode || safeItem.messageTypeCode || 0,
+    );
+    if (msgTypeCode !== 12) return null;
+
+    const extras = parseJsonSafe(safeItem.extras) || {};
+    const receiver = parseJsonSafe(extras.receiver || null);
+    const safeReceiver =
+      receiver && typeof receiver === "object" ? receiver : {};
+    const receiverProfile = parseJsonSafe(
+      extras.receiverProfile ||
+        safeReceiver.profile ||
+        safeReceiver.userProfile ||
+        null,
+    );
+    const receiverNickname = normalizeNickname(
+      extras.receiverNickname ||
+        extras.receiverName ||
+        safeReceiver.nickname ||
+        safeReceiver.name ||
+        receiverProfile?.nickname ||
+        "",
+    );
+    if (!receiverNickname) return null;
+
+    const receiverProfileLite = buildProfileLiteFromGiftReceiverEvent({
+      ...extras,
+      receiverNickname,
+      receiverProfile,
+      receiver,
+    });
+    const senderProfile = parseJsonSafe(safeItem.profile) || null;
+    const senderRawNickname = getGiftEventSenderRawNickname({
+      senderNickname:
+        senderProfile?.nickname ||
+        safeItem.nickname ||
+        safeItem.userNickname ||
+        "",
+    });
+    const senderDisplayNickname = getGiftEventSenderDisplayNickname({
+      senderNickname: senderRawNickname,
+      isAnonymous:
+        safeItem.uid === "anonymous" ||
+        safeItem.userIdHash === "anonymous" ||
+        extras.isAnonymous === true,
+      senderUserRoleCode: senderProfile?.userRoleCode || "",
+      senderVerifiedMark: senderProfile?.verifiedMark === true,
+      senderBadge: senderProfile?.badge || null,
+    });
+    const timestamp =
+      Number(
+        safeItem.msgTime ||
+          safeItem.messageTime ||
+          overrides.timestamp ||
+          0,
+      ) || Date.now();
+    const stableId = String(
+      safeItem.msgTid ||
+        safeItem.messageId ||
+        safeItem.key ||
+        safeItem.messageKey ||
+        extras.giftNo ||
+        extras.giftId ||
+        extras.subscriptionGiftId ||
+        "",
+    ).trim();
+    const streamingChannelId = resolveStreamingChannelId(
+      overrides.streamingChannelId,
+      overrides.channelId,
+      getStreamingChannelId(safeItem, extras, senderProfile),
+    );
+    const giftData = {
+      tierNo: extras.giftTierNo,
+      tierName: extras.giftTierName,
+      selectionType: extras.selectionType,
+      quantity: extras.quantity || 1,
+      receiverNickname,
+      senderNickname: senderDisplayNickname,
+    };
+
+    return {
+      uniqueKey: makeUniqueKey({
+        prefix: "GIFT",
+        stableId: makeGiftReceiverStableId(stableId, receiverNickname),
+        timestamp,
+        nickname: receiverNickname,
+        message: `${giftData.tierName || "구독권"} 선물`,
+      }),
+      messageKey: stableId,
+      sourceNickname: senderRawNickname,
+      nickname: receiverNickname,
+      message: "",
+      profileLite: receiverProfileLite,
+      timestamp,
+      isAnonymous: false,
+      isGift: true,
+      giftSubscription: giftData,
+      channelId: streamingChannelId,
+      streamingChannelId,
+      playerMessageTime:
+        Number(
+          overrides.playerMessageTime || safeItem.playerMessageTime || 0,
+        ) || 0,
+      videoNo: String(overrides.videoNo || ""),
+      type: "INSERT",
+    };
+  }
+
+  function getGiftEventSenderRawNickname(bdy) {
     const safeBody = bdy && typeof bdy === "object" ? bdy : {};
-    const senderRawNickname = normalizeNickname(
+    return normalizeNickname(
       safeBody.senderNickname ||
         safeBody.giverNickname ||
         safeBody.giftSenderNickname ||
@@ -943,6 +1361,11 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         safeBody.senderName ||
         "",
     );
+  }
+
+  function getGiftEventSenderDisplayNickname(bdy) {
+    const safeBody = bdy && typeof bdy === "object" ? bdy : {};
+    const senderRawNickname = getGiftEventSenderRawNickname(safeBody);
     if (!senderRawNickname) return "";
 
     const isAnonymous =
@@ -1146,6 +1569,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
   let blindCaptureSettingReceived = false;
   let chatTimestampSettingReceived = false;
+  let originalChatCaptureSettingReceived = false;
   let chatFeaturesRequestTimer = null;
   let chatFeaturesRequestTries = 0;
 
@@ -1160,8 +1584,14 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       blindCaptureSettingReceived = true;
     } else if (type === INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE) {
       chatTimestampSettingReceived = true;
+    } else if (type === INJECT_ORIGINAL_CHAT_CAPTURE_TOGGLE_TYPE) {
+      originalChatCaptureSettingReceived = true;
     }
-    if (blindCaptureSettingReceived && chatTimestampSettingReceived) {
+    if (
+      blindCaptureSettingReceived &&
+      chatTimestampSettingReceived &&
+      originalChatCaptureSettingReceived
+    ) {
       stopChatFeaturesRequestRetry();
     }
   }
@@ -1235,15 +1665,33 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       }
       return;
     }
+
+    // 모아보기 팝업에서 후원/구독/미션/구매 행을 치지직 원본 스타일로 표시하기 위한
+    // 시각적 DOM 스냅샷 캡처 on/off.
+    if (messageType === INJECT_ORIGINAL_CHAT_CAPTURE_TOGGLE_TYPE) {
+      markChatFeatureSettingReceived(messageType);
+      const next = payload.enabled === true;
+      if (next === captureOriginalSpecialChats) return;
+      captureOriginalSpecialChats = next;
+      if (captureOriginalSpecialChats) {
+        ensureChatRowObserver();
+        sweepExistingRows();
+      } else {
+        disconnectChatRowObserverIfIdle();
+      }
+      return;
+    }
   });
 
   // 격리 world의 설정 로드와 MAIN world 실행 순서는 보장되지 않는다. 첫 메시지가
-  // 유실되어도 현재 값을 다시 받을 수 있도록 두 설정을 모두 받을 때까지 짧게 요청한다.
+  // 유실되어도 현재 값을 다시 받을 수 있도록 세 설정을 모두 받을 때까지 짧게 요청한다.
   requestChatFeatureSettings();
   chatFeaturesRequestTimer = window.setInterval(() => {
     chatFeaturesRequestTries += 1;
     if (
-      (blindCaptureSettingReceived && chatTimestampSettingReceived) ||
+      (blindCaptureSettingReceived &&
+        chatTimestampSettingReceived &&
+        originalChatCaptureSettingReceived) ||
       chatFeaturesRequestTries > 20
     ) {
       stopChatFeaturesRequestRetry();
@@ -1457,90 +1905,15 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       postArchiveMessage("CHZZK_CHAT_LOG", payload);
     }
 
-    // [구독권 선물] msgTypeCode 12: 라이브의 SUBSCRIPTION_GIFT_RECEIVER(93006)
-    // 이벤트가 VOD에는 없으므로, 수신자 기준 entry를 별도로 생성한다.
-    const giftMsgTypeCode = Number(
-      adaptedItem.messageTypeCode || adaptedItem.msgTypeCode || 0,
-    );
-    if (giftMsgTypeCode === 12) {
-      const extras = parseJsonSafe(adaptedItem.extras) || {};
-      const receiverNickname = normalizeNickname(extras.receiverNickname || "");
-      if (receiverNickname) {
-        const receiverProfileLite = buildProfileLiteFromGiftReceiverEvent({
-          receiverNickname,
-          receiverProfile: extras.receiverProfile || null,
-          receiverUserRoleCode: extras.receiverUserRoleCode || "",
-          receiverVerifiedMark: extras.receiverVerifiedMark === true,
-          receiverBadge: extras.receiverBadge || null,
-          receiverBadgeImageUrl: extras.receiverBadgeImageUrl || "",
-        });
-
-        const senderProfile = parseJsonSafe(adaptedItem.profile) || null;
-        const senderDisplayNickname = getGiftEventSenderDisplayNickname({
-          senderNickname: senderProfile?.nickname || adaptedItem.nickname || "",
-          isAnonymous:
-            adaptedItem.uid === "anonymous" ||
-            adaptedItem.userIdHash === "anonymous",
-          senderUserRoleCode: senderProfile?.userRoleCode || "",
-          senderVerifiedMark: senderProfile?.verifiedMark === true,
-        });
-
-        const timestamp =
-          Number(
-            adaptedItem.msgTime ||
-              adaptedItem.messageTime ||
-              safeItem.msgTime ||
-              safeItem.messageTime ||
-              0,
-          ) || Date.now();
-
-        const giftData = {
-          tierNo: extras.giftTierNo,
-          tierName: extras.giftTierName,
-          selectionType: extras.selectionType,
-          quantity: extras.quantity || 1,
-          receiverNickname,
-          senderNickname: senderDisplayNickname,
-        };
-
-        const receiverPayload = {
-          uniqueKey: makeUniqueKey({
-            prefix: "GIFT",
-            stableId:
-              safeItem.msgTid ||
-              safeItem.messageId ||
-              adaptedItem.msgTid ||
-              adaptedItem.messageId ||
-              "",
-            timestamp,
-            nickname: receiverNickname,
-            message: `${giftData.tierName || "구독권"} 선물`,
-          }),
-          nickname: receiverNickname,
-          message: "",
-          profileLite: receiverProfileLite,
-          timestamp,
-          isAnonymous: false,
-          isGift: true,
-          giftSubscription: giftData,
-          channelId:
-            payload?.streamingChannelId ||
-            payload?.channelId ||
-            getStreamingChannelId(adaptedItem, extras, senderProfile) ||
-            "",
-          streamingChannelId:
-            payload?.streamingChannelId ||
-            payload?.channelId ||
-            getStreamingChannelId(adaptedItem, extras, senderProfile) ||
-            "",
-          playerMessageTime,
-          videoNo: videoNoStr,
-          type: "INSERT",
-        };
-
-        postArchiveMessageIfTarget(receiverPayload);
-      }
-    }
+    // VOD에는 SUBSCRIPTION_GIFT_RECEIVER(93006)가 없으므로 채팅 패킷에서
+    // 수신자 기준 entry를 별도로 생성한다. 발신자가 일반 시청자여도 수신자 배지로
+    // 필터링할 수 있어야 하므로 parseNormalMessage 결과와 독립적으로 처리한다.
+    const receiverPayload = buildGiftReceiverPayloadFromChatItem(adaptedItem, {
+      channelId: payload?.streamingChannelId || payload?.channelId || "",
+      playerMessageTime,
+      videoNo: videoNoStr,
+    });
+    postArchiveMessageIfTarget(receiverPayload);
   }
 
   function flushVodPendingChatsByPlaybackTime() {
@@ -1794,6 +2167,13 @@ if (!window.__chzzkBadgeMoaMainInjected) {
           // parseNormalMessage는 타깃 필터링을 이미 마친 payload만 반환
           postArchiveMessage("CHZZK_CHAT_LOG", payload);
         }
+
+        // 구독권 선물은 행의 주체가 발신자이지만 모아보기 대상은 수신자일 수도 있다.
+        // 일반 시청자 발신자가 조기 필터링되더라도 수신자 기준으로 별도 판별한다.
+        const receiverPayload = buildGiftReceiverPayloadFromChatItem(item, {
+          channelId: payload?.streamingChannelId || payload?.channelId || "",
+        });
+        postArchiveMessageIfTarget(receiverPayload);
       }
     });
   }
@@ -1907,7 +2287,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
     const uniqueKey = makeUniqueKey({
       prefix: "CHAT",
-      stableId: item.msgTid || item.messageId || "",
+      stableId:
+        item.msgTid || item.messageId || item.key || item.messageKey || "",
       timestamp,
       nickname,
       message: messageContent,
@@ -1915,6 +2296,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
     return {
       uniqueKey,
+      messageKey: String(
+        item.messageKey || item.key || item.msgTid || item.messageId || "",
+      ).trim(),
+      playerMessageTime: Number(item.playerMessageTime || 0) || 0,
       nickname: nickname,
       isAnonymous,
       profileLite,
@@ -2019,7 +2404,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // [이벤트] 시스템 이벤트: 선물, 미션 (93006)
   function handleSystemEvent(bdy) {
     const type = bdy.type || bdy.donationType;
-    const timestamp = Date.now(); // 실시간 이벤트이므로 현재 시간 사용
+    const timestamp = Number(readChatEpochMs(bdy) || 0) || Date.now();
     const streamingChannelId = resolveStreamingChannelId(
       bdy && bdy.streamingChannelId,
       bdy && bdy.channelId,
@@ -2039,18 +2424,31 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         receiverNickname: receiverNickname,
         senderNickname: getGiftEventSenderDisplayNickname(bdy),
       };
+      const messageKey = String(
+        bdy.msgTid ||
+          bdy.messageId ||
+          bdy.messageKey ||
+          bdy.giftNo ||
+          bdy.giftId ||
+          bdy.subscriptionGiftId ||
+          "",
+      ).trim();
 
       if (receiverNickname) {
         const receiverProfileLite = buildProfileLiteFromGiftReceiverEvent(bdy);
         postArchiveMessageIfTarget({
           uniqueKey: makeUniqueKey({
             prefix: "GIFT",
-            stableId:
-              bdy.msgTid || bdy.messageId || bdy.giftNo || bdy.giftId || "",
+            stableId: makeGiftReceiverStableId(
+              messageKey,
+              receiverNickname,
+            ),
             timestamp,
             nickname: receiverNickname,
             message: `${giftData.tierName || "구독권"} 선물`,
           }),
+          messageKey,
+          sourceNickname: getGiftEventSenderRawNickname(bdy),
           nickname: receiverNickname || "(알 수 없음)",
           message: "",
           profileLite: receiverProfileLite,
@@ -2196,7 +2594,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       pruneVodPendingChatsForLocation();
       postArchiveMessage("CHZZK_URL_CHANGED");
       // SPA 이동 시 채팅 컨테이너가 교체되므로 옵저버를 재연결한다.
-      if (restoreBlindedChat || showChatTimestamp) {
+      if (hasActiveChatDomFeatures()) {
         setTimeout(() => ensureChatRowObserver(), 600);
       }
     }

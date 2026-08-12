@@ -655,8 +655,40 @@ body {
 
 .add-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
+}
+
+.scope-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.scope-segmented[hidden] {
+  display: none;
+}
+
+.scope-segmented button {
+  min-width: 0;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-fg);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.scope-segmented button[aria-pressed="true"] {
+  background: var(--button-bg-hover);
+  color: var(--popup-fg);
+  font-weight: 700;
 }
 
 .add-row.is-scope-hidden {

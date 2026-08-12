@@ -1603,6 +1603,38 @@ html[style*="color-scheme: light"]
     border-color 0.18s ease;
 }
 
+.chzzk-badge-moa-item.chzzk-badge-moa-item-original-chat {
+  display: block;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  /* 팝업 리스트는 flex 컬럼이라, 높이가 부족하면 flex 항목이 자연 높이보다 줄어든다.
+     여러 줄짜리 원본 카드(구독/미션 등)가 눌려 잘리므로 축소를 막고 전체를 보여준다.
+     리스트가 대신 스크롤된다. */
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.chzzk-badge-moa-original-chat {
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chzzk-badge-moa-original-chat > [class*="_item_"],
+.chzzk-badge-moa-original-chat > [class*="_container_"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.chzzk-badge-moa-original-chat button,
+.chzzk-badge-moa-original-chat a {
+  pointer-events: none !important;
+}
+
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"] {
   color: var(
     --sem-color-content-neutral-primary-static,
@@ -2192,16 +2224,16 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-popup-list.is-inline
-  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-inline-meta-nowrap
   .chzzk-badge-moa-item-head,
 .chzzk-badge-moa-popup-list.is-inline
-  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-inline-meta-nowrap
   .chzzk-badge-moa-item-head-main {
   max-width: 100%;
 }
 
 .chzzk-badge-moa-popup-list.is-inline
-  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-inline-meta-nowrap
   .chzzk-badge-moa-item-user {
   flex: 1 1 auto;
   flex-wrap: nowrap;
@@ -2209,14 +2241,14 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-popup-list.is-inline
-  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-inline-meta-nowrap
   .chzzk-badge-moa-item-nickname {
   flex: 1 1 auto;
   min-width: 0;
 }
 
 .chzzk-badge-moa-popup-list.is-inline
-  .chzzk-badge-moa-item-gift-subscription
+  .chzzk-badge-moa-item-inline-meta-nowrap
   .chzzk-badge-moa-item-tags {
   flex: 0 1 auto;
 }

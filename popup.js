@@ -12,7 +12,9 @@
   const OFFICIAL_MARK_URL =
     "https://ssl.pstatic.net/static/nng/glive/image/icon_official_mark.png";
   const TRACKED_SCOPE_CHANNEL = "channel";
+  const TRACKED_SCOPE_GLOBAL = "global";
   const MAX_TRACKED_NICKNAMES_PER_SCOPE = 200;
+  const MAX_TRACKED_GLOBAL_NICKNAMES = 20;
   const CHIP_COLLAPSE_THRESHOLD = 4;
   const DEFAULT_POPUP_FONT_SCALE = 1;
   const MIN_POPUP_FONT_SCALE = 0.8;
@@ -38,10 +40,15 @@
     hiddenSet: new Set(),
     managedHiddenNicknameSet: new Set(),
     excludedCollectNicknameSet: new Set(),
+    excludedCollectScopedNicknameSet: new Set(),
+    excludedCollectGlobalNicknameSet: new Set(),
     hiddenAdvancedSelectedSet: new Set(),
     trackedNicknameSet: new Set(),
     trackedScopedNicknameSet: new Set(),
+    trackedGlobalNicknameSet: new Set(),
     selectedTrackedNicknameSet: new Set(),
+    trackedEditScope: TRACKED_SCOPE_CHANNEL,
+    hiddenExcludeEditScope: TRACKED_SCOPE_CHANNEL,
     showHiddenAdvancedOptions: false,
     hideChatBackground: false,
     hideChatBorder: false,
@@ -56,6 +63,7 @@
     hideChatDonation: false,
     restoreBlindedChat: false,
     showChatTimestamp: false,
+    useOriginalSpecialChatStyle: false,
     showPopupRoleBadgesOnly: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
@@ -99,6 +107,12 @@
     hiddenAdvancedToggle: document.getElementById("hidden-advanced-toggle"),
     hiddenCollapseToggle: document.getElementById("hidden-collapse-toggle"),
     hiddenExcludeSelected: document.getElementById("hidden-exclude-selected"),
+    hiddenExcludeScopeTabs: document.getElementById(
+      "hidden-exclude-scope-tabs",
+    ),
+    hiddenExcludeScopeButtons: Array.from(
+      document.querySelectorAll("#hidden-exclude-scope-tabs [data-scope]"),
+    ),
     hiddenSelectAll: document.getElementById("hidden-select-all"),
     hiddenClearAll: document.getElementById("hidden-clear-all"),
     hiddenPruneEmpty: document.getElementById("hidden-prune-empty"),
@@ -108,6 +122,9 @@
     trackedDeleteAll: document.getElementById("tracked-delete-all"),
     trackedInput: document.getElementById("tracked-input"),
     addNickname: document.getElementById("add-nickname"),
+    trackedScopeButtons: Array.from(
+      document.querySelectorAll("#tracked-scope-tabs [data-scope]"),
+    ),
     hideChatBg: document.getElementById("hide-chat-bg"),
     hideChatBorder: document.getElementById("hide-chat-border"),
     hidePopupBg: document.getElementById("hide-popup-bg"),
@@ -123,6 +140,9 @@
     hideChatDonation: document.getElementById("hide-chat-donation"),
     restoreBlindedChat: document.getElementById("restore-blinded-chat"),
     showChatTimestamp: document.getElementById("show-chat-timestamp"),
+    useOriginalSpecialChatStyle: document.getElementById(
+      "use-original-special-chat-style",
+    ),
     placeChatOnLeft: document.getElementById("place-chat-on-left"),
     enableChatWidthResize: document.getElementById(
       "enable-chat-width-resize",
@@ -678,6 +698,12 @@
       await persistAndApply();
     });
 
+    el.useOriginalSpecialChatStyle.addEventListener("change", async () => {
+      state.useOriginalSpecialChatStyle =
+        el.useOriginalSpecialChatStyle.checked;
+      await persistAndApply();
+    });
+
     el.enableChatWidthResize.addEventListener("change", async () => {
       state.enableChatWidthResize = el.enableChatWidthResize.checked;
       await persistAndApply();
@@ -834,6 +860,21 @@
       clearTrackedInputInvalid();
     });
 
+    el.trackedScopeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextScope = normalizeTrackedScope(button.dataset.scope);
+        if (nextScope === state.trackedEditScope) return;
+        state.trackedEditScope = nextScope;
+        state.selectedTrackedNicknameSet.clear();
+        state.trackedChipsCollapsed = true;
+        clearTrackedInputInvalid();
+        syncScopeSegmentedControls();
+        updateTrackedAddAvailability();
+        renderTrackedChips();
+        updateActionButtonsState();
+      });
+    });
+
     el.hiddenSelectAll.addEventListener("click", async () => {
       await selectAllHiddenNicknames();
     });
@@ -856,9 +897,23 @@
       } else {
         triggerHintPulse(el.hiddenChips);
       }
+      syncScopeSegmentedControls();
       renderHiddenChips();
       updateActionButtonsState();
       await persistAndApply();
+    });
+
+    el.hiddenExcludeScopeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextScope = normalizeTrackedScope(button.dataset.scope);
+        if (nextScope === state.hiddenExcludeEditScope) return;
+        state.hiddenExcludeEditScope = nextScope;
+        state.hiddenAdvancedSelectedSet.clear();
+        clearHintPulse(el.hiddenExcludeSelected);
+        syncScopeSegmentedControls();
+        renderHiddenChips();
+        updateActionButtonsState();
+      });
     });
 
     el.hiddenExcludeSelected.addEventListener("click", async () => {
@@ -972,6 +1027,8 @@
     el.hideChatDonation.checked = state.hideChatDonation === true;
     el.restoreBlindedChat.checked = state.restoreBlindedChat === true;
     el.showChatTimestamp.checked = state.showChatTimestamp === true;
+    el.useOriginalSpecialChatStyle.checked =
+      state.useOriginalSpecialChatStyle === true;
     el.placeChatOnLeft.checked = state.placeChatOnLeft === true;
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
@@ -1002,6 +1059,7 @@
       el.hiddenAutoPruneToggle.checked =
         state.autoPruneManagedHiddenOnReconnect === true;
     }
+    syncScopeSegmentedControls();
     updateTrackedAddAvailability();
 
     renderHiddenChips();
@@ -1011,6 +1069,7 @@
 
   function renderHiddenChips() {
     el.hiddenChips.innerHTML = "";
+    const excludedEditSet = getExcludedEditSet();
 
     const nicknameMetaMap = new Map();
     state.nicknameItems.forEach((item) => {
@@ -1173,7 +1232,7 @@
       if (state.showHiddenAdvancedOptions) {
         if (state.hiddenAdvancedSelectedSet.has(nickname)) {
           toggleButton.title = "모아보기 제외 선택됨 - 클릭하여 선택 해제";
-        } else if (state.excludedCollectNicknameSet.has(nickname)) {
+        } else if (excludedEditSet.has(nickname)) {
           toggleButton.title =
             "이미 모아보기 제외됨 - 클릭하여 제외 해제 대상으로 선택";
         } else {
@@ -1193,11 +1252,16 @@
           state.excludedCollectNicknameSet.has(nickname)
         ) {
           state.showHiddenAdvancedOptions = true;
+          state.hiddenExcludeEditScope =
+            state.excludedCollectScopedNicknameSet.has(nickname)
+              ? TRACKED_SCOPE_CHANNEL
+              : TRACKED_SCOPE_GLOBAL;
           state.hiddenAdvancedSelectedSet.clear();
           state.hiddenAdvancedSelectedSet.add(nickname);
           if (el.hiddenAdvancedToggle) {
             el.hiddenAdvancedToggle.checked = true;
           }
+          syncScopeSegmentedControls();
           await persistAndApply();
           renderHiddenChips();
           updateActionButtonsState();
@@ -1415,9 +1479,13 @@
         removeTrackedNicknameByScope(nickname, item.scope);
         state.selectedTrackedNicknameSet.delete(nickname);
         rebuildEffectiveTrackedNicknames();
-        pruneHiddenNicknameIfOrphaned(nickname);
+        if (item.scope === TRACKED_SCOPE_CHANNEL) {
+          pruneHiddenNicknameIfOrphaned(nickname);
+        }
         await persistAndApply();
-        pruneHiddenNicknameIfOrphaned(nickname);
+        if (item.scope === TRACKED_SCOPE_CHANNEL) {
+          pruneHiddenNicknameIfOrphaned(nickname);
+        }
         renderHiddenChips();
         renderTrackedChips();
         updateActionButtonsState();
@@ -1446,7 +1514,9 @@
 
     const nickname = normalizeNickname(raw);
     if (!nickname) return;
-    const targetSet = state.trackedScopedNicknameSet;
+    const targetSet = getTrackedEditSet();
+    const isGlobal = state.trackedEditScope === TRACKED_SCOPE_GLOBAL;
+    const maxCount = getTrackedNicknameMaxCount();
     if (targetSet.has(nickname)) {
       markTrackedInputInvalid();
       setStatus("이미 등록된 닉네임입니다.", {
@@ -1455,18 +1525,16 @@
       });
       return;
     }
-    if (
-      state.trackedScopedNicknameSet.size >= MAX_TRACKED_NICKNAMES_PER_SCOPE
-    ) {
+    if (targetSet.size >= maxCount) {
       markTrackedInputInvalid();
       setStatus(
-        `채널 대상은 최대 ${MAX_TRACKED_NICKNAMES_PER_SCOPE}개까지 등록할 수 있습니다.`,
+        `${isGlobal ? "글로벌 대상" : "채널 대상"}은 최대 ${maxCount}명까지 등록할 수 있습니다.`,
         { autoResetMs: 2200, variant: "error" },
       );
       return;
     }
 
-    if (TRACKED_NICKNAME_ALLOWLIST.has(nickname)) {
+    if (!isGlobal && TRACKED_NICKNAME_ALLOWLIST.has(nickname)) {
       clearTrackedInputInvalid();
       targetSet.add(nickname);
       rebuildEffectiveTrackedNicknames();
@@ -1496,7 +1564,7 @@
     targetSet.add(nickname);
     rebuildEffectiveTrackedNicknames();
 
-    if (verification.verifiedMark === true && OFFICIAL_MARK_URL) {
+    if (!isGlobal && verification.verifiedMark === true && OFFICIAL_MARK_URL) {
       const existing = state.hiddenChipMetaByNickname.get(nickname);
       const existingBadges =
         existing && Array.isArray(existing.roleBadges)
@@ -1584,7 +1652,9 @@
   async function excludeSelectedFromTrackedTargets() {
     if (state.hiddenAdvancedSelectedSet.size === 0) return;
     const selectedNicknames = Array.from(state.hiddenAdvancedSelectedSet);
-    const nextExcluded = new Set(state.excludedCollectNicknameSet);
+    const isGlobal =
+      state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL;
+    const nextExcluded = new Set(getExcludedEditSet());
     const nextHidden = new Set(state.hiddenSet);
     let changed = false;
     let addedCount = 0;
@@ -1597,7 +1667,7 @@
       if (!normalized) return;
       if (nextExcluded.has(normalized)) {
         nextExcluded.delete(normalized);
-        if (nextHidden.has(normalized)) {
+        if (!isGlobal && nextHidden.has(normalized)) {
           nextHidden.delete(normalized);
           removedHiddenCount += 1;
         }
@@ -1606,8 +1676,10 @@
         return;
       }
       nextExcluded.add(normalized);
-      state.managedHiddenNicknameSet.add(normalized);
-      if (!nextHidden.has(normalized)) {
+      if (!isGlobal) {
+        state.managedHiddenNicknameSet.add(normalized);
+      }
+      if (!isGlobal && !nextHidden.has(normalized)) {
         nextHidden.add(normalized);
         addedHiddenCount += 1;
       }
@@ -1630,8 +1702,13 @@
       pruneExcludedEntries = action === "prune";
     }
 
-    state.excludedCollectNicknameSet = nextExcluded;
-    state.hiddenSet = nextHidden;
+    if (isGlobal) {
+      state.excludedCollectGlobalNicknameSet = nextExcluded;
+    } else {
+      state.excludedCollectScopedNicknameSet = nextExcluded;
+      state.hiddenSet = nextHidden;
+    }
+    rebuildEffectiveExcludedCollectNicknames();
     state.hiddenAdvancedSelectedSet.clear();
     state.showHiddenAdvancedOptions = false;
 
@@ -1639,14 +1716,18 @@
     render();
     if (addedCount > 0 && removedCount > 0) {
       setStatus(
-        `모아보기 제외 ${addedCount}개(숨김 ${addedHiddenCount}개 포함), 제외 해제 ${removedCount}개(숨김 해제 ${removedHiddenCount}개 포함) 적용됨`,
+        isGlobal
+          ? `모든 방문 채널 제외 ${addedCount}개, 제외 해제 ${removedCount}개 적용됨`
+          : `모아보기 제외 ${addedCount}개(숨김 ${addedHiddenCount}개 포함), 제외 해제 ${removedCount}개(숨김 해제 ${removedHiddenCount}개 포함) 적용됨`,
         { autoResetMs: 1800 },
       );
       return;
     }
     if (addedCount > 0) {
       setStatus(
-        `선택한 닉네임 ${addedCount}개를 모아보기 제외했고 숨김도 함께 적용했습니다.`,
+        isGlobal
+          ? `선택한 닉네임 ${addedCount}개를 모든 방문 채널에서 제외했습니다.`
+          : `선택한 닉네임 ${addedCount}개를 모아보기 제외했고 숨김도 함께 적용했습니다.`,
         {
           autoResetMs: 1800,
         },
@@ -1654,7 +1735,9 @@
       return;
     }
     setStatus(
-      `선택한 닉네임 ${removedCount}개의 제외를 해제했고 숨김 ${removedHiddenCount}개도 함께 해제했습니다.`,
+      isGlobal
+        ? `선택한 닉네임 ${removedCount}개의 모든 방문 채널 제외를 해제했습니다.`
+        : `선택한 닉네임 ${removedCount}개의 제외를 해제했고 숨김 ${removedHiddenCount}개도 함께 해제했습니다.`,
       {
         autoResetMs: 1800,
       },
@@ -1664,20 +1747,22 @@
   async function deleteAllTrackedTargets() {
     const visibleItems = getVisibleTrackedNicknameItems();
     if (visibleItems.length === 0) return;
-    const removedNicknames = new Set();
+    const removedChannelNicknames = new Set();
     visibleItems.forEach((item) => {
       const nickname = normalizeNickname(item.value);
       if (!nickname) return;
       removeTrackedNicknameByScope(nickname, item.scope);
-      removedNicknames.add(nickname);
+      if (item.scope === TRACKED_SCOPE_CHANNEL) {
+        removedChannelNicknames.add(nickname);
+      }
     });
     state.selectedTrackedNicknameSet.clear();
     rebuildEffectiveTrackedNicknames();
-    removedNicknames.forEach((nickname) => {
+    removedChannelNicknames.forEach((nickname) => {
       pruneHiddenNicknameIfOrphaned(nickname);
     });
     await persistAndApply();
-    removedNicknames.forEach((nickname) => {
+    removedChannelNicknames.forEach((nickname) => {
       pruneHiddenNicknameIfOrphaned(nickname);
     });
     renderHiddenChips();
@@ -1700,19 +1785,24 @@
       if (!normalized) return;
       const targetScope =
         visibleScopeMap.get(normalized) || TRACKED_SCOPE_CHANNEL;
-      const beforeScoped = state.trackedScopedNicknameSet.has(normalized);
+      const targetSet =
+        targetScope === TRACKED_SCOPE_GLOBAL
+          ? state.trackedGlobalNicknameSet
+          : state.trackedScopedNicknameSet;
+      const beforeScoped = targetSet.has(normalized);
       removeTrackedNicknameByScope(normalized, targetScope);
-      const afterScoped = state.trackedScopedNicknameSet.has(normalized);
+      const afterScoped = targetSet.has(normalized);
       if (beforeScoped !== afterScoped) {
         changed = true;
-      }
-      if (!afterScoped) {
-        pruneHiddenNicknameIfOrphaned(normalized);
       }
     });
     const prunedNicknames = selectedNicknames
       .map((nickname) => normalizeNickname(nickname))
-      .filter(Boolean);
+      .filter(
+        (nickname) =>
+          !!nickname &&
+          visibleScopeMap.get(nickname) === TRACKED_SCOPE_CHANNEL,
+      );
     state.selectedTrackedNicknameSet.clear();
     if (!changed) {
       renderTrackedChips();
@@ -1732,10 +1822,12 @@
   function pruneHiddenNicknameIfOrphaned(nickname) {
     const normalized = normalizeNickname(nickname);
     if (!normalized) return;
+    if (state.trackedNicknameSet.has(normalized)) return;
     const currentNicknames = getCurrentChannelNicknames();
     if (currentNicknames.has(normalized)) return;
     state.hiddenSet.delete(normalized);
-    state.excludedCollectNicknameSet.delete(normalized);
+    state.excludedCollectScopedNicknameSet.delete(normalized);
+    rebuildEffectiveExcludedCollectNicknames();
     state.hiddenAdvancedSelectedSet.delete(normalized);
     state.managedHiddenNicknameSet.delete(normalized);
     state.hiddenChipMetaByNickname.delete(normalized);
@@ -1838,13 +1930,15 @@
 
   function getVisibleTrackedNicknameItems() {
     const map = new Map();
-    Array.from(state.trackedScopedNicknameSet)
+    const scope = state.trackedEditScope;
+    const source = getTrackedEditSet();
+    Array.from(source)
       .map((value) => normalizeNickname(value))
       .filter(Boolean)
       .forEach((nickname) => {
         map.set(nickname, {
           value: nickname,
-          scope: TRACKED_SCOPE_CHANNEL,
+          scope,
         });
       });
 
@@ -1856,11 +1950,16 @@
   function removeTrackedNicknameByScope(nickname, scope) {
     const normalized = normalizeNickname(nickname);
     if (!normalized) return;
+    if (scope === TRACKED_SCOPE_GLOBAL) {
+      state.trackedGlobalNicknameSet.delete(normalized);
+      return;
+    }
     state.trackedScopedNicknameSet.delete(normalized);
   }
 
   function updateHiddenExcludeActionButtonLabel() {
     if (!el.hiddenExcludeSelected) return;
+    const excludedEditSet = getExcludedEditSet();
 
     if (
       state.showHiddenAdvancedOptions !== true ||
@@ -1875,7 +1974,7 @@
     state.hiddenAdvancedSelectedSet.forEach((nickname) => {
       const normalized = normalizeNickname(nickname);
       if (!normalized) return;
-      if (state.excludedCollectNicknameSet.has(normalized)) {
+      if (excludedEditSet.has(normalized)) {
         selectedExcludedCount += 1;
       } else {
         selectedNormalCount += 1;
@@ -1923,6 +2022,8 @@
       hideChatDonation: state.hideChatDonation === true,
       restoreBlindedChat: state.restoreBlindedChat === true,
       showChatTimestamp: state.showChatTimestamp === true,
+      useOriginalSpecialChatStyle:
+        state.useOriginalSpecialChatStyle === true,
       placeChatOnLeft: state.placeChatOnLeft === true,
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
@@ -1937,9 +2038,18 @@
       enableSessionCache: state.enableSessionCache,
       newTrackedNicknames: forceTrackedNicknames,
       hiddenPillNicknames: Array.from(state.hiddenSet),
-      excludedCollectNicknames: Array.from(state.excludedCollectNicknameSet),
+      excludedCollectNicknames: Array.from(
+        state.excludedCollectScopedNicknameSet,
+      ),
+      excludedCollectScopedNicknames: Array.from(
+        state.excludedCollectScopedNicknameSet,
+      ),
+      excludedCollectGlobalNicknames: Array.from(
+        state.excludedCollectGlobalNicknameSet,
+      ),
       trackedNicknames: Array.from(state.trackedScopedNicknameSet),
-      trackedGlobalNicknames: [],
+      trackedScopedNicknames: Array.from(state.trackedScopedNicknameSet),
+      trackedGlobalNicknames: Array.from(state.trackedGlobalNicknameSet),
       pruneExcludedEntries,
     };
 
@@ -2007,6 +2117,8 @@
     state.hideChatDonation = settings.hideChatDonation === true;
     state.restoreBlindedChat = settings.restoreBlindedChat === true;
     state.showChatTimestamp = settings.showChatTimestamp === true;
+    state.useOriginalSpecialChatStyle =
+      settings.useOriginalSpecialChatStyle === true;
     state.placeChatOnLeft = settings.placeChatOnLeft === true;
     state.enableChatWidthResize = settings.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
@@ -2054,6 +2166,10 @@
     const hasScopedTracked =
       !!scopedTracked && Array.isArray(scopedTracked.nicknames);
     const hasScopedExcluded = Array.isArray(excludedByScope[state.scopeKey]);
+    const hasGlobalTracked = Array.isArray(raw.trackedGlobalNicknames);
+    const hasGlobalExcluded = Array.isArray(
+      raw.excludedCollectGlobalNicknames,
+    );
 
     if (!hasScopedHidden) {
       const hidden = Array.isArray(settings.hiddenPillNicknames)
@@ -2077,17 +2193,45 @@
           .map((value) => normalizeNickname(value))
           .filter(Boolean),
       );
-      rebuildEffectiveTrackedNicknames();
     }
+    if (!hasGlobalTracked) {
+      const trackedGlobalNicknames = Array.isArray(
+        settings.trackedGlobalNicknames,
+      )
+        ? settings.trackedGlobalNicknames
+        : [];
+      state.trackedGlobalNicknameSet = new Set(
+        trackedGlobalNicknames
+          .map((value) => normalizeNickname(value))
+          .filter(Boolean)
+          .slice(0, MAX_TRACKED_GLOBAL_NICKNAMES),
+      );
+    }
+    rebuildEffectiveTrackedNicknames();
 
     if (!hasScopedExcluded) {
-      const excluded = Array.isArray(settings.excludedCollectNicknames)
-        ? settings.excludedCollectNicknames
-        : [];
-      state.excludedCollectNicknameSet = new Set(
+      const excluded = Array.isArray(settings.excludedCollectScopedNicknames)
+        ? settings.excludedCollectScopedNicknames
+        : Array.isArray(settings.excludedCollectNicknames)
+          ? settings.excludedCollectNicknames
+          : [];
+      state.excludedCollectScopedNicknameSet = new Set(
         excluded.map((value) => normalizeNickname(value)).filter(Boolean),
       );
     }
+    if (!hasGlobalExcluded) {
+      const excludedGlobal = Array.isArray(
+        settings.excludedCollectGlobalNicknames,
+      )
+        ? settings.excludedCollectGlobalNicknames
+        : [];
+      state.excludedCollectGlobalNicknameSet = new Set(
+        excludedGlobal
+          .map((value) => normalizeNickname(value))
+          .filter(Boolean),
+      );
+    }
+    rebuildEffectiveExcludedCollectNicknames();
   }
 
   function applyStateFromRawForScope(scopeKey) {
@@ -2124,6 +2268,12 @@
     const excluded = Array.isArray(excludedByScope[scopeKey])
       ? excludedByScope[scopeKey]
       : [];
+    const trackedGlobal = Array.isArray(raw.trackedGlobalNicknames)
+      ? raw.trackedGlobalNicknames
+      : [];
+    const excludedGlobal = Array.isArray(raw.excludedCollectGlobalNicknames)
+      ? raw.excludedCollectGlobalNicknames
+      : [];
     const hiddenChipMetaByNickname =
       hiddenChipMetaByScope[scopeKey] &&
       typeof hiddenChipMetaByScope[scopeKey] === "object"
@@ -2143,6 +2293,8 @@
     state.hideChatDonation = raw.hideChatDonation === true;
     state.restoreBlindedChat = raw.restoreBlindedChat === true;
     state.showChatTimestamp = raw.showChatTimestamp === true;
+    state.useOriginalSpecialChatStyle =
+      raw.useOriginalSpecialChatStyle === true;
     state.placeChatOnLeft = raw.placeChatOnLeft === true;
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
@@ -2175,9 +2327,19 @@
         .map((value) => normalizeNickname(value))
         .filter(Boolean),
     );
-    state.excludedCollectNicknameSet = new Set(
+    state.trackedGlobalNicknameSet = new Set(
+      trackedGlobal
+        .map((value) => normalizeNickname(value))
+        .filter(Boolean)
+        .slice(0, MAX_TRACKED_GLOBAL_NICKNAMES),
+    );
+    state.excludedCollectScopedNicknameSet = new Set(
       excluded.map((value) => normalizeNickname(value)).filter(Boolean),
     );
+    state.excludedCollectGlobalNicknameSet = new Set(
+      excludedGlobal.map((value) => normalizeNickname(value)).filter(Boolean),
+    );
+    rebuildEffectiveExcludedCollectNicknames();
     const managedHidden = Array.isArray(managedHiddenByScope[scopeKey])
       ? managedHiddenByScope[scopeKey]
       : [];
@@ -2187,7 +2349,7 @@
     state.hiddenSet.forEach((nickname) =>
       state.managedHiddenNicknameSet.add(nickname),
     );
-    state.excludedCollectNicknameSet.forEach((nickname) =>
+    state.excludedCollectScopedNicknameSet.forEach((nickname) =>
       state.managedHiddenNicknameSet.add(nickname),
     );
     state.hiddenChipMetaByNickname = new Map(
@@ -2249,6 +2411,8 @@
     raw.hideChatDonation = state.hideChatDonation === true;
     raw.restoreBlindedChat = state.restoreBlindedChat === true;
     raw.showChatTimestamp = state.showChatTimestamp === true;
+    raw.useOriginalSpecialChatStyle =
+      state.useOriginalSpecialChatStyle === true;
     raw.placeChatOnLeft = state.placeChatOnLeft === true;
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);
@@ -2275,7 +2439,7 @@
       nicknames: Array.from(state.trackedScopedNicknameSet),
     };
     raw.excludedCollectNicknamesByChannel[state.scopeKey] = Array.from(
-      state.excludedCollectNicknameSet,
+      state.excludedCollectScopedNicknameSet,
     );
     raw.managedHiddenNicknamesByChannel[state.scopeKey] = Array.from(
       state.managedHiddenNicknameSet,
@@ -2286,7 +2450,12 @@
         state.hiddenChipMetaByNickname,
       ),
     };
-    raw.trackedGlobalNicknames = [];
+    raw.trackedGlobalNicknames = Array.from(
+      state.trackedGlobalNicknameSet,
+    ).slice(0, MAX_TRACKED_GLOBAL_NICKNAMES);
+    raw.excludedCollectGlobalNicknames = Array.from(
+      state.excludedCollectGlobalNicknameSet,
+    );
 
     state.rawSettings = raw;
   }
@@ -2302,8 +2471,53 @@
     return String(value || "").trim();
   }
 
+  function normalizeTrackedScope(value) {
+    return value === TRACKED_SCOPE_GLOBAL
+      ? TRACKED_SCOPE_GLOBAL
+      : TRACKED_SCOPE_CHANNEL;
+  }
+
+  function getTrackedEditSet() {
+    return state.trackedEditScope === TRACKED_SCOPE_GLOBAL
+      ? state.trackedGlobalNicknameSet
+      : state.trackedScopedNicknameSet;
+  }
+
+  function getExcludedEditSet() {
+    return state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL
+      ? state.excludedCollectGlobalNicknameSet
+      : state.excludedCollectScopedNicknameSet;
+  }
+
+  function rebuildEffectiveExcludedCollectNicknames() {
+    state.excludedCollectNicknameSet = new Set([
+      ...state.excludedCollectScopedNicknameSet,
+      ...state.excludedCollectGlobalNicknameSet,
+    ]);
+  }
+
+  function syncScopeSegmentedControls() {
+    el.trackedScopeButtons.forEach((button) => {
+      const active =
+        normalizeTrackedScope(button.dataset.scope) === state.trackedEditScope;
+      button.setAttribute("aria-pressed", String(active));
+    });
+    if (el.hiddenExcludeScopeTabs) {
+      el.hiddenExcludeScopeTabs.hidden =
+        state.showHiddenAdvancedOptions !== true;
+    }
+    el.hiddenExcludeScopeButtons.forEach((button) => {
+      const active =
+        normalizeTrackedScope(button.dataset.scope) ===
+        state.hiddenExcludeEditScope;
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+
   function getTrackedNicknameMaxCount() {
-    return MAX_TRACKED_NICKNAMES_PER_SCOPE;
+    return state.trackedEditScope === TRACKED_SCOPE_GLOBAL
+      ? MAX_TRACKED_GLOBAL_NICKNAMES
+      : MAX_TRACKED_NICKNAMES_PER_SCOPE;
   }
 
   function updateHiddenCountInfo(current, max) {
@@ -2357,6 +2571,7 @@
   }
 
   function canUseTrackedAdd() {
+    if (state.trackedEditScope === TRACKED_SCOPE_GLOBAL) return true;
     return (
       isLiveTabUrl(state.tabUrl) ||
       isVodTabUrl(state.tabUrl) ||
@@ -2370,7 +2585,10 @@
     el.trackedInput.disabled = !enabled;
     el.addNickname.disabled = !enabled;
     if (enabled) {
-      el.trackedInput.placeholder = "닉네임 입력 (스트리머만 추가 가능)";
+      el.trackedInput.placeholder =
+        state.trackedEditScope === TRACKED_SCOPE_GLOBAL
+          ? `글로벌 닉네임 입력 (최대 ${MAX_TRACKED_GLOBAL_NICKNAMES}명)`
+          : "닉네임 입력 (스트리머만 추가 가능)";
       return;
     }
     el.trackedInput.placeholder =
@@ -2378,7 +2596,10 @@
   }
 
   function rebuildEffectiveTrackedNicknames() {
-    state.trackedNicknameSet = new Set([...state.trackedScopedNicknameSet]);
+    state.trackedNicknameSet = new Set([
+      ...state.trackedScopedNicknameSet,
+      ...state.trackedGlobalNicknameSet,
+    ]);
   }
 
   function normalizeChannelName(value) {

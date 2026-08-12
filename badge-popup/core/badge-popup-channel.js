@@ -303,6 +303,10 @@
 
     state.settingsScopeKey = nextScopeKey;
     state.settings.hiddenPillNicknames = new Set();
+    state.settings.excludedCollectScopedNicknames = new Set();
+    state.settings.excludedCollectNicknames = new Set([
+      ...(state.settings.excludedCollectGlobalNicknames || []),
+    ]);
     state.settings.trackedScopedNicknames = new Set();
     if (typeof deps.rebuildEffectiveTrackedNicknames === "function") {
       deps.rebuildEffectiveTrackedNicknames();
@@ -371,6 +375,10 @@
     if (scopeChanged) {
       state.settingsScopeKey = nextScopeKey;
       state.settings.hiddenPillNicknames = new Set();
+      state.settings.excludedCollectScopedNicknames = new Set();
+      state.settings.excludedCollectNicknames = new Set([
+        ...(state.settings.excludedCollectGlobalNicknames || []),
+      ]);
       state.settings.trackedScopedNicknames = new Set();
       if (typeof deps.rebuildEffectiveTrackedNicknames === "function") {
         deps.rebuildEffectiveTrackedNicknames();
@@ -390,6 +398,9 @@
     state.chatChannelId = "";
     state.entries = [];
     state.dedupeKeys.clear();
+    if (state.originalChatSnapshots instanceof Map) {
+      state.originalChatSnapshots.clear();
+    }
     state.unseenCount = 0;
     state.unseenActors.clear();
     state.isSettingsOpen = false;

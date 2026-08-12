@@ -2,6 +2,70 @@
   const ns = (window.__chzzkBadgeMoa = window.__chzzkBadgeMoa || {});
   if (ns.renderApi && typeof ns.renderApi === "object") return;
 
+  const ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH = 80000;
+  const ORIGINAL_CHAT_SNAPSHOT_KINDS = new Set([
+    "donation",
+    "subscription",
+    "mission",
+    "purchase",
+  ]);
+
+  function createOriginalSpecialChatSnapshot(entry) {
+    const html = String(entry?.originalChatHtml || "").trim();
+    const kind = String(entry?.originalChatKind || "").trim().toLowerCase();
+    if (
+      !html ||
+      html.length > ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH ||
+      !ORIGINAL_CHAT_SNAPSHOT_KINDS.has(kind)
+    ) {
+      return null;
+    }
+
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    template.content
+      .querySelectorAll(
+        "script, style, link, iframe, object, embed, form, input, textarea, select, option, meta, base, [role='alertdialog'], [role='dialog'], [role='menu']",
+      )
+      .forEach((node) => node.remove());
+
+    template.content.querySelectorAll("*").forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        const name = attribute.name.toLowerCase();
+        const value = String(attribute.value || "");
+        if (
+          name.startsWith("on") ||
+          name === "srcdoc" ||
+          name === "action" ||
+          name === "formaction" ||
+          ((name === "href" || name === "src") &&
+            /^\s*javascript:/i.test(value))
+        ) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+      if (element instanceof HTMLAnchorElement) {
+        element.removeAttribute("href");
+        element.removeAttribute("target");
+        element.removeAttribute("rel");
+      }
+      if (element instanceof HTMLButtonElement) {
+        element.type = "button";
+        element.tabIndex = -1;
+        element.setAttribute("aria-disabled", "true");
+      }
+    });
+
+    const root = template.content.firstElementChild;
+    if (!(root instanceof HTMLElement)) return null;
+    const wrapper = document.createElement("div");
+    wrapper.className = "chzzk-badge-moa-original-chat";
+    wrapper.dataset.kind = kind;
+    wrapper.setAttribute("aria-label", `${kind} 원본 채팅`);
+    wrapper.appendChild(root);
+    return wrapper;
+  }
+
   function render(state, deps = {}) {
     const applySettingsClassesFn =
       typeof deps.applySettingsClasses === "function"
@@ -431,6 +495,16 @@
       if (Number.isFinite(entry.sequence)) {
         item.dataset.seq = String(entry.sequence);
       }
+      const originalSnapshot =
+        state.settings?.useOriginalSpecialChatStyle === true
+          ? createOriginalSpecialChatSnapshot(entry)
+          : null;
+      if (originalSnapshot) {
+        item.classList.add("chzzk-badge-moa-item-original-chat");
+        item.appendChild(originalSnapshot);
+        fragment.appendChild(item);
+        continue;
+      }
       if (entry.badgeType) {
         item.classList.add(`chzzk-badge-moa-item-highlight-${entry.badgeType}`);
       }
@@ -438,8 +512,15 @@
       if (typeToneClass) {
         item.classList.add(typeToneClass);
       }
-      if (String(entry.typeLabel || "").trim() === "구독 선물") {
-        item.classList.add("chzzk-badge-moa-item-gift-subscription");
+      const inlineMetaLabel = String(entry.typeLabel || "").trim();
+      const keepInlineMetaOnOneLine = [
+        "구독 선물",
+        "영상후원",
+        "미션 성공",
+        "미션 실패",
+      ].includes(inlineMetaLabel);
+      if (keepInlineMetaOnOneLine) {
+        item.classList.add("chzzk-badge-moa-item-inline-meta-nowrap");
       }
       const useTypeToneItem = !!typeToneClass;
 
@@ -947,6 +1028,10 @@
       typeof deps.createTrackedTargetChip === "function"
         ? deps.createTrackedTargetChip
         : () => document.createElement("div");
+    const syncOriginalChatCaptureToInjectFn =
+      typeof deps.syncOriginalChatCaptureToInject === "function"
+        ? deps.syncOriginalChatCaptureToInject
+        : () => {};
 
     settingsButton.setAttribute("aria-expanded", String(state.isSettingsOpen));
     settingsButton.setAttribute(
@@ -1137,6 +1222,18 @@
           state.settings.showPopupRoleBadgesOnly = checked;
           saveSettingsFn();
           renderListFn(false);
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "후원·구독·미션·구매 원본 스타일",
+        state.settings.useOriginalSpecialChatStyle,
+        (checked) => {
+          state.settings.useOriginalSpecialChatStyle = checked;
+          saveSettingsFn();
+          syncOriginalChatCaptureToInjectFn();
+          renderListFn("preserve-bottom");
         },
       ),
     );
@@ -1506,6 +1603,7 @@
     renderPill,
     renderPillIdentity,
     renderList,
+    createOriginalSpecialChatSnapshot,
     getItemTypeToneClass,
     renderNicknameFilters,
     applyFilterBarMaxHeight,

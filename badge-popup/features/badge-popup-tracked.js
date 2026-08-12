@@ -182,19 +182,25 @@
       typeof deps.saveSettings === "function" ? deps.saveSettings : () => {};
     const renderListFn =
       typeof deps.renderList === "function" ? deps.renderList : () => {};
-    const maxTrackedNicknames = Number(deps.MAX_TRACKED_NICKNAMES_PER_SCOPE) || 0;
+    const scope = deps.scope === "global" ? "global" : "channel";
+    const targetSet =
+      scope === "global"
+        ? state.settings.trackedGlobalNicknames
+        : state.settings.trackedScopedNicknames;
+    const maxTrackedNicknames =
+      scope === "global"
+        ? Number(deps.MAX_TRACKED_GLOBAL_NICKNAMES) || 0
+        : Number(deps.MAX_TRACKED_NICKNAMES_PER_SCOPE) || 0;
 
     const nickname = normalizeTrackedNicknameFn(rawValue);
     if (!nickname) return false;
-    if (state.settings.trackedScopedNicknames.has(nickname)) return false;
-    if (
-      maxTrackedNicknames > 0 &&
-      state.settings.trackedScopedNicknames.size >= maxTrackedNicknames
-    ) {
+    if (!(targetSet instanceof Set)) return false;
+    if (targetSet.has(nickname)) return false;
+    if (maxTrackedNicknames > 0 && targetSet.size >= maxTrackedNicknames) {
       return false;
     }
 
-    state.settings.trackedScopedNicknames.add(nickname);
+    targetSet.add(nickname);
     rebuildEffectiveTrackedNicknamesFn();
     state.nicknameFilter.selected.add(nickname);
     state.nicknameFilter.pendingTrackedNicknames.add(nickname);
@@ -221,7 +227,13 @@
       typeof deps.saveSettings === "function" ? deps.saveSettings : () => {};
 
     const nickname = normalizeTrackedNicknameFn(item.value);
-    state.settings.trackedScopedNicknames.delete(nickname);
+    const targetSet =
+      item.scope === "global"
+        ? state.settings.trackedGlobalNicknames
+        : state.settings.trackedScopedNicknames;
+    if (targetSet instanceof Set) {
+      targetSet.delete(nickname);
+    }
     rebuildEffectiveTrackedNicknamesFn();
     pruneHiddenNicknameIfOrphanedInPopupFn(nickname);
     saveSettingsFn();
@@ -279,10 +291,15 @@
         ? deps.normalizeTrackedNickname
         : (value) => String(value || "").trim();
     const map = new Map();
-    Array.from(state?.settings?.trackedScopedNicknames || []).forEach((nickname) => {
+    const scope = deps.scope === "global" ? "global" : "channel";
+    const source =
+      scope === "global"
+        ? state?.settings?.trackedGlobalNicknames
+        : state?.settings?.trackedScopedNicknames;
+    Array.from(source || []).forEach((nickname) => {
       const key = normalizeTrackedNicknameFn(nickname);
       if (!key) return;
-      map.set(key, { type: "nickname", value: key });
+      map.set(key, { type: "nickname", value: key, scope });
     });
     return Array.from(map.values());
   }
@@ -303,7 +320,7 @@
 
     const text = doc.createElement("span");
     text.className = "chzzk-badge-moa-tracked-chip-text";
-    text.textContent = `[닉네임] ${item.value}`;
+    text.textContent = `${item.scope === "global" ? "[모든 채널]" : "[현재 채널]"} ${item.value}`;
 
     const removeButton = doc.createElement("button");
     removeButton.type = "button";
