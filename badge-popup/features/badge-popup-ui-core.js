@@ -557,6 +557,15 @@
     if (state.ui.root && state.ui.root.parentNode) {
       state.ui.root.parentNode.removeChild(state.ui.root);
     }
+    // 이전 UI(팝업/필)를 제거했으므로 열림 상태도 초기화한다. 초기화하지 않으면
+    // (예: 항상 펼침으로 열린 채 SPA 이동으로 헤더가 교체돼 UI가 재생성될 때)
+    // state.isOpen 이 true 로 남아, 새로 만든 팝업의 자동 펼침(render)과 필 클릭이
+    // 모두 "이미 열림"으로 판단돼 다시 펼쳐지지 않는다.
+    state.isOpen = false;
+    if (state.closeTimer) {
+      clearTimeout(state.closeTimer);
+      state.closeTimer = null;
+    }
     state.popupPinned = false;
     resetPillCycle(false);
 
