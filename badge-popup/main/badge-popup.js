@@ -117,6 +117,7 @@
   const popupApi = ns.popupApi;
   const state = ns.state;
   const createDefaultSettingsStateFromNs = ns.createDefaultSettingsState;
+  const POPUP_FONT_SCALE_STEPS = [0.8, 0.9, 1, 1.1, 1.2];
 
   const observerRefs = {
     observer: null,
@@ -154,6 +155,12 @@
   }
 
   async function init() {
+    // 모아보기 전용 창(분리 버튼으로 연 창)이면 표식을 세운다. CSS 로 치지직 채팅을
+    // 숨기고 모아보기 팝업만 창을 채우게 하며, render 에서 항상 펼침으로 동작시킨다.
+    state.isMoaWindow = isMoaWindowContext();
+    if (state.isMoaWindow && document.documentElement) {
+      document.documentElement.classList.add("chzzk-badge-moa-window-mode");
+    }
     await lifecycleApi.init(state, {
       loadPopupHeight,
       loadPopupDisplayStyle,
@@ -178,6 +185,69 @@
     syncBlindCaptureToInject();
     syncChatTimestampToInject();
     syncOriginalChatCaptureToInject();
+
+    if (state.isMoaWindow) {
+      startMoaWindowHeartbeat();
+    } else {
+      registerMoaWindowPresenceHandler();
+    }
+  }
+
+  // 전용 창(자식): 살아있는 동안 alive 신호를 방송하고, 닫힐 때 closed 를 방송해
+  // 원래 탭이 인라인 UI 를 감추거나 복원하도록 한다.
+  let _moaHeartbeatTimer = null;
+  function startMoaWindowHeartbeat() {
+    const syncApi = ns.sync;
+    if (!syncApi || typeof syncApi.broadcastMoaWindow !== "function") return;
+    const channelId = normalizeChannelId(
+      state.resolvedChannelId || getChannelIdFromLocationPath() || "",
+    );
+    if (!channelId) return;
+    const beat = () => syncApi.broadcastMoaWindow(channelId, true);
+    beat();
+    _moaHeartbeatTimer = setInterval(beat, 2000);
+    const announceClosed = () => {
+      if (_moaHeartbeatTimer) {
+        clearInterval(_moaHeartbeatTimer);
+        _moaHeartbeatTimer = null;
+      }
+      syncApi.broadcastMoaWindow(channelId, false);
+    };
+    window.addEventListener("pagehide", announceClosed);
+    window.addEventListener("beforeunload", announceClosed);
+  }
+
+  // 원래 탭: 전용 창 생존 신호를 받아 인라인 UI 를 감추거나 복원한다. alive 는
+  // 하트비트라 일정 시간 신호가 끊기면(창이 강제 종료 등) 자동 복원한다.
+  let _detachedPresenceTimer = null;
+  // 하트비트(2s)의 3배 동안 신호가 없으면 창이 사라진 것으로 보고 복원한다.
+  // 창을 막 열어 아직 하트비트가 오기 전에도, 로드 실패 시 원복되도록 무장해 둔다.
+  function armDetachedPresenceTimeout() {
+    if (_detachedPresenceTimer) clearTimeout(_detachedPresenceTimer);
+    _detachedPresenceTimer = setTimeout(() => {
+      _detachedPresenceTimer = null;
+      setDetachedMoaWindowActive(false);
+    }, 6000);
+  }
+
+  function registerMoaWindowPresenceHandler() {
+    const syncApi = ns.sync;
+    if (!syncApi || typeof syncApi.setMoaWindowHandler !== "function") return;
+    syncApi.setMoaWindowHandler(({ channelId, alive }) => {
+      const myChannel = normalizeChannelId(state.resolvedChannelId || "");
+      const msgChannel = normalizeChannelId(channelId || "");
+      if (!myChannel || myChannel !== msgChannel) return;
+      if (alive) {
+        setDetachedMoaWindowActive(true);
+        armDetachedPresenceTimeout();
+      } else {
+        if (_detachedPresenceTimer) {
+          clearTimeout(_detachedPresenceTimer);
+          _detachedPresenceTimer = null;
+        }
+        setDetachedMoaWindowActive(false);
+      }
+    });
   }
 
   let _lastHeightKey = "";
@@ -213,6 +283,8 @@
       }
       _lastHeightKey = currentKey;
       loadPopupHeight().then((height) => {
+        // 모드 전환으로 새로 불러온 높이는 그 모드의 새 의도 높이다.
+        state.popupHeightIntent = height;
         state.popupHeight = height;
         applyPopupHeight();
         _heightSwitchInFlight = false;
@@ -453,6 +525,8 @@
       setViewModeButtonContent,
       setPopupActionButtonContent,
       onPillClick,
+      openMoaWindow,
+      isMoaWindowContext,
       closePopup,
       setDisplayStyle,
       renderList,
@@ -463,6 +537,8 @@
       applySettingsClasses,
       render,
       scheduleChatHighlightScan,
+      adjustPopupFontScale,
+      syncPopupFontScaleControl,
     });
   }
 
@@ -545,11 +621,12 @@
     title = "삭제 확인",
     message = "",
     confirmText = "삭제",
+    secondaryText = "",
     cancelText = "취소",
   } = {}) {
     return confirmApi.showConfirmDialog(
       state,
-      { title, message, confirmText, cancelText },
+      { title, message, confirmText, secondaryText, cancelText },
       {
         window,
         document,
@@ -967,6 +1044,8 @@
       createMessageTagRow,
       buildMessageContent,
       syncPopupContentHeight,
+      isExcludedCollectInScope,
+      setExcludedCollect,
     });
   }
 
@@ -989,6 +1068,24 @@
       schedulePersistChannelCache,
       render,
     });
+  }
+
+  // 확인 없이 특정 닉네임의 이미 모아둔 채팅을 즉시 제거(모아보기 제외 시 사용).
+  function removeEntriesByNickname(nickname) {
+    const target = normalizeNickname(nickname);
+    if (!target || !Array.isArray(state.entries)) return;
+    const kept = [];
+    for (const entry of state.entries) {
+      if (normalizeNickname(entry.nickname) === target) {
+        if (state.dedupeKeys instanceof Set) {
+          state.dedupeKeys.delete(entry.dedupeKey);
+        }
+      } else {
+        kept.push(entry);
+      }
+    }
+    state.entries = kept;
+    schedulePersistChannelCache();
   }
 
   function selectAllNicknameFilters(stats) {
@@ -1188,7 +1285,53 @@
       MIN_CHAT_WIDTH,
       saveSettings,
       applyHiddenChatElements,
+      syncPopupFontScaleControl,
     });
+  }
+
+  function adjustPopupFontScale(direction) {
+    if (
+      state.isMoaWindow !== true &&
+      state.settings.showPopupFontScaleControl !== true
+    ) {
+      return;
+    }
+    const current = normalizePopupFontScale(state.settings.popupFontScale);
+    const next =
+      direction < 0
+        ? [...POPUP_FONT_SCALE_STEPS]
+            .reverse()
+            .find((value) => value < current - 0.001)
+        : POPUP_FONT_SCALE_STEPS.find((value) => value > current + 0.001);
+    if (!Number.isFinite(next)) return;
+    state.settings.popupFontScale = next;
+    applySettingsClasses();
+    saveSettings();
+  }
+
+  function syncPopupFontScaleControl() {
+    const root = state.ui && state.ui.root;
+    const wrap = state.ui && state.ui.popupFontScaleWrap;
+    const decrease = state.ui && state.ui.popupFontScaleDecrease;
+    const text = state.ui && state.ui.popupFontScaleText;
+    const increase = state.ui && state.ui.popupFontScaleIncrease;
+    if (!root || !wrap || !decrease || !text || !increase) return;
+
+    const showInInlinePopup =
+      state.settings.showPopupFontScaleControl === true;
+    const shouldShow = state.isMoaWindow === true || showInInlinePopup;
+    wrap.hidden = !shouldShow;
+    root.classList.toggle(
+      "chzzk-badge-moa-show-popup-font-scale",
+      showInInlinePopup,
+    );
+
+    const current = normalizePopupFontScale(state.settings.popupFontScale);
+    const min = POPUP_FONT_SCALE_STEPS[0];
+    const max = POPUP_FONT_SCALE_STEPS[POPUP_FONT_SCALE_STEPS.length - 1];
+    text.textContent = `${Math.round(current * 100)}%`;
+    decrease.disabled = current <= min + 0.001;
+    increase.disabled = current >= max - 0.001;
   }
 
   function setDisplayStyle(style) {
@@ -1256,6 +1399,68 @@
     return trackedApi.isExcludedCollectNickname(state, nickname, {
       normalizeNickname,
     });
+  }
+
+  function isExcludedCollectInScope(nickname, scope) {
+    return trackedApi.isExcludedCollectNicknameInScope(state, nickname, scope, {
+      normalizeNickname,
+    });
+  }
+
+  // 프로필 팝오버의 제외 버튼 처리. 제외로 켤 때 기존 기록까지 삭제할지 선택하고,
+  // 스코프 제외 목록에 반영한다. 제외 해제는 확인 없이 목록에서 제거한다.
+  // 반환값: 실제로 상태가 바뀌었으면 true(취소 시 false).
+  async function setExcludedCollect(nickname, scope, excluded) {
+    const normalized = normalizeNickname(nickname);
+    if (!normalized) return false;
+    const useGlobal = scope === "global";
+    let deleteExistingEntries = false;
+
+    if (excluded) {
+      const count = (state.entries || []).reduce(
+        (n, e) => n + (normalizeNickname(e?.nickname) === normalized ? 1 : 0),
+        0,
+      );
+      const scopeLabel = useGlobal ? "모든 채널" : "현재 채널";
+      const message =
+        count > 0
+          ? `'${normalized}' 닉네임을 ${scopeLabel} 모아보기에서 제외합니다. 현재 모아둔 배지 채팅 ${count}개도 함께 삭제할까요?`
+          : `'${normalized}' 닉네임을 ${scopeLabel} 모아보기에서 제외할까요?`;
+      if (count > 0) {
+        const choice = await showConfirmDialog({
+          title: "모아보기 제외",
+          message,
+          confirmText: "삭제+제외",
+          secondaryText: "제외",
+          cancelText: "취소",
+        });
+        if (choice !== true && choice !== "secondary") return false;
+        deleteExistingEntries = choice === true;
+      } else {
+        const confirmed = await requestDeleteConfirm(message, {
+          title: "모아보기 제외",
+          confirmText: "제외",
+        });
+        if (!confirmed) return false;
+      }
+    }
+
+    const changed = trackedApi.setExcludedCollect(
+      state,
+      normalized,
+      scope,
+      excluded,
+      { normalizeNickname },
+    );
+    if (!changed) return false;
+
+    if (excluded && deleteExistingEntries) {
+      removeEntriesByNickname(normalized);
+    }
+    saveSettings();
+    resetPillCycle(true);
+    render();
+    return true;
   }
 
   function pruneExcludedEntriesFromState() {
@@ -1476,6 +1681,99 @@
   function isChatPopupContext() {
     const parts = window.location.pathname.split("/").filter(Boolean);
     return parts[0] === "live" && parts[2] === "chat";
+  }
+
+  // 이 문서가 "모아보기 전용 창"으로 열린 창인지(분리 버튼으로 연 창).
+  function isMoaWindowContext() {
+    try {
+      return (
+        new URLSearchParams(window.location.search).get("moaOnly") === "1"
+      );
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  // 모아보기를 별도 창으로 분리해서 연다. 치지직 채팅 팝업 URL(/live/{id}/chat)에
+  // moaOnly=1 을 붙여 새 창으로 띄우면, 그 창에서 우리 스크립트가 채팅은 숨기고
+  // 모아보기 팝업만 자동으로 펼친다(그 창은 자기 WebSocket으로 배지 채팅을 독립
+  // 수집하고, 세션 캐시가 켜져 있으면 과거분도 복원한다). 연 뒤 이 탭의 인라인
+  // 팝업은 접는다.
+  let _moaWindowRef = null;
+
+  // 전용 창이 열려 있는 동안 이 탭의 인라인 UI(필+팝업)를 감춘다. 같은 채널 배지
+  // 채팅이 두 곳에 중복 표시되고, '항상 펼침' 설정 탓에 접어도 다시 펼쳐지던 문제를
+  // 막기 위함이다. 표식(state + <html> 클래스)으로 render/필/자동펼침을 모두 억제한다.
+  // 실제 창 생존 추적은 BroadcastChannel 하트비트가 담당한다(원래 탭 새로고침에도 견고).
+  function setDetachedMoaWindowActive(active) {
+    const next = active === true;
+    if (state.hasDetachedMoaWindow === next) return;
+    state.hasDetachedMoaWindow = next;
+    const rootEl = document.documentElement;
+    if (rootEl) {
+      // 설정(detachedOriginView)에 따라 원래 탭에 무엇을 남길지 결정한다.
+      //  hide: 필+팝업 숨김 / pill: 필만 유지(팝업 접기) / keep: 그대로 유지
+      const view = String(state.settings?.detachedOriginView || "hide");
+      rootEl.classList.toggle(
+        "chzzk-badge-moa-detached-hide-all",
+        next && view === "hide",
+      );
+      rootEl.classList.toggle(
+        "chzzk-badge-moa-detached-pill-only",
+        next && view === "pill",
+      );
+    }
+    if (next) {
+      // keep 가 아니면(=hide/pill) 인라인 팝업을 접는다(항상 펼침이어도).
+      if (String(state.settings?.detachedOriginView || "hide") !== "keep") {
+        closePopup(true);
+      }
+    } else {
+      // 전용 창이 닫혔으니 인라인 UI 복원.
+      render();
+    }
+  }
+
+  function openMoaWindow() {
+    const channelId = normalizeChannelId(
+      state.resolvedChannelId || getChannelIdFromLocationPath() || "",
+    );
+    if (!channelId) return;
+
+    // 이미 열어둔 창이 살아 있으면 그 창을 앞으로.
+    if (_moaWindowRef && !_moaWindowRef.closed) {
+      try {
+        _moaWindowRef.focus();
+        setDetachedMoaWindowActive(true);
+        return;
+      } catch (_error) {
+        _moaWindowRef = null;
+      }
+    }
+
+    const url = `${window.location.origin}/live/${channelId}/chat?moaOnly=1`;
+    const width = 420;
+    const height = Math.max(
+      480,
+      Math.min(900, Math.round(window.screen?.availHeight || 720)),
+    );
+    const features = `popup=yes,noopener=no,width=${width},height=${height}`;
+    let win = null;
+    try {
+      win = window.open(url, `chzzk-badge-moa-${channelId}`, features);
+    } catch (_error) {
+      win = null;
+    }
+    if (win) {
+      _moaWindowRef = win;
+      try {
+        win.focus();
+      } catch (_error) {}
+      // 전용 창이 살아 있는 동안 이 탭의 인라인 UI 를 감춘다(하트비트가 유지/복원).
+      // 하트비트가 오기 전이라도 로드 실패 시 원복되도록 안전 타임아웃을 무장한다.
+      setDetachedMoaWindowActive(true);
+      armDetachedPresenceTimeout();
+    }
   }
 
   function getActiveStorageHeightKey() {

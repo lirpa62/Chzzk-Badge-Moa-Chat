@@ -7,7 +7,7 @@
       return true;
     }
 
-    return showConfirmDialog(
+    const result = await showConfirmDialog(
       state,
       {
         title: String(options.title || "삭제 확인"),
@@ -17,6 +17,7 @@
       },
       deps,
     );
+    return result === true;
   }
 
   function showConfirmDialog(
@@ -25,6 +26,7 @@
       title = "삭제 확인",
       message = "",
       confirmText = "삭제",
+      secondaryText = "",
       cancelText = "취소",
     } = {},
     deps = {},
@@ -46,8 +48,10 @@
       confirmTitle,
       confirmMessage,
       confirmCancelButton,
+      confirmSecondaryButton,
       confirmDeleteButton,
     } = (state && state.ui) || {};
+    const hasSecondaryAction = !!String(secondaryText || "").trim();
 
     if (
       !confirmModal ||
@@ -55,9 +59,18 @@
       !confirmTitle ||
       !confirmMessage ||
       !confirmCancelButton ||
+      (hasSecondaryAction && !confirmSecondaryButton) ||
       !confirmDeleteButton
     ) {
-      return Promise.resolve(win.confirm(String(message || "")));
+      const primaryConfirmed = win.confirm(String(message || ""));
+      if (primaryConfirmed || !hasSecondaryAction) {
+        return Promise.resolve(primaryConfirmed);
+      }
+      return Promise.resolve(
+        win.confirm(`${String(secondaryText).trim()}만 진행할까요?`)
+          ? "secondary"
+          : false,
+      );
     }
 
     if (state.confirmDialog.open) {
@@ -67,6 +80,11 @@
     confirmTitle.textContent = title;
     confirmMessage.textContent = message;
     confirmCancelButton.textContent = cancelText;
+    if (confirmSecondaryButton) {
+      const safeSecondaryText = String(secondaryText || "").trim();
+      confirmSecondaryButton.textContent = safeSecondaryText;
+      confirmSecondaryButton.hidden = !safeSecondaryText;
+    }
     confirmDeleteButton.textContent = confirmText;
 
     state.confirmDialog.open = true;
@@ -145,7 +163,7 @@
     confirmModal.setAttribute("aria-hidden", "true");
 
     if (wasOpen && typeof resolver === "function") {
-      resolver(confirmed === true);
+      resolver(confirmed);
     }
 
     if (options && options.restoreFocus === false) {

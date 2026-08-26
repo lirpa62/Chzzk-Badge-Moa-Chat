@@ -524,7 +524,7 @@ html[style*="color-scheme: dark"]
 .chzzk-badge-moa-confirm-modal {
   position: fixed;
   inset: 0;
-  z-index: 2147483000;
+  z-index: 2147483647;
   display: none;
   align-items: center;
   justify-content: center;
@@ -691,7 +691,8 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 }
 
 .chzzk-badge-moa-popup-head strong {
-  height: 13px;
+  min-width: 0;
+  height: 15px;
   font-family:
     "Escoredream",
     -apple-system,
@@ -703,12 +704,89 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
     sans-serif;
   font-size: 15px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chzzk-badge-moa-popup-actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.chzzk-badge-moa-popup-font-scale {
+  display: none;
+  align-items: center;
+  height: 28px;
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+  border-radius: 7px;
+  background: var(
+    --sem-color-surface-neutral-weaker,
+    var(--chzzk-badge-moa-c-surface-neutral-weaker)
+  );
+  overflow: hidden;
+}
+
+.chzzk-badge-moa-popup-font-scale-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-popup-font-scale-button:hover:not(:disabled) {
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-popup-font-scale-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.chzzk-badge-moa-popup-font-scale-text {
+  min-width: 38px;
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.chzzk-badge-moa-root.chzzk-badge-moa-show-popup-font-scale
+  .chzzk-badge-moa-popup-font-scale {
+  display: inline-flex;
+}
+
+.chzzk-badge-moa-root.chzzk-badge-moa-show-popup-font-scale
+  .chzzk-badge-moa-popup-head-top {
+  flex-wrap: wrap;
+}
+
+.chzzk-badge-moa-root.chzzk-badge-moa-show-popup-font-scale
+  .chzzk-badge-moa-popup-head-top
+  > strong {
+  flex: 1 0 120px;
+}
+
+.chzzk-badge-moa-root.chzzk-badge-moa-show-popup-font-scale
+  .chzzk-badge-moa-popup-actions {
+  margin-left: auto;
 }
 
 .chzzk-badge-moa-popup-subactions {
@@ -730,6 +808,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 }
 
 .chzzk-badge-moa-view-mode-btn,
+.chzzk-badge-moa-popup-detach,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin,
 .chzzk-badge-moa-popup-filter-toggle,
@@ -749,6 +828,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
     box-shadow 0.18s ease;
 }
 
+.chzzk-badge-moa-popup-detach,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin,
 .chzzk-badge-moa-popup-settings-toggle {
@@ -792,6 +872,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
   height: 9px;
 }
 
+.chzzk-badge-moa-popup-detach,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin {
   width: 22px;
@@ -867,14 +948,20 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
     [style*="color-scheme: dark"]
   )
   .chzzk-badge-moa-view-mode-btn:hover,
+html[data-theme="light"] .chzzk-badge-moa-popup-detach:hover,
 html[data-theme="light"] .chzzk-badge-moa-popup-close:hover,
 html[data-theme="light"] .chzzk-badge-moa-popup-pin:hover,
 html[data-theme="light"] .chzzk-badge-moa-popup-filter-toggle:hover,
 html[data-theme="light"] .chzzk-badge-moa-popup-settings-toggle:hover,
 html[style*="color-scheme: light"] .chzzk-badge-moa-popup-close:hover,
+html[style*="color-scheme: light"] .chzzk-badge-moa-popup-detach:hover,
 html[style*="color-scheme: light"] .chzzk-badge-moa-popup-pin:hover,
 html[style*="color-scheme: light"] .chzzk-badge-moa-popup-filter-toggle:hover,
 html[style*="color-scheme: light"] .chzzk-badge-moa-popup-settings-toggle:hover,
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  .chzzk-badge-moa-popup-detach:hover,
 html:not(.theme_dark):not([data-theme="dark"]):not(
     [style*="color-scheme: dark"]
   )
@@ -940,15 +1027,18 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 html.theme_dark .chzzk-badge-moa-view-mode-btn:hover,
 html[data-theme="dark"] .chzzk-badge-moa-view-mode-btn:hover,
 html[style*="color-scheme: dark"] .chzzk-badge-moa-view-mode-btn:hover,
+html.theme_dark .chzzk-badge-moa-popup-detach:hover,
 html.theme_dark .chzzk-badge-moa-popup-close:hover,
 html.theme_dark .chzzk-badge-moa-popup-pin:hover,
 html.theme_dark .chzzk-badge-moa-popup-filter-toggle:hover,
 html.theme_dark .chzzk-badge-moa-popup-settings-toggle:hover,
 html[data-theme="dark"] .chzzk-badge-moa-popup-close:hover,
+html[data-theme="dark"] .chzzk-badge-moa-popup-detach:hover,
 html[data-theme="dark"] .chzzk-badge-moa-popup-pin:hover,
 html[data-theme="dark"] .chzzk-badge-moa-popup-filter-toggle:hover,
 html[data-theme="dark"] .chzzk-badge-moa-popup-settings-toggle:hover,
 html[style*="color-scheme: dark"] .chzzk-badge-moa-popup-close:hover,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-popup-detach:hover,
 html[style*="color-scheme: dark"] .chzzk-badge-moa-popup-pin:hover,
 html[style*="color-scheme: dark"] .chzzk-badge-moa-popup-filter-toggle:hover,
 html[style*="color-scheme: dark"] .chzzk-badge-moa-popup-settings-toggle:hover {
@@ -991,18 +1081,21 @@ html[style*="color-scheme: dark"]
 @supports not (
   (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
 ) {
+  .chzzk-badge-moa-popup-detach,
   .chzzk-badge-moa-popup-close,
   .chzzk-badge-moa-popup-pin,
   .chzzk-badge-moa-popup-filter-toggle,
   .chzzk-badge-moa-popup-settings-toggle {
     background: rgba(127, 127, 127, 0.2);
   }
+  html[data-theme="light"] .chzzk-badge-moa-popup-detach:hover,
   html[data-theme="light"] .chzzk-badge-moa-popup-close:hover,
   html[data-theme="light"] .chzzk-badge-moa-popup-pin:hover,
   html[data-theme="light"] .chzzk-badge-moa-popup-filter-toggle:hover,
   html[data-theme="light"] .chzzk-badge-moa-popup-settings-toggle:hover {
     background: rgba(255, 255, 255, 0.85);
   }
+  html.theme_dark .chzzk-badge-moa-popup-detach:hover,
   html.theme_dark .chzzk-badge-moa-popup-close:hover,
   html.theme_dark .chzzk-badge-moa-popup-pin:hover,
   html.theme_dark .chzzk-badge-moa-popup-filter-toggle:hover,
@@ -3926,6 +4019,65 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   flex-direction: column;
 }
 
+.chzzk-badge-moa-profile-card-exclude-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chzzk-badge-moa-profile-card-exclude-btn {
+  flex: 1;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-base,
+      var(--chzzk-badge-moa-c-border-neutral-base)
+    );
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+  color: var(
+    --sem-color-content-neutral-cool-strong,
+    var(--chzzk-badge-moa-c-content-neutral-cool-strong)
+  );
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.chzzk-badge-moa-profile-card-exclude-btn:hover {
+  border-color: var(
+    --sem-color-border-neutral-strong,
+    var(--chzzk-badge-moa-c-border-neutral-base)
+  );
+}
+
+.chzzk-badge-moa-profile-card-exclude-btn.is-excluded {
+  border-color: rgba(244, 99, 131, 0.62);
+  color: #ffd6e1;
+  background: rgba(194, 53, 84, 0.24);
+}
+
+.chzzk-badge-moa-profile-card-exclude-btn.is-excluded:hover {
+  border-color: rgba(255, 132, 162, 0.82);
+  background: rgba(194, 53, 84, 0.36);
+}
+
+html[data-theme="light"] .chzzk-badge-moa-profile-card-exclude-btn.is-excluded,
+html[style*="color-scheme: light"]
+  .chzzk-badge-moa-profile-card-exclude-btn.is-excluded {
+  border-color: rgba(219, 120, 146, 0.72);
+  color: #a64365;
+  background: rgba(255, 228, 236, 0.9);
+}
+
 .chzzk-badge-moa-profile-card-close {
   position: absolute;
   top: 10px;
@@ -4153,4 +4305,63 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
 
 .chzzk-badge-moa-profile-card-error .chzzk-badge-moa-profile-card-message {
   color: rgba(255, 200, 200, 0.9);
+}
+
+/* 전용 창을 열어둔 원래 탭의 인라인 UI 처리(설정 detachedOriginView).
+   - hide-all: 필+팝업 모두 숨김(중복/재펼침 방지, 기본)
+   - pill-only: 팝업만 접고 필은 유지
+   전용 창이 닫히면 JS 가 클래스를 제거해 복원한다. keep 모드는 클래스가 없어 그대로 유지. */
+html.chzzk-badge-moa-detached-hide-all .chzzk-badge-moa-pill,
+html.chzzk-badge-moa-detached-hide-all .chzzk-badge-moa-popup,
+html.chzzk-badge-moa-detached-pill-only .chzzk-badge-moa-popup {
+  display: none !important;
+}
+
+/* === 모아보기 전용 창(분리 버튼으로 연 /chat?moaOnly=1 창) === */
+/* 우리 루트를 뷰포트 전체로 덮어 치지직 채팅 위에 모아보기 팝업만 보이게 한다.
+   치지직 DOM 을 직접 숨기지 않고 덮는 방식이라 클래스 변경에 견고하다. */
+html.chzzk-badge-moa-window-mode,
+html.chzzk-badge-moa-window-mode body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(
+    --sem-color-surface-neutral-weaker,
+    var(--chzzk-badge-moa-c-surface-neutral-weaker)
+  ) !important;
+}
+
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-root {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  pointer-events: auto !important;
+}
+
+/* 필(닫힘 버튼)과 창 조작 버튼(분리/고정/닫기)·리사이저는 전용 창에서 불필요. */
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-pill,
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup-detach,
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup-pin,
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup-close,
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup-resizer {
+  display: none !important;
+}
+
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup-font-scale {
+  display: inline-flex;
+}
+
+/* 팝업을 창 전체로 채운다(절대배치·펼침애니메이션·모서리 chrome 제거). */
+html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+  display: flex !important;
 }

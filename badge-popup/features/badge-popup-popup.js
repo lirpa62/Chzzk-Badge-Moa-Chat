@@ -116,6 +116,8 @@
     const popup = state?.ui?.popup;
     const pill = state?.ui?.pill;
     if (!root || !popup || !pill) return;
+    // 모아보기 전용 창에서는 팝업이 곧 창 전체이므로 닫지 않는다.
+    if (!immediate && state.isMoaWindow === true) return;
     if (!immediate && state.settings?.keepPopupOpen === true) return;
     if (!immediate && state.popupPinned) return;
 
@@ -299,7 +301,9 @@
 
     const deltaY = event.clientY - state.resize.startY;
     const nextHeight = state.resize.startHeight + deltaY;
-    state.popupHeight = clampPopupHeightFn(nextHeight);
+    // 사용자가 직접 드래그한 높이는 곧 새 의도 높이다.
+    state.popupHeightIntent = clampPopupHeightFn(nextHeight);
+    state.popupHeight = state.popupHeightIntent;
     applyPopupHeightFn();
   }
 
@@ -314,7 +318,10 @@
 
     state.resize.active = false;
     doc.removeEventListener("mousemove", onResizeMoveFn);
-    savePopupHeightFn(state.popupHeight);
+    const intent = Number.isFinite(Number(state.popupHeightIntent))
+      ? state.popupHeightIntent
+      : state.popupHeight;
+    savePopupHeightFn(intent);
   }
 
   function applyPopupHeight(state, deps = {}) {
@@ -334,7 +341,14 @@
     const popup = state?.ui?.popup;
     if (!popup) return;
 
-    state.popupHeight = clampPopupHeightFn(state.popupHeight);
+    // 사용자가 의도한 높이(popupHeightIntent)를 보존한 채, 현재 가용 공간에 맞춰
+    // 표시 높이만 클램프한다. 예전엔 clamp 결과로 popupHeight 자체를 덮어써,
+    // 전체화면 등으로 채팅 영역이 잠깐 작아졌을 때 측정된 작은 max 로 높이가
+    // 영구히 줄어들고 공간이 돌아와도 복구되지 않았다(와이드 모드 제보 원인).
+    if (!Number.isFinite(Number(state.popupHeightIntent))) {
+      state.popupHeightIntent = state.popupHeight;
+    }
+    state.popupHeight = clampPopupHeightFn(state.popupHeightIntent);
     popup.style.height = `${state.popupHeight}px`;
     if (!state.filterBarCollapsed) {
       applyFilterBarMaxHeightFn();
@@ -1464,6 +1478,10 @@
       typeof deps.applyHiddenChatElements === "function"
         ? deps.applyHiddenChatElements
         : () => {};
+    const syncPopupFontScaleControlFn =
+      typeof deps.syncPopupFontScaleControl === "function"
+        ? deps.syncPopupFontScaleControl
+        : () => {};
     const rootElement =
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const root = state?.ui?.root;
@@ -1551,6 +1569,7 @@
     if (popup) {
       popup.style.setProperty("--chzzk-popup-font-scale", popupFontScale);
     }
+    syncPopupFontScaleControlFn();
   }
 
   ns.popupApi = {

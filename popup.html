@@ -208,247 +208,367 @@
         </div>
       </header>
 
-      <section class="section">
-        <h2>표시 설정</h2>
-        <div class="field-grid-2col">
-          <label class="field-row">
-            <span>팝업 폰트 크기</span>
-            <select id="popup-font-scale">
-              <option value="0.8">작게 (80%)</option>
-              <option value="0.9">조금 작게 (90%)</option>
-              <option value="1" selected>기본 (100%)</option>
-              <option value="1.1">조금 크게 (110%)</option>
-              <option value="1.2">크게 (120%)</option>
-            </select>
-          </label>
-          <label class="field-row">
-            <span>채팅 폰트 크기</span>
-            <select id="chat-font-scale">
-              <option value="0.8">작게 (80%)</option>
-              <option value="0.9">조금 작게 (90%)</option>
-              <option value="1" selected>기본 (100%)</option>
-              <option value="1.1">조금 크게 (110%)</option>
-              <option value="1.2">크게 (120%)</option>
-              <option value="1.5">더 크게 (150%)</option>
-              <option value="1.75">매우 크게 (175%)</option>
-              <option value="2">최대 (200%)</option>
-            </select>
-          </label>
-        </div>
-        <div class="toggle-grid-2col">
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-popup-bg" />
-            <span>팝업창 배경색 제거</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-bg" />
-            <span>채팅창 배경색 제거</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-popup-border" />
-            <span>팝업창 테두리 선 제거</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-border" />
-            <span>채팅창 테두리 선 제거</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-popup-time" />
-            <span>팝업창 시간 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-ranking" />
-            <span>채팅창 랭킹 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-mission" />
-            <span>채팅창 진행 중인 미션 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-mission-message" />
-            <span>채팅창 미션 메시지 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-prediction" />
-            <span>채팅창 승부예측 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-subscription" />
-            <span>채팅창 구독 메시지 숨김</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-chat-donation" />
-            <span>채팅창 후원 메시지 숨김</span>
-          </label>
-          <label
-            class="toggle-row"
-            title="블라인드/클린봇으로 가려진 채팅을 원문으로 표시합니다."
-          >
-            <input type="checkbox" id="restore-blinded-chat" />
-            <span>가려진 채팅 표시</span>
-          </label>
-          <label
-            class="toggle-row"
-            title="각 채팅 앞에 보낸 시각(HH:MM)을 표시합니다."
-          >
-            <input type="checkbox" id="show-chat-timestamp" />
-            <span>채팅 시간 표시</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="enable-chat-width-resize" />
-            <span>채팅창 넓이 조절</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="place-chat-on-left" />
-            <span>채팅창 왼쪽 배치</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="show-popup-role-badges-only" />
-            <span>팝업창 역할 배지만 표시</span>
-          </label>
-          <label
-            class="toggle-row"
-            title="모아보기 팝업의 후원·구독·미션·구매 메시지를 치지직 원본 모양으로 표시합니다."
-          >
-            <input type="checkbox" id="use-original-special-chat-style" />
-            <span>후원·구독·미션·구매 원본 스타일</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="pill-glow-enabled" />
-            <span>채팅창 배지 알림 효과 사용</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="keep-popup-open" />
-            <span>모아보기 팝업창 항상 펼침</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="delete-without-confirm" />
-            <span>팝업창 필터 확인없이 바로 삭제</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" id="hide-pill-button" />
-            <span>채팅창 배지 알림 버튼 숨김</span>
-          </label>
-        </div>
-        <label class="toggle-row toggle-row-with-action">
-          <input type="checkbox" id="enable-session-cache" />
-          <span>채널 세션 캐시 사용 (브라우저 종료 시 삭제)</span>
-          <button
-            type="button"
-            id="clear-current-channel-session"
-            class="inline-action-btn"
-          >
-            현재 채널 채팅 비우기
-          </button>
-        </label>
-      </section>
+      <div
+        class="settings-tabs"
+        id="settings-tabs"
+        role="tablist"
+        aria-label="설정 분류"
+      >
+        <button
+          type="button"
+          class="settings-tab is-active"
+          data-tab="display"
+          role="tab"
+          aria-selected="true"
+          aria-controls="tab-panel-display"
+          id="tab-btn-display"
+        >
+          표시 설정
+        </button>
+        <button
+          type="button"
+          class="settings-tab"
+          data-tab="targets"
+          role="tab"
+          tabindex="-1"
+          aria-selected="false"
+          aria-controls="tab-panel-targets"
+          id="tab-btn-targets"
+        >
+          대상 추가 및 제외
+        </button>
+        <button
+          type="button"
+          class="settings-tab"
+          data-tab="data"
+          role="tab"
+          tabindex="-1"
+          aria-selected="false"
+          aria-controls="tab-panel-data"
+          id="tab-btn-data"
+        >
+          데이터 관리
+        </button>
+      </div>
 
-      <section class="section" id="hidden-section">
-        <div class="section-head">
-          <h2>
-            채팅창 배지 알림 숨김
-            <span id="hidden-count-info" class="section-count">(0/0)</span>
-          </h2>
-          <div class="section-actions">
-            <button id="hidden-select-all" type="button">전체 선택</button>
-            <button id="hidden-clear-all" type="button">전체 해제</button>
+      <div
+        class="settings-tab-panel is-active"
+        id="tab-panel-display"
+        role="tabpanel"
+        aria-labelledby="tab-btn-display"
+      >
+        <section class="section">
+          <h2>크기 및 배치</h2>
+          <div class="field-grid-2col">
+            <label class="field-row">
+              <span>팝업 폰트 크기</span>
+              <select id="popup-font-scale">
+                <option value="0.8">작게 (80%)</option>
+                <option value="0.9">조금 작게 (90%)</option>
+                <option value="1" selected>기본 (100%)</option>
+                <option value="1.1">조금 크게 (110%)</option>
+                <option value="1.2">크게 (120%)</option>
+              </select>
+            </label>
+            <label class="field-row">
+              <span>채팅 폰트 크기</span>
+              <select id="chat-font-scale">
+                <option value="0.8">작게 (80%)</option>
+                <option value="0.9">조금 작게 (90%)</option>
+                <option value="1" selected>기본 (100%)</option>
+                <option value="1.1">조금 크게 (110%)</option>
+                <option value="1.2">크게 (120%)</option>
+                <option value="1.5">더 크게 (150%)</option>
+                <option value="1.75">매우 크게 (175%)</option>
+                <option value="2">최대 (200%)</option>
+              </select>
+            </label>
+          </div>
+          <div class="toggle-grid-2col">
+            <label class="toggle-row">
+              <input type="checkbox" id="enable-chat-width-resize" />
+              <span>채팅창 넓이 조절</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="place-chat-on-left" />
+              <span>채팅창 왼쪽 배치</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>모아보기 팝업</h2>
+          <div class="toggle-grid-2col">
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-popup-bg" />
+              <span>배경색 제거</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-popup-border" />
+              <span>테두리 선 제거</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-popup-time" />
+              <span>시간 숨김</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="show-popup-role-badges-only" />
+              <span>역할 배지만 표시</span>
+            </label>
+            <label
+              class="toggle-row"
+              title="일반 모아보기 팝업 헤더에도 글자 크기 조절 버튼을 표시합니다."
+            >
+              <input type="checkbox" id="show-popup-font-scale-control" />
+              <span>폰트 크기 조절 버튼 표시</span>
+            </label>
+            <label
+              class="toggle-row has-setting-tooltip"
+              title="치지직이 해당 특수 채팅을 실제 채팅창에 표시한 경우에만 원본 스타일로 모아봅니다. 다른 탭을 보고 있거나 채팅 행이 표시되지 않으면 기본 스타일로 모아봅니다."
+              data-tooltip="실제 채팅창에 표시된 특수 채팅만 원본 스타일로 모아봅니다. 다른 탭을 보고 있거나 채팅 행이 표시되지 않으면 기본 스타일을 사용합니다."
+            >
+              <input type="checkbox" id="use-original-special-chat-style" />
+              <span>특수 채팅 원본 스타일 우선</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="keep-popup-open" />
+              <span>항상 펼침</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="delete-without-confirm" />
+              <span>필터 확인 없이 바로 삭제</span>
+            </label>
+          </div>
+          <label class="field-row">
+            <span>전용 창 사용 중 원래 탭</span>
+            <select id="detached-origin-view">
+              <option value="hide" selected>숨김</option>
+              <option value="pill">알림 버튼만 유지</option>
+              <option value="keep">그대로 유지</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="section">
+          <h2>채팅창 표시</h2>
+          <div class="toggle-grid-2col">
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-bg" />
+              <span>배경색 제거</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-border" />
+              <span>테두리 선 제거</span>
+            </label>
+            <label
+              class="toggle-row"
+              title="블라인드/클린봇으로 가려진 채팅을 원문으로 표시합니다."
+            >
+              <input type="checkbox" id="restore-blinded-chat" />
+              <span>가려진 채팅 표시</span>
+            </label>
+            <label
+              class="toggle-row"
+              title="각 채팅 앞에 보낸 시각(HH:MM)을 표시합니다."
+            >
+              <input type="checkbox" id="show-chat-timestamp" />
+              <span>채팅 시간 표시</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="pill-glow-enabled" />
+              <span>배지 알림 효과 사용</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-pill-button" />
+              <span>배지 알림 버튼 숨김</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>채팅창 요소 숨김</h2>
+          <div class="toggle-grid-2col">
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-ranking" />
+              <span>랭킹</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-donation" />
+              <span>후원 메시지</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-mission" />
+              <span>진행 중인 미션</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-subscription" />
+              <span>구독 메시지</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-prediction" />
+              <span>승부예측</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="hide-chat-mission-message" />
+              <span>미션 메시지</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>세션 캐시</h2>
+          <label class="toggle-row toggle-row-with-action">
+            <input type="checkbox" id="enable-session-cache" />
+            <span>채널 채팅 유지 (브라우저 종료 시 삭제)</span>
             <button
-              id="hidden-collapse-toggle"
+              type="button"
+              id="clear-current-channel-session"
+              class="inline-action-btn"
+            >
+              현재 채널 채팅 비우기
+            </button>
+          </label>
+        </section>
+
+      </div>
+
+      <div
+        class="settings-tab-panel"
+        id="tab-panel-targets"
+        role="tabpanel"
+        aria-labelledby="tab-btn-targets"
+        hidden
+      >
+        <section class="section" id="hidden-section">
+          <div class="section-head">
+            <h2>
+              닉네임별 표시 관리
+              <span id="hidden-count-info" class="section-count">(0/0)</span>
+            </h2>
+            <div class="section-actions">
+              <button id="hidden-select-all" type="button">전체 숨김</button>
+              <button id="hidden-clear-all" type="button">숨김 해제</button>
+            </div>
+          </div>
+          <p class="section-description">
+            닉네임을 누르면 채팅창 알림을 숨기고, 체크박스로 모아보기 제외
+            대상을 선택합니다.
+          </p>
+          <div class="hidden-exclude-toolbar">
+            <div
+              id="hidden-exclude-scope-tabs"
+              class="scope-segmented"
+              role="group"
+              aria-label="모아보기 제외 적용 범위"
+            >
+              <button type="button" data-scope="channel" aria-pressed="true">
+                현재 채널
+              </button>
+              <button type="button" data-scope="global" aria-pressed="false">
+                모든 방문 채널
+              </button>
+            </div>
+            <button
+              id="hidden-exclude-selected"
               type="button"
               class="collapse-toggle-btn"
+              title="선택한 닉네임을 팝업창 모아보기에서 제외"
             >
-              펼치기
+              모아보기 제외
             </button>
           </div>
-        </div>
-        <div class="advanced-row">
-          <label class="toggle-row hidden-advanced-toggle">
-            <input type="checkbox" id="hidden-advanced-toggle" />
-            <span title="팝업창 모아보기 제외 대상 닉네임을 선택"
-              >팝업창 모아보기 제외</span
+          <div class="advanced-row hidden-prune-row">
+            <label class="toggle-row hidden-auto-prune-toggle">
+              <input type="checkbox" id="hidden-auto-prune-toggle" />
+              <span
+                title="탭/채널 재연결 시 채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 자동으로 목록에서 정리"
+                >미활동 닉네임 자동 정리</span
+              >
+            </label>
+            <button
+              id="hidden-prune-empty"
+              type="button"
+              class="collapse-toggle-btn"
+              title="채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 목록에서 제거"
             >
-          </label>
-          <button
-            id="hidden-exclude-selected"
-            type="button"
-            class="collapse-toggle-btn"
-            title="선택한 닉네임을 팝업창 모아보기에서 제외"
-          >
-            모아보기 제외
-          </button>
-        </div>
-        <div
-          id="hidden-exclude-scope-tabs"
-          class="scope-segmented"
-          role="group"
-          aria-label="모아보기 제외 적용 범위"
-          hidden
-        >
-          <button type="button" data-scope="channel" aria-pressed="true">
-            현재 채널
-          </button>
-          <button type="button" data-scope="global" aria-pressed="false">
-            모든 방문 채널
-          </button>
-        </div>
-        <div class="advanced-row hidden-prune-row">
-          <label class="toggle-row hidden-auto-prune-toggle">
-            <input type="checkbox" id="hidden-auto-prune-toggle" />
-            <span
-              title="탭/채널 재연결 시 채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 자동으로 목록에서 정리"
-              >미활동 닉네임 자동 정리</span
-            >
-          </label>
-          <button
-            id="hidden-prune-empty"
-            type="button"
-            class="collapse-toggle-btn"
-            title="채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 목록에서 제거"
-          >
-            미활동 닉네임 정리
-          </button>
-        </div>
-        <div id="hidden-chips" class="chip-wrap"></div>
-      </section>
+              미활동 닉네임 정리
+            </button>
+          </div>
+          <div id="hidden-chips" class="chip-wrap"></div>
+        </section>
 
-      <section class="section">
-        <div class="section-head">
-          <h2>
-            모아보기 대상 추가
-            <span id="tracked-count-info" class="section-count">(0/200)</span>
-          </h2>
-          <div class="section-actions">
-            <button id="tracked-collapse-toggle" type="button">펼치기</button>
-            <button id="tracked-delete-selected" type="button">
-              선택 삭제
-            </button>
-            <button id="tracked-delete-all" type="button">전체 삭제</button>
+        <section class="section">
+          <div class="section-head">
+            <h2>
+              모아보기 대상 추가
+              <span id="tracked-count-info" class="section-count">(0/200)</span>
+            </h2>
+            <div class="section-actions">
+              <button id="tracked-collapse-toggle" type="button">펼치기</button>
+              <button id="tracked-delete-selected" type="button">
+                선택 삭제
+              </button>
+              <button id="tracked-delete-all" type="button">전체 삭제</button>
+            </div>
           </div>
-        </div>
-        <div
-          id="tracked-scope-tabs"
-          class="scope-segmented"
-          role="group"
-          aria-label="모아보기 대상 적용 범위"
-        >
-          <button type="button" data-scope="channel" aria-pressed="true">
-            현재 채널
-          </button>
-          <button type="button" data-scope="global" aria-pressed="false">
-            모든 방문 채널
-          </button>
-        </div>
-        <div id="tracked-add-row" class="add-row">
+          <div
+            id="tracked-scope-tabs"
+            class="scope-segmented"
+            role="group"
+            aria-label="모아보기 대상 적용 범위"
+          >
+            <button type="button" data-scope="channel" aria-pressed="true">
+              현재 채널
+            </button>
+            <button type="button" data-scope="global" aria-pressed="false">
+              모든 방문 채널
+            </button>
+          </div>
+          <div id="tracked-add-row" class="add-row">
+            <input
+              id="tracked-input"
+              type="text"
+              placeholder="닉네임 입력 (스트리머만 추가 가능)"
+              title="'익명의 후원자', '미션 결과'는 예외적으로 추가 가능"
+            />
+            <button id="add-nickname" type="button">닉네임 추가</button>
+          </div>
+          <div id="tracked-chips" class="chip-wrap"></div>
+        </section>
+      </div>
+
+      <div
+        class="settings-tab-panel"
+        id="tab-panel-data"
+        role="tabpanel"
+        aria-labelledby="tab-btn-data"
+        hidden
+      >
+        <section class="section">
+          <h2>데이터 관리</h2>
+          <p class="section-description">
+            현재 설정만 옮기거나 저장된 사용자 데이터를 함께 백업합니다.
+          </p>
+          <div class="data-management-grid">
+            <button type="button" id="export-settings">설정 내보내기</button>
+            <button type="button" id="import-settings">설정 가져오기</button>
+            <button type="button" id="export-full-backup">전체 백업</button>
+            <button
+              type="button"
+              id="import-full-backup"
+              class="is-restore"
+            >
+              전체 복원
+            </button>
+          </div>
           <input
-            id="tracked-input"
-            type="text"
-            placeholder="닉네임 입력 (스트리머만 추가 가능)"
-            title="'익명의 후원자', '미션 결과'는 예외적으로 추가 가능"
+            type="file"
+            id="data-import-file"
+            accept=".json,application/json"
+            hidden
           />
-          <button id="add-nickname" type="button">닉네임 추가</button>
-        </div>
-        <div id="tracked-chips" class="chip-wrap"></div>
-      </section>
+        </section>
+      </div>
 
       <section
         id="exclude-confirm-modal"

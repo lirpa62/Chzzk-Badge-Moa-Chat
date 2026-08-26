@@ -301,6 +301,8 @@
     defaults.useOriginalSpecialChatStyle =
       raw.useOriginalSpecialChatStyle === true;
     defaults.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
+    defaults.showPopupFontScaleControl =
+      raw.showPopupFontScaleControl === true;
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     defaults.placeChatOnLeft = raw.placeChatOnLeft === true;
@@ -320,7 +322,17 @@
         : raw.keepPopupOpen === true || raw.keepPillExpanded === true;
     defaults.pillGlowEnabled = raw.pillGlowEnabled !== false;
     defaults.enableSessionCache = raw.enableSessionCache === true;
+    defaults.detachedOriginView = normalizeDetachedOriginView(
+      raw.detachedOriginView,
+    );
     return defaults;
+  }
+
+  // 전용 창을 열었을 때 원래 탭에 인라인 UI 를 어떻게 남길지:
+  // "hide"(숨김, 기본) / "pill"(pill만 유지) / "keep"(그대로 유지)
+  function normalizeDetachedOriginView(value) {
+    const v = String(value || "").trim();
+    return v === "pill" || v === "keep" ? v : "hide";
   }
 
   async function loadSettings(scopeKey, deps = {}) {
@@ -481,6 +493,8 @@
         state.settings.useOriginalSpecialChatStyle === true,
       showPopupRoleBadgesOnly:
         state.settings.showPopupRoleBadgesOnly === true,
+      showPopupFontScaleControl:
+        state.settings.showPopupFontScaleControl === true,
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
       placeChatOnLeft: state.settings.placeChatOnLeft === true,
@@ -494,6 +508,9 @@
           : state.settings.keepPopupOpen === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
       enableSessionCache: state.settings.enableSessionCache === true,
+      detachedOriginView: normalizeDetachedOriginView(
+        state.settings.detachedOriginView,
+      ),
     };
 
     const preservedKeys = [
@@ -582,6 +599,8 @@
           state.settings.useOriginalSpecialChatStyle === true,
         showPopupRoleBadgesOnly:
           state.settings.showPopupRoleBadgesOnly === true,
+        showPopupFontScaleControl:
+          state.settings.showPopupFontScaleControl === true,
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
         chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
         placeChatOnLeft: state.settings.placeChatOnLeft === true,
@@ -595,6 +614,9 @@
             : state.settings.keepPopupOpen === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
         enableSessionCache: state.settings.enableSessionCache === true,
+        detachedOriginView: normalizeDetachedOriginView(
+          state.settings.detachedOriginView,
+        ),
         hiddenPillNicknames: Array.from(state.settings.hiddenPillNicknames || []),
         excludedCollectNicknames: Array.from(
           state.settings.excludedCollectNicknames || [],
@@ -694,6 +716,10 @@
     if (typeof source.showPopupRoleBadgesOnly === "boolean") {
       state.settings.showPopupRoleBadgesOnly = source.showPopupRoleBadgesOnly;
     }
+    if (typeof source.showPopupFontScaleControl === "boolean") {
+      state.settings.showPopupFontScaleControl =
+        source.showPopupFontScaleControl;
+    }
     if (typeof source.placeChatOnLeft === "boolean") {
       state.settings.placeChatOnLeft = source.placeChatOnLeft;
     }
@@ -750,6 +776,11 @@
           state.ui.pill.classList.remove("is-attention");
         }
       }
+    }
+    if (typeof source.detachedOriginView === "string") {
+      state.settings.detachedOriginView = normalizeDetachedOriginView(
+        source.detachedOriginView,
+      );
     }
     if (typeof source.enableSessionCache === "boolean") {
       const previousEnabled =
@@ -895,6 +926,7 @@
     normalizeTrackedTargetsByScope,
     normalizeNicknameFiltersByScope,
     normalizeSettings,
+    normalizeDetachedOriginView,
     loadSettings,
     saveSettings,
     syncTrackedTargetsToInject,

@@ -45,6 +45,7 @@
       showChatTimestamp: false,
       useOriginalSpecialChatStyle: false,
       showPopupRoleBadgesOnly: false,
+      showPopupFontScaleControl: false,
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,
       chatFontScale: DEFAULT_CHAT_FONT_SCALE,
       placeChatOnLeft: false,
@@ -55,6 +56,8 @@
       keepPopupOpen: false,
       pillGlowEnabled: true,
       enableSessionCache: false,
+      // 전용 창을 열 때 원래 탭 인라인 UI: "hide"(기본)/"pill"/"keep"
+      detachedOriginView: "hide",
     };
   }
 
@@ -72,6 +75,9 @@
       pendingTrackedNicknames: new Set(),
     },
     popupHeight: DEFAULT_POPUP_HEIGHT,
+    // 사용자가 의도한 높이(가용 공간 클램프 전). applyPopupHeight 는 이 값을 기준으로
+    // 표시 높이만 클램프해, 전체화면 등으로 공간이 잠깐 줄어도 의도 높이는 보존한다.
+    popupHeightIntent: DEFAULT_POPUP_HEIGHT,
     displayStyle: "block",
     settings: createDefaultSettingsState(),
     tabId: null,
@@ -80,6 +86,10 @@
     settingsScopeKey: "home",
     isOpen: false,
     popupPinned: false,
+    // 이 문서가 모아보기 전용 창(분리 버튼으로 연 창)인지. init 에서 URL 로 결정.
+    isMoaWindow: false,
+    // 이 탭이 모아보기 전용 창을 열어둔 상태인지. 그동안 인라인 UI(필/팝업)를 감춘다.
+    hasDetachedMoaWindow: false,
     isSettingsOpen: false,
     settingsTrackedScope: "channel",
     locationKey: "home",
@@ -148,6 +158,10 @@
       empty: null,
       inlineButton: null,
       blockButton: null,
+      popupFontScaleWrap: null,
+      popupFontScaleDecrease: null,
+      popupFontScaleText: null,
+      popupFontScaleIncrease: null,
       pinButton: null,
       closeButton: null,
       resizer: null,
@@ -156,6 +170,7 @@
       confirmTitle: null,
       confirmMessage: null,
       confirmCancelButton: null,
+      confirmSecondaryButton: null,
       confirmDeleteButton: null,
     },
   };

@@ -90,7 +90,18 @@
     updatePopupPinStateUiFn();
     syncPillPositionForHeaderFn();
     renderPillFn();
+    // 모아보기 전용 창에서는 설정과 무관하게 항상 펼친다.
+    if (state?.isMoaWindow === true && !state.isOpen) {
+      openPopupFn();
+      return;
+    }
+    // 전용 창을 열어둔 탭에서는 설정(detachedOriginView)이 keep 이 아니면 인라인
+    // 자동 펼침을 억제한다(중복 표시/재펼침 방지). keep 이면 평소대로 펼친다.
+    const detachedSuppressOpen =
+      state?.hasDetachedMoaWindow === true &&
+      String(state?.settings?.detachedOriginView || "hide") !== "keep";
     if (
+      !detachedSuppressOpen &&
       state?.settings?.keepPopupOpen === true &&
       state?.settings?.hidePillButton !== true &&
       !state.isOpen
@@ -577,6 +588,16 @@
             state,
             entryForClick,
             nickname,
+            {
+              isExcludedInScope: (nick, scope) =>
+                typeof deps.isExcludedCollectInScope === "function"
+                  ? deps.isExcludedCollectInScope(nick, scope)
+                  : false,
+              setExcludedCollect: (nick, scope, excluded) =>
+                typeof deps.setExcludedCollect === "function"
+                  ? deps.setExcludedCollect(nick, scope, excluded)
+                  : false,
+            },
           );
         });
         nickname.addEventListener("keydown", (event) => {
@@ -587,6 +608,16 @@
               state,
               entryForClick,
               nickname,
+              {
+                isExcludedInScope: (nick, scope) =>
+                  typeof deps.isExcludedCollectInScope === "function"
+                    ? deps.isExcludedCollectInScope(nick, scope)
+                    : false,
+                setExcludedCollect: (nick, scope, excluded) =>
+                  typeof deps.setExcludedCollect === "function"
+                    ? deps.setExcludedCollect(nick, scope, excluded)
+                    : false,
+              },
             );
           }
         });

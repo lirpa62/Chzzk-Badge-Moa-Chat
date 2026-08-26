@@ -135,7 +135,7 @@
     return `${remain}개월`;
   }
 
-  function buildProfileCardDom(content) {
+  function buildProfileCardDom(content, options = {}) {
     const popup = document.createElement("div");
     popup.className = POPUP_CLASS;
     popup.setAttribute("role", "dialog");
@@ -320,8 +320,102 @@
     if (history.childNodes.length > 0) {
       inner.appendChild(history);
     }
+    const excludeActions = buildExcludeActionsDom(content, options);
+    if (excludeActions) {
+      inner.appendChild(excludeActions);
+    }
     popup.appendChild(inner);
     return popup;
+  }
+
+  // 프로필 팝오버 하단의 모아보기 제외 버튼(현재 채널 / 모든 채널). 각각 토글이며
+  // 이미 제외 상태면 "제외 해제"로 표시한다.
+  function buildExcludeActionsDom(content, options) {
+    const state = options && options.state;
+    const setExcludedCollect =
+      options && typeof options.setExcludedCollect === "function"
+        ? options.setExcludedCollect
+        : null;
+    const isExcludedInScope =
+      options && typeof options.isExcludedInScope === "function"
+        ? options.isExcludedInScope
+        : () => false;
+    const onAfterExcludeChange =
+      options && typeof options.onAfterExcludeChange === "function"
+        ? options.onAfterExcludeChange
+        : () => {};
+    const nickname = String(
+      (options && options.nickname) || (content && content.nickname) || "",
+    ).trim();
+    if (!state || !setExcludedCollect || !nickname) return null;
+
+    const wrap = document.createElement("div");
+    wrap.className = `${POPUP_CLASS}-exclude-actions`;
+
+    const makeButton = (scope, labelExclude, labelRemove) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `${POPUP_CLASS}-exclude-btn`;
+      const sync = () => {
+        const excluded = isExcludedInScope(nickname, scope) === true;
+        button.classList.toggle("is-excluded", excluded);
+        button.textContent = excluded ? labelRemove : labelExclude;
+        button.setAttribute("aria-pressed", String(excluded));
+      };
+      sync();
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (button.disabled) return;
+        const excluded = isExcludedInScope(nickname, scope) === true;
+        const restoreConfirmModal = moveConfirmModalToDocumentBody(state);
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        button.textContent = "처리 중...";
+        let changed = false;
+        try {
+          changed =
+            (await setExcludedCollect(nickname, scope, !excluded)) === true;
+        } catch (error) {
+          console.warn("[Chzzk Badge Moa] 프로필 제외 설정 실패", error);
+        } finally {
+          restoreConfirmModal();
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
+        }
+        sync();
+        if (!changed) return;
+        onAfterExcludeChange();
+        if (!excluded) closeProfileCardPopup();
+      });
+      return button;
+    };
+
+    wrap.appendChild(
+      makeButton("channel", "현재 채널 제외", "현재 채널 제외 해제"),
+    );
+    wrap.appendChild(
+      makeButton("global", "모든 채널 제외", "모든 채널 제외 해제"),
+    );
+    return wrap;
+  }
+
+  // 모아보기 확인창은 헤더 내부 stacking context에 있어 body 직속 프로필 카드보다
+  // 뒤에 표시된다. 프로필 카드 작업 중에만 body로 옮겼다가 원래 위치로 복원한다.
+  function moveConfirmModalToDocumentBody(state) {
+    const modal = state && state.ui ? state.ui.confirmModal : null;
+    if (!(modal instanceof HTMLElement) || !modal.parentNode) return () => {};
+    if (modal.parentNode === document.body) return () => {};
+    const originalParent = modal.parentNode;
+    document.body.appendChild(modal);
+    return () => {
+      if (modal.parentNode !== document.body) return;
+      if (!originalParent.isConnected) {
+        modal.remove();
+        return;
+      }
+      originalParent.appendChild(modal);
+    };
   }
 
   function buildLoadingDom(nickname) {
@@ -541,11 +635,20 @@
     activePopupRoot.style.top = `${Math.round(top)}px`;
   }
 
-  function attachOutsideClose(popup) {
+  function attachOutsideClose() {
     outsideClickHandler = (event) => {
-      if (!popup.contains(event.target)) {
-        closeProfileCardPopup();
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".chzzk-badge-moa-confirm-modal.is-open")
+      ) {
+        return;
       }
+      // 로딩 팝업은 프로필 응답을 받은 뒤 실제 카드 DOM으로 교체된다. 이벤트
+      // 등록 당시의 팝업을 캡처하면 교체 후 카드 내부 클릭도 외부 클릭으로 오판한다.
+      const popup = activePopupRoot;
+      if (popup && popup.contains(target)) return;
+      closeProfileCardPopup();
     };
     document.addEventListener("mousedown", outsideClickHandler, true);
   }
@@ -555,7 +658,7 @@
     activePopupRoot = popup;
     activeMoaPopupEl = (state && state.ui && state.ui.popup) || null;
     positionPopup(popup, anchorElement, state);
-    attachOutsideClose(popup);
+    attachOutsideClose();
     attachReposition();
   }
 
@@ -597,7 +700,7 @@
     positionPopup(nextPopup, anchorElement, state);
   }
 
-  async function openProfileCardForEntry(state, entry, anchorElement) {
+  async function openProfileCardForEntry(state, entry, anchorElement, deps = {}) {
     if (!entry || !entry.authorUserIdHash) return;
     const userIdHash = String(entry.authorUserIdHash || "").trim();
     if (!isValidUserIdHash(userIdHash)) return;
@@ -632,7 +735,17 @@
       return;
     }
 
-    swapPopup(buildProfileCardDom(content), anchorElement, state);
+    swapPopup(
+      buildProfileCardDom(content, {
+        state,
+        nickname: entry.nickname,
+        isExcludedInScope: deps.isExcludedInScope,
+        setExcludedCollect: deps.setExcludedCollect,
+        onAfterExcludeChange: deps.onAfterExcludeChange,
+      }),
+      anchorElement,
+      state,
+    );
   }
 
   ns.profileCardApi = {

@@ -3,6 +3,22 @@
   const UPDATE_BANNER_ENABLED_KEY =
     "chzzk_badge_moa_update_banner_enabled";
   const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
+  const SETTINGS_TAB_STORAGE_KEY = "chzzkBadgeMoaSettingsTab";
+  const SETTINGS_EXPORT_FORMAT = "chzzk-badge-moa-chat-settings";
+  const FULL_BACKUP_FORMAT = "chzzk-badge-moa-chat-backup";
+  const DATA_EXPORT_FORMAT_VERSION = 1;
+  const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
+  const SETTINGS_STORAGE_KEYS = [
+    STORAGE_SETTINGS_KEY,
+    UPDATE_BANNER_ENABLED_KEY,
+    "chzzk_badge_moa_popup_height",
+    "chzzk_badge_moa_popup_height_live",
+    "chzzk_badge_moa_popup_height_vod",
+    "chzzk_badge_moa_popup_height_live_wide",
+    "chzzk_badge_moa_popup_height_vod_wide",
+    "chzzk_badge_moa_popup_height_chat_popup",
+    "chzzk_badge_moa_popup_display_style",
+  ];
   const STATUS_IDLE_CONNECTED = "현재 탭에 즉시 반영됩니다.";
   const STATUS_IDLE_DISCONNECTED =
     "설정은 저장되며 탭 반영은 페이지 새로고침 후 적용될 수 있습니다.";
@@ -49,7 +65,6 @@
     selectedTrackedNicknameSet: new Set(),
     trackedEditScope: TRACKED_SCOPE_CHANNEL,
     hiddenExcludeEditScope: TRACKED_SCOPE_CHANNEL,
-    showHiddenAdvancedOptions: false,
     hideChatBackground: false,
     hideChatBorder: false,
     hidePopupBackground: false,
@@ -65,6 +80,7 @@
     showChatTimestamp: false,
     useOriginalSpecialChatStyle: false,
     showPopupRoleBadgesOnly: false,
+    showPopupFontScaleControl: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
     placeChatOnLeft: false,
@@ -75,11 +91,14 @@
     keepPopupOpen: false,
     pillGlowEnabled: true,
     enableSessionCache: false,
+    detachedOriginView: "hide",
     autoPruneManagedHiddenOnReconnect: false,
     popupTheme: "system",
     updateBannerEnabled: true,
+    // 설정창 상위 탭(표시 설정/대상·제외). 순수 UI 상태이므로 localStorage 에 기억.
+    settingsTab: "display",
     statusTimer: null,
-    hiddenChipsCollapsed: true,
+    pendingImportMode: "",
     trackedChipsCollapsed: true,
     lastHiddenAdvancedSelectedSize: 0,
     excludeConfirmDialog: {
@@ -104,8 +123,6 @@
     trackedChips: document.getElementById("tracked-chips"),
     trackedCountInfo: document.getElementById("tracked-count-info"),
     hiddenSection: document.getElementById("hidden-section"),
-    hiddenAdvancedToggle: document.getElementById("hidden-advanced-toggle"),
-    hiddenCollapseToggle: document.getElementById("hidden-collapse-toggle"),
     hiddenExcludeSelected: document.getElementById("hidden-exclude-selected"),
     hiddenExcludeScopeTabs: document.getElementById(
       "hidden-exclude-scope-tabs",
@@ -124,6 +141,12 @@
     addNickname: document.getElementById("add-nickname"),
     trackedScopeButtons: Array.from(
       document.querySelectorAll("#tracked-scope-tabs [data-scope]"),
+    ),
+    settingsTabButtons: Array.from(
+      document.querySelectorAll("#settings-tabs [data-tab]"),
+    ),
+    settingsTabPanels: Array.from(
+      document.querySelectorAll(".settings-tab-panel"),
     ),
     hideChatBg: document.getElementById("hide-chat-bg"),
     hideChatBorder: document.getElementById("hide-chat-border"),
@@ -150,16 +173,25 @@
     showPopupRoleBadgesOnly: document.getElementById(
       "show-popup-role-badges-only",
     ),
+    showPopupFontScaleControl: document.getElementById(
+      "show-popup-font-scale-control",
+    ),
     popupFontScale: document.getElementById("popup-font-scale"),
     chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
     hidePillButton: document.getElementById("hide-pill-button"),
     keepPopupOpen: document.getElementById("keep-popup-open"),
+    detachedOriginView: document.getElementById("detached-origin-view"),
     pillGlowEnabled: document.getElementById("pill-glow-enabled"),
     enableSessionCache: document.getElementById("enable-session-cache"),
     clearCurrentChannelSession: document.getElementById(
       "clear-current-channel-session",
     ),
+    exportSettings: document.getElementById("export-settings"),
+    importSettings: document.getElementById("import-settings"),
+    exportFullBackup: document.getElementById("export-full-backup"),
+    importFullBackup: document.getElementById("import-full-backup"),
+    dataImportFile: document.getElementById("data-import-file"),
     updateBannerToggle: document.getElementById("update-banner-toggle"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleCurrent: document.getElementById("theme-toggle-current"),
@@ -188,6 +220,7 @@
 
   async function init() {
     bindEvents();
+    applySettingsTab(loadSettingsTab());
     const [tab] = await chrome.tabs.query({
       active: true,
       currentWindow: true,
@@ -566,7 +599,18 @@
   }
 
   function bindEvents() {
-    initializeCustomSelects([el.popupFontScale, el.chatFontScale]);
+    initializeCustomSelects([
+      el.popupFontScale,
+      el.chatFontScale,
+      el.detachedOriginView,
+    ]);
+
+    (el.settingsTabButtons || []).forEach((button) => {
+      button.addEventListener("click", () => {
+        applySettingsTab(button.dataset.tab);
+      });
+      button.addEventListener("keydown", handleSettingsTabKeydown);
+    });
 
     if (el.updateBannerToggle) {
       el.updateBannerToggle.addEventListener("click", async () => {
@@ -719,6 +763,12 @@
       await persistAndApply();
     });
 
+    el.showPopupFontScaleControl.addEventListener("change", async () => {
+      state.showPopupFontScaleControl =
+        el.showPopupFontScaleControl.checked;
+      await persistAndApply();
+    });
+
     el.popupFontScale.addEventListener("change", async () => {
       state.popupFontScale = normalizePopupFontScale(el.popupFontScale.value);
       syncCustomSelect(el.popupFontScale);
@@ -728,6 +778,14 @@
     el.chatFontScale.addEventListener("change", async () => {
       state.chatFontScale = normalizeChatFontScale(el.chatFontScale.value);
       syncCustomSelect(el.chatFontScale);
+      await persistAndApply();
+    });
+
+    el.detachedOriginView.addEventListener("change", async () => {
+      state.detachedOriginView = normalizeDetachedOriginView(
+        el.detachedOriginView.value,
+      );
+      syncCustomSelect(el.detachedOriginView);
       await persistAndApply();
     });
 
@@ -844,6 +902,43 @@
       });
     }
 
+    if (el.exportSettings) {
+      el.exportSettings.addEventListener("click", async () => {
+        await exportSettingsJson();
+      });
+    }
+    if (el.importSettings) {
+      el.importSettings.addEventListener("click", () => {
+        openDataImportPicker("settings");
+      });
+    }
+    if (el.exportFullBackup) {
+      el.exportFullBackup.addEventListener("click", async () => {
+        await exportFullBackupJson();
+      });
+    }
+    if (el.importFullBackup) {
+      el.importFullBackup.addEventListener("click", () => {
+        openDataImportPicker("backup");
+      });
+    }
+    if (el.dataImportFile) {
+      el.dataImportFile.addEventListener("change", async () => {
+        const file = el.dataImportFile.files && el.dataImportFile.files[0];
+        const importMode = state.pendingImportMode;
+        state.pendingImportMode = "";
+        el.dataImportFile.value = "";
+        if (!file) return;
+        if (importMode === "settings") {
+          await importSettingsJson(file);
+          return;
+        }
+        if (importMode === "backup") {
+          await importFullBackupJson(file);
+        }
+      });
+    }
+
     el.addNickname.addEventListener("click", async () => {
       await addTracked();
     });
@@ -877,30 +972,6 @@
 
     el.hiddenSelectAll.addEventListener("click", async () => {
       await selectAllHiddenNicknames();
-    });
-
-    if (el.hiddenCollapseToggle) {
-      el.hiddenCollapseToggle.addEventListener("click", () => {
-        state.hiddenChipsCollapsed = !state.hiddenChipsCollapsed;
-        renderHiddenChips();
-        updateActionButtonsState();
-      });
-    }
-
-    el.hiddenAdvancedToggle.addEventListener("change", async () => {
-      state.showHiddenAdvancedOptions =
-        el.hiddenAdvancedToggle.checked === true;
-      if (!state.showHiddenAdvancedOptions) {
-        state.hiddenAdvancedSelectedSet.clear();
-        clearHintPulse(el.hiddenChips);
-        clearHintPulse(el.hiddenExcludeSelected);
-      } else {
-        triggerHintPulse(el.hiddenChips);
-      }
-      syncScopeSegmentedControls();
-      renderHiddenChips();
-      updateActionButtonsState();
-      await persistAndApply();
     });
 
     el.hiddenExcludeScopeButtons.forEach((button) => {
@@ -1033,12 +1104,18 @@
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
     el.showPopupRoleBadgesOnly.checked =
       state.showPopupRoleBadgesOnly === true;
+    el.showPopupFontScaleControl.checked =
+      state.showPopupFontScaleControl === true;
     el.popupFontScale.value = String(
       normalizePopupFontScale(state.popupFontScale),
     );
     el.chatFontScale.value = String(normalizeChatFontScale(state.chatFontScale));
+    el.detachedOriginView.value = normalizeDetachedOriginView(
+      state.detachedOriginView,
+    );
     syncCustomSelect(el.popupFontScale);
     syncCustomSelect(el.chatFontScale);
+    syncCustomSelect(el.detachedOriginView);
     el.deleteWithoutConfirm.checked = state.deleteWithoutConfirm === true;
     el.hidePillButton.checked = state.hidePillButton === true;
     el.keepPopupOpen.checked =
@@ -1054,7 +1131,6 @@
         ? "현재 채널의 모아보기 채팅과 세션 캐시를 비웁니다"
         : "치지직 채널 탭에서만 사용할 수 있습니다";
     }
-    el.hiddenAdvancedToggle.checked = state.showHiddenAdvancedOptions === true;
     if (el.hiddenAutoPruneToggle) {
       el.hiddenAutoPruneToggle.checked =
         state.autoPruneManagedHiddenOnReconnect === true;
@@ -1069,7 +1145,6 @@
 
   function renderHiddenChips() {
     el.hiddenChips.innerHTML = "";
-    const excludedEditSet = getExcludedEditSet();
 
     const nicknameMetaMap = new Map();
     state.nicknameItems.forEach((item) => {
@@ -1127,7 +1202,6 @@
         ? "현재 채널에서 배지 채팅 닉네임이 없습니다."
         : "치지직 라이브/다시보기 탭에서 열면 닉네임 목록을 볼 수 있습니다.";
       el.hiddenChips.appendChild(empty);
-      updateHiddenChipCollapseUi(0);
       return;
     }
 
@@ -1141,12 +1215,28 @@
       if (state.excludedCollectNicknameSet.has(nickname)) {
         chip.classList.add("is-excluded");
       }
-      if (
-        state.showHiddenAdvancedOptions &&
-        state.hiddenAdvancedSelectedSet.has(nickname)
-      ) {
+      if (state.hiddenAdvancedSelectedSet.has(nickname)) {
         chip.classList.add("is-selected");
       }
+      const excludeCheckbox = document.createElement("input");
+      excludeCheckbox.type = "checkbox";
+      excludeCheckbox.className = "chip-exclude-checkbox";
+      excludeCheckbox.checked = state.hiddenAdvancedSelectedSet.has(nickname);
+      excludeCheckbox.setAttribute(
+        "aria-label",
+        `${nickname} 모아보기 제외 대상으로 선택`,
+      );
+      excludeCheckbox.title = "모아보기 제외 대상 선택";
+      excludeCheckbox.addEventListener("change", () => {
+        if (excludeCheckbox.checked) {
+          state.hiddenAdvancedSelectedSet.add(nickname);
+          chip.classList.add("is-selected");
+        } else {
+          state.hiddenAdvancedSelectedSet.delete(nickname);
+          chip.classList.remove("is-selected");
+        }
+        updateActionButtonsState();
+      });
       const toggleButton = document.createElement("button");
       toggleButton.type = "button";
       toggleButton.className = "chip-toggle-btn";
@@ -1229,56 +1319,11 @@
         countText.textContent = count;
         toggleButton.appendChild(countText);
       }
-      if (state.showHiddenAdvancedOptions) {
-        if (state.hiddenAdvancedSelectedSet.has(nickname)) {
-          toggleButton.title = "모아보기 제외 선택됨 - 클릭하여 선택 해제";
-        } else if (excludedEditSet.has(nickname)) {
-          toggleButton.title =
-            "이미 모아보기 제외됨 - 클릭하여 제외 해제 대상으로 선택";
-        } else {
-          toggleButton.title = "클릭하여 모아보기 제외 대상으로 선택";
-        }
-      } else if (state.excludedCollectNicknameSet.has(nickname)) {
-        toggleButton.title = "모아보기 제외됨";
-      } else {
-        toggleButton.title = state.hiddenSet.has(nickname)
-          ? "현재 숨김 상태 - 클릭하면 해제"
-          : "클릭하면 숨김";
-      }
+      toggleButton.title = state.hiddenSet.has(nickname)
+        ? "현재 채팅창 알림 숨김 상태 - 클릭하면 해제"
+        : "클릭하면 채팅창 알림 숨김";
 
       toggleButton.addEventListener("click", async () => {
-        if (
-          !state.showHiddenAdvancedOptions &&
-          state.excludedCollectNicknameSet.has(nickname)
-        ) {
-          state.showHiddenAdvancedOptions = true;
-          state.hiddenExcludeEditScope =
-            state.excludedCollectScopedNicknameSet.has(nickname)
-              ? TRACKED_SCOPE_CHANNEL
-              : TRACKED_SCOPE_GLOBAL;
-          state.hiddenAdvancedSelectedSet.clear();
-          state.hiddenAdvancedSelectedSet.add(nickname);
-          if (el.hiddenAdvancedToggle) {
-            el.hiddenAdvancedToggle.checked = true;
-          }
-          syncScopeSegmentedControls();
-          await persistAndApply();
-          renderHiddenChips();
-          updateActionButtonsState();
-          return;
-        }
-
-        if (state.showHiddenAdvancedOptions) {
-          if (state.hiddenAdvancedSelectedSet.has(nickname)) {
-            state.hiddenAdvancedSelectedSet.delete(nickname);
-          } else {
-            state.hiddenAdvancedSelectedSet.add(nickname);
-          }
-          renderHiddenChips();
-          updateActionButtonsState();
-          return;
-        }
-
         if (state.hiddenSet.has(nickname)) {
           state.hiddenSet.delete(nickname);
         } else {
@@ -1289,13 +1334,12 @@
         renderHiddenChips();
         updateActionButtonsState();
       });
-      chip.appendChild(toggleButton);
+      chip.append(excludeCheckbox, toggleButton);
 
       fragment.appendChild(chip);
     });
 
     el.hiddenChips.appendChild(fragment);
-    updateHiddenChipCollapseUi(sorted.length);
   }
 
   function normalizeRoleBadgeList(raw) {
@@ -1655,34 +1699,20 @@
     const isGlobal =
       state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL;
     const nextExcluded = new Set(getExcludedEditSet());
-    const nextHidden = new Set(state.hiddenSet);
     let changed = false;
     let addedCount = 0;
-    let addedHiddenCount = 0;
     let removedCount = 0;
-    let removedHiddenCount = 0;
 
     selectedNicknames.forEach((nickname) => {
       const normalized = normalizeNickname(nickname);
       if (!normalized) return;
       if (nextExcluded.has(normalized)) {
         nextExcluded.delete(normalized);
-        if (!isGlobal && nextHidden.has(normalized)) {
-          nextHidden.delete(normalized);
-          removedHiddenCount += 1;
-        }
         removedCount += 1;
         changed = true;
         return;
       }
       nextExcluded.add(normalized);
-      if (!isGlobal) {
-        state.managedHiddenNicknameSet.add(normalized);
-      }
-      if (!isGlobal && !nextHidden.has(normalized)) {
-        nextHidden.add(normalized);
-        addedHiddenCount += 1;
-      }
       addedCount += 1;
       changed = true;
     });
@@ -1706,11 +1736,9 @@
       state.excludedCollectGlobalNicknameSet = nextExcluded;
     } else {
       state.excludedCollectScopedNicknameSet = nextExcluded;
-      state.hiddenSet = nextHidden;
     }
     rebuildEffectiveExcludedCollectNicknames();
     state.hiddenAdvancedSelectedSet.clear();
-    state.showHiddenAdvancedOptions = false;
 
     await persistAndApply({ pruneExcludedEntries });
     render();
@@ -1718,7 +1746,7 @@
       setStatus(
         isGlobal
           ? `모든 방문 채널 제외 ${addedCount}개, 제외 해제 ${removedCount}개 적용됨`
-          : `모아보기 제외 ${addedCount}개(숨김 ${addedHiddenCount}개 포함), 제외 해제 ${removedCount}개(숨김 해제 ${removedHiddenCount}개 포함) 적용됨`,
+          : `현재 채널 제외 ${addedCount}개, 제외 해제 ${removedCount}개 적용됨`,
         { autoResetMs: 1800 },
       );
       return;
@@ -1727,7 +1755,7 @@
       setStatus(
         isGlobal
           ? `선택한 닉네임 ${addedCount}개를 모든 방문 채널에서 제외했습니다.`
-          : `선택한 닉네임 ${addedCount}개를 모아보기 제외했고 숨김도 함께 적용했습니다.`,
+          : `선택한 닉네임 ${addedCount}개를 현재 채널 모아보기에서 제외했습니다.`,
         {
           autoResetMs: 1800,
         },
@@ -1737,7 +1765,7 @@
     setStatus(
       isGlobal
         ? `선택한 닉네임 ${removedCount}개의 모든 방문 채널 제외를 해제했습니다.`
-        : `선택한 닉네임 ${removedCount}개의 제외를 해제했고 숨김 ${removedHiddenCount}개도 함께 해제했습니다.`,
+        : `선택한 닉네임 ${removedCount}개의 현재 채널 제외를 해제했습니다.`,
       {
         autoResetMs: 1800,
       },
@@ -1863,18 +1891,13 @@
       });
       el.hiddenPruneEmpty.disabled = !hasPrunable;
     }
-    if (el.hiddenAdvancedToggle) {
-      el.hiddenAdvancedToggle.disabled = !hasNicknames;
-    }
     if (el.hiddenExcludeSelected) {
       el.hiddenExcludeSelected.disabled =
-        !hasNicknames ||
-        state.showHiddenAdvancedOptions !== true ||
-        state.hiddenAdvancedSelectedSet.size === 0;
+        !hasNicknames || state.hiddenAdvancedSelectedSet.size === 0;
     }
     const prevSize = state.lastHiddenAdvancedSelectedSize || 0;
     const currSize = state.hiddenAdvancedSelectedSet.size;
-    if (state.showHiddenAdvancedOptions && prevSize === 0 && currSize > 0) {
+    if (prevSize === 0 && currSize > 0) {
       clearHintPulse(el.hiddenChips);
       triggerHintPulse(el.hiddenExcludeSelected);
     } else if (currSize === 0 && prevSize > 0) {
@@ -1890,24 +1913,6 @@
       el.trackedDeleteSelected.disabled =
         state.selectedTrackedNicknameSet.size === 0;
     }
-  }
-
-  function updateHiddenChipCollapseUi(itemCount) {
-    if (!el.hiddenChips || !el.hiddenCollapseToggle) return;
-    const total = Math.max(0, Number(itemCount) || 0);
-    const collapsible = total > CHIP_COLLAPSE_THRESHOLD;
-    if (!collapsible) {
-      state.hiddenChipsCollapsed = true;
-    }
-    const collapsed = collapsible && state.hiddenChipsCollapsed;
-    el.hiddenChips.classList.toggle("is-collapsible", collapsible);
-    el.hiddenChips.classList.toggle("is-collapsed", collapsed);
-    el.hiddenCollapseToggle.style.display = collapsible
-      ? "inline-flex"
-      : "none";
-    el.hiddenCollapseToggle.disabled = !collapsible;
-    el.hiddenCollapseToggle.setAttribute("aria-expanded", String(!collapsed));
-    el.hiddenCollapseToggle.textContent = collapsed ? "펼치기" : "접기";
   }
 
   function updateTrackedChipCollapseUi(itemCount) {
@@ -1961,10 +1966,7 @@
     if (!el.hiddenExcludeSelected) return;
     const excludedEditSet = getExcludedEditSet();
 
-    if (
-      state.showHiddenAdvancedOptions !== true ||
-      state.hiddenAdvancedSelectedSet.size === 0
-    ) {
+    if (state.hiddenAdvancedSelectedSet.size === 0) {
       el.hiddenExcludeSelected.textContent = "모아보기 제외";
       return;
     }
@@ -2028,6 +2030,8 @@
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
+      showPopupFontScaleControl:
+        state.showPopupFontScaleControl === true,
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
@@ -2036,6 +2040,7 @@
         state.hidePillButton === true ? false : state.keepPopupOpen === true,
       pillGlowEnabled: state.pillGlowEnabled,
       enableSessionCache: state.enableSessionCache,
+      detachedOriginView: normalizeDetachedOriginView(state.detachedOriginView),
       newTrackedNicknames: forceTrackedNicknames,
       hiddenPillNicknames: Array.from(state.hiddenSet),
       excludedCollectNicknames: Array.from(
@@ -2124,6 +2129,8 @@
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
     state.showPopupRoleBadgesOnly =
       settings.showPopupRoleBadgesOnly === true;
+    state.showPopupFontScaleControl =
+      settings.showPopupFontScaleControl === true;
     state.popupFontScale = normalizePopupFontScale(settings.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
@@ -2131,6 +2138,9 @@
     state.keepPopupOpen =
       state.hidePillButton !== true && settings.keepPopupOpen === true;
     state.pillGlowEnabled = settings.pillGlowEnabled !== false;
+    state.detachedOriginView = normalizeDetachedOriginView(
+      settings.detachedOriginView,
+    );
     if (typeof settings.enableSessionCache === "boolean") {
       state.enableSessionCache = settings.enableSessionCache;
     }
@@ -2138,7 +2148,6 @@
       state.autoPruneManagedHiddenOnReconnect =
         settings.autoPruneManagedHiddenOnReconnect;
     }
-    state.showHiddenAdvancedOptions = false;
     // 확장 업데이트 직후에는 현재 탭의 구버전 content script 컨텍스트가 남아
     // hidden/tracked 설정을 잘못 덮어쓰는 경우가 있어, 저장값이 있을 때는 보존한다.
     const raw =
@@ -2299,6 +2308,8 @@
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
+    state.showPopupFontScaleControl =
+      raw.showPopupFontScaleControl === true;
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
@@ -2314,9 +2325,11 @@
       (raw.keepPopupOpen === true || raw.keepPillExpanded === true);
     state.pillGlowEnabled = raw.pillGlowEnabled !== false;
     state.enableSessionCache = raw.enableSessionCache === true;
+    state.detachedOriginView = normalizeDetachedOriginView(
+      raw.detachedOriginView,
+    );
     state.autoPruneManagedHiddenOnReconnect =
       raw.autoPruneManagedHiddenOnReconnect === true;
-    state.showHiddenAdvancedOptions = false;
     state.popupTheme = normalizePopupTheme(raw.popupTheme);
 
     state.hiddenSet = new Set(
@@ -2417,6 +2430,8 @@
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
+    raw.showPopupFontScaleControl =
+      state.showPopupFontScaleControl === true;
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
     raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
@@ -2427,6 +2442,9 @@
     delete raw.keepPillExpanded;
     raw.pillGlowEnabled = state.pillGlowEnabled !== false;
     raw.enableSessionCache = state.enableSessionCache === true;
+    raw.detachedOriginView = normalizeDetachedOriginView(
+      state.detachedOriginView,
+    );
     raw.autoPruneManagedHiddenOnReconnect =
       state.autoPruneManagedHiddenOnReconnect === true;
     delete raw.showHiddenAdvancedOptions;
@@ -2503,8 +2521,7 @@
       button.setAttribute("aria-pressed", String(active));
     });
     if (el.hiddenExcludeScopeTabs) {
-      el.hiddenExcludeScopeTabs.hidden =
-        state.showHiddenAdvancedOptions !== true;
+      el.hiddenExcludeScopeTabs.hidden = false;
     }
     el.hiddenExcludeScopeButtons.forEach((button) => {
       const active =
@@ -2750,6 +2767,68 @@
     return "system";
   }
 
+  function normalizeSettingsTab(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "targets" || normalized === "data") {
+      return normalized;
+    }
+    return "display";
+  }
+
+  function loadSettingsTab() {
+    try {
+      return normalizeSettingsTab(
+        window.localStorage.getItem(SETTINGS_TAB_STORAGE_KEY),
+      );
+    } catch (_error) {
+      return "display";
+    }
+  }
+
+  function applySettingsTab(tab) {
+    const next = normalizeSettingsTab(tab);
+    state.settingsTab = next;
+    (el.settingsTabButtons || []).forEach((button) => {
+      const active = button.dataset.tab === next;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    (el.settingsTabPanels || []).forEach((panel) => {
+      const active = panel.id === `tab-panel-${next}`;
+      panel.classList.toggle("is-active", active);
+      if (active) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    });
+    try {
+      window.localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, next);
+    } catch (_error) {}
+  }
+
+  function handleSettingsTabKeydown(event) {
+    const buttons = el.settingsTabButtons || [];
+    const currentIndex = buttons.indexOf(event.currentTarget);
+    if (currentIndex < 0 || buttons.length === 0) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+    } else if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % buttons.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = buttons.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextButton = buttons[nextIndex];
+    applySettingsTab(nextButton.dataset.tab);
+    nextButton.focus();
+  }
+
   function normalizePopupFontScale(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return DEFAULT_POPUP_FONT_SCALE;
@@ -2768,6 +2847,11 @@
       Math.max(MIN_CHAT_FONT_SCALE, numeric),
     );
     return Math.round(clamped * 100) / 100;
+  }
+
+  function normalizeDetachedOriginView(value) {
+    const v = String(value || "").trim();
+    return v === "pill" || v === "keep" ? v : "hide";
   }
 
   function normalizeChatWidth(value) {
@@ -2835,6 +2919,305 @@
     try {
       await chrome.storage.local.set({ [key]: value });
     } catch (_error) {}
+  }
+
+  function openDataImportPicker(mode) {
+    if (!el.dataImportFile) return;
+    state.pendingImportMode = mode === "backup" ? "backup" : "settings";
+    el.dataImportFile.value = "";
+    el.dataImportFile.click();
+  }
+
+  function getExtensionVersion() {
+    try {
+      const manifest = chrome.runtime.getManifest();
+      return String((manifest && manifest.version) || "");
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function getExportTimestamp() {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    return [
+      now.getFullYear(),
+      pad(now.getMonth() + 1),
+      pad(now.getDate()),
+      "-",
+      pad(now.getHours()),
+      pad(now.getMinutes()),
+      pad(now.getSeconds()),
+    ].join("");
+  }
+
+  function downloadJsonFile(value, filename) {
+    const json = `${JSON.stringify(value, null, 2)}\n`;
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.hidden = true;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function readJsonFile(file) {
+    if (!file || typeof file.text !== "function") {
+      throw new Error("JSON 파일을 읽을 수 없습니다.");
+    }
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      throw new Error("가져올 파일은 25MB 이하여야 합니다.");
+    }
+    let parsed = null;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch (_error) {
+      throw new Error("올바른 JSON 파일이 아닙니다.");
+    }
+    if (!isPlainObject(parsed)) {
+      throw new Error("백업 데이터 형식이 올바르지 않습니다.");
+    }
+    return parsed;
+  }
+
+  function isPlainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function validateExportHeader(data, expectedFormat) {
+    if (
+      data.format !== expectedFormat ||
+      data.formatVersion !== DATA_EXPORT_FORMAT_VERSION
+    ) {
+      throw new Error("이 확장 프로그램에서 만든 호환 JSON 파일이 아닙니다.");
+    }
+  }
+
+  function getPopupLocalStorageSnapshot() {
+    const snapshot = {};
+    try {
+      for (let index = 0; index < window.localStorage.length; index += 1) {
+        const key = window.localStorage.key(index);
+        if (!key) continue;
+        snapshot[key] = window.localStorage.getItem(key);
+      }
+    } catch (_error) {}
+    return snapshot;
+  }
+
+  function restorePopupLocalStorage(snapshot, options = {}) {
+    if (!isPlainObject(snapshot)) return;
+    try {
+      if (options.replace === true) window.localStorage.clear();
+      Object.entries(snapshot).forEach(([key, value]) => {
+        if (typeof value !== "string") return;
+        window.localStorage.setItem(key, value);
+      });
+    } catch (_error) {}
+  }
+
+  async function getStorageAreaSnapshot(areaName) {
+    const area = chrome.storage && chrome.storage[areaName];
+    if (!area || typeof area.get !== "function") return {};
+    try {
+      const result = await area.get(null);
+      return isPlainObject(result) ? result : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  async function replaceStorageArea(areaName, snapshot) {
+    const area = chrome.storage && chrome.storage[areaName];
+    if (!area || typeof area.clear !== "function") return false;
+    await area.clear();
+    if (isPlainObject(snapshot) && Object.keys(snapshot).length > 0) {
+      await area.set(snapshot);
+    }
+    return true;
+  }
+
+  async function flushCurrentSettings() {
+    updateRawSettingsFromState();
+    await setStorageLocal(STORAGE_SETTINGS_KEY, state.rawSettings);
+  }
+
+  async function exportSettingsJson() {
+    try {
+      await flushCurrentSettings();
+      const localSnapshot = await getStorageAreaSnapshot("local");
+      const settingsLocal = {};
+      SETTINGS_STORAGE_KEYS.forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(localSnapshot, key)) return;
+        settingsLocal[key] = localSnapshot[key];
+      });
+      settingsLocal[UPDATE_BANNER_ENABLED_KEY] =
+        state.updateBannerEnabled !== false;
+      const settingsTab = window.localStorage.getItem(
+        SETTINGS_TAB_STORAGE_KEY,
+      );
+      const data = {
+        format: SETTINGS_EXPORT_FORMAT,
+        formatVersion: DATA_EXPORT_FORMAT_VERSION,
+        extensionVersion: getExtensionVersion(),
+        exportedAt: new Date().toISOString(),
+        storageLocal: settingsLocal,
+        popupLocalStorage: settingsTab
+          ? { [SETTINGS_TAB_STORAGE_KEY]: settingsTab }
+          : {},
+      };
+      downloadJsonFile(
+        data,
+        `badge-moa-chat-settings-${getExportTimestamp()}.json`,
+      );
+      setStatus("현재 설정을 JSON으로 내보냈습니다.", {
+        autoResetMs: 2200,
+      });
+    } catch (_error) {
+      setStatus("설정을 내보내지 못했습니다.", {
+        variant: "error",
+        autoResetMs: 2600,
+      });
+    }
+  }
+
+  async function importSettingsJson(file) {
+    try {
+      const data = await readJsonFile(file);
+      validateExportHeader(data, SETTINGS_EXPORT_FORMAT);
+      if (!isPlainObject(data.storageLocal)) {
+        throw new Error("설정 데이터가 없습니다.");
+      }
+      const importedSettings = {};
+      SETTINGS_STORAGE_KEYS.forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(data.storageLocal, key)) {
+          return;
+        }
+        importedSettings[key] = data.storageLocal[key];
+      });
+      if (!isPlainObject(importedSettings[STORAGE_SETTINGS_KEY])) {
+        throw new Error("모아보기 설정 데이터가 없습니다.");
+      }
+      const confirmed = await askGenericConfirm(
+        "설정 가져오기",
+        "현재 설정을 선택한 JSON 파일의 설정으로 교체합니다.",
+        { okLabel: "가져오기", cancelLabel: "취소", danger: false },
+      );
+      if (!confirmed) return;
+
+      const missingSettingKeys = SETTINGS_STORAGE_KEYS.filter(
+        (key) => !Object.prototype.hasOwnProperty.call(importedSettings, key),
+      );
+      await chrome.storage.local.set(importedSettings);
+      if (missingSettingKeys.length > 0) {
+        await chrome.storage.local.remove(missingSettingKeys);
+      }
+      restorePopupLocalStorage(data.popupLocalStorage);
+      applySettingsTab(loadSettingsTab());
+      state.rawSettings = normalizeRawSettings(
+        importedSettings[STORAGE_SETTINGS_KEY],
+      );
+      if (
+        Object.prototype.hasOwnProperty.call(
+          importedSettings,
+          UPDATE_BANNER_ENABLED_KEY,
+        )
+      ) {
+        state.updateBannerEnabled =
+          importedSettings[UPDATE_BANNER_ENABLED_KEY] !== false;
+      }
+      applyStateFromRawForScope(state.scopeKey);
+      render();
+      await persistAndApply();
+      setStatus("설정을 가져와 현재 탭에 적용했습니다.", {
+        autoResetMs: 2400,
+      });
+    } catch (error) {
+      setStatus(String((error && error.message) || "설정을 가져오지 못했습니다."), {
+        variant: "error",
+        autoResetMs: 3200,
+      });
+    }
+  }
+
+  async function exportFullBackupJson() {
+    try {
+      await flushCurrentSettings();
+      const [localSnapshot, sessionSnapshot] = await Promise.all([
+        getStorageAreaSnapshot("local"),
+        getStorageAreaSnapshot("session"),
+      ]);
+      const data = {
+        format: FULL_BACKUP_FORMAT,
+        formatVersion: DATA_EXPORT_FORMAT_VERSION,
+        extensionVersion: getExtensionVersion(),
+        exportedAt: new Date().toISOString(),
+        storage: {
+          local: localSnapshot,
+          session: sessionSnapshot,
+        },
+        popupLocalStorage: getPopupLocalStorageSnapshot(),
+      };
+      downloadJsonFile(
+        data,
+        `badge-moa-chat-backup-${getExportTimestamp()}.json`,
+      );
+      setStatus("설정과 사용자 데이터를 모두 백업했습니다.", {
+        autoResetMs: 2200,
+      });
+    } catch (_error) {
+      setStatus("전체 백업 파일을 만들지 못했습니다.", {
+        variant: "error",
+        autoResetMs: 2600,
+      });
+    }
+  }
+
+  async function importFullBackupJson(file) {
+    try {
+      const data = await readJsonFile(file);
+      validateExportHeader(data, FULL_BACKUP_FORMAT);
+      if (
+        !isPlainObject(data.storage) ||
+        !isPlainObject(data.storage.local) ||
+        !isPlainObject(data.storage.session)
+      ) {
+        throw new Error("전체 백업 데이터가 올바르지 않습니다.");
+      }
+      const confirmed = await askGenericConfirm(
+        "전체 사용자 데이터 복원",
+        "현재 설정, 모아보기 대상, 제외 목록, 세션 캐시를 백업 파일의 데이터로 모두 교체합니다.\n계속 진행하시겠습니까?",
+        { okLabel: "전체 복원", cancelLabel: "취소", danger: true },
+      );
+      if (!confirmed) return;
+
+      const [previousLocal, previousSession] = await Promise.all([
+        getStorageAreaSnapshot("local"),
+        getStorageAreaSnapshot("session"),
+      ]);
+      try {
+        await replaceStorageArea("session", data.storage.session);
+        await replaceStorageArea("local", data.storage.local);
+      } catch (_restoreError) {
+        try {
+          await replaceStorageArea("session", previousSession);
+          await replaceStorageArea("local", previousLocal);
+        } catch (_rollbackError) {}
+        throw new Error("복원에 실패하여 기존 데이터를 유지했습니다.");
+      }
+      restorePopupLocalStorage(data.popupLocalStorage, { replace: true });
+      setStatus("전체 사용자 데이터를 복원했습니다.");
+      window.setTimeout(() => window.location.reload(), 350);
+    } catch (error) {
+      setStatus(
+        String((error && error.message) || "전체 데이터를 복원하지 못했습니다."),
+        { variant: "error", autoResetMs: 3200 },
+      );
+    }
   }
 
   function setIdleStatus() {

@@ -64,6 +64,7 @@
 
     return (async () => {
       state.popupHeight = await loadPopupHeightFn();
+      state.popupHeightIntent = state.popupHeight;
       state.displayStyle = await loadPopupDisplayStyleFn();
       state.tabId = await loadRuntimeTabIdFn();
       state.resolvedChannelId = normalizeChannelIdFn(getChannelIdFromLocationPathFn());
@@ -407,7 +408,15 @@
       const nextHeightRaw =
         changes[storageHeightKey] && changes[storageHeightKey].newValue;
       const nextHeight = clampPopupHeightFn(nextHeightRaw);
-      if (state.popupHeight !== nextHeight) {
+      // 다른 탭에서 저장한 값은 새 의도 높이다. 원시값을 의도로 두고 표시만 클램프.
+      const nextIntent = Number.isFinite(Number(nextHeightRaw))
+        ? Number(nextHeightRaw)
+        : nextHeight;
+      if (
+        state.popupHeight !== nextHeight ||
+        state.popupHeightIntent !== nextIntent
+      ) {
+        state.popupHeightIntent = nextIntent;
         state.popupHeight = nextHeight;
         applyPopupHeightFn();
       }

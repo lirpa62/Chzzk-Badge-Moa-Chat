@@ -384,6 +384,60 @@
     );
   }
 
+  // 특정 스코프(channel/global)의 모아보기 제외 목록에서 이 닉네임이 제외되어
+  // 있는지.
+  function isExcludedCollectNicknameInScope(state, nickname, scope, deps = {}) {
+    const normalizeNicknameFn =
+      typeof deps.normalizeNickname === "function"
+        ? deps.normalizeNickname
+        : (value) => String(value || "").trim();
+    const normalized = normalizeNicknameFn(nickname);
+    if (!normalized) return false;
+    const set =
+      scope === "global"
+        ? state?.settings?.excludedCollectGlobalNicknames
+        : state?.settings?.excludedCollectScopedNicknames;
+    return set instanceof Set && set.has(normalized);
+  }
+
+  // 모아보기 제외를 스코프별로 켜고/끈다(순수 상태 변경). 유효 목록
+  // (excludedCollectNicknames = 현재 채널 ∪ 모든 채널)을 다시 만든다. 저장/렌더/삭제는
+  // 호출부(main)가 담당한다. 실제 변경 시 true.
+  function setExcludedCollect(state, nickname, scope, excluded, deps = {}) {
+    const normalizeNicknameFn =
+      typeof deps.normalizeNickname === "function"
+        ? deps.normalizeNickname
+        : (value) => String(value || "").trim();
+
+    const normalized = normalizeNicknameFn(nickname);
+    if (!normalized || !state || !state.settings) return false;
+
+    // 스코프 세트가 아직 없으면 만들어 둔다(방어).
+    if (!(state.settings.excludedCollectScopedNicknames instanceof Set)) {
+      state.settings.excludedCollectScopedNicknames = new Set();
+    }
+    if (!(state.settings.excludedCollectGlobalNicknames instanceof Set)) {
+      state.settings.excludedCollectGlobalNicknames = new Set();
+    }
+    const targetSet =
+      scope === "global"
+        ? state.settings.excludedCollectGlobalNicknames
+        : state.settings.excludedCollectScopedNicknames;
+
+    const alreadyExcluded = targetSet.has(normalized);
+    if (excluded && alreadyExcluded) return false;
+    if (!excluded && !alreadyExcluded) return false;
+    if (excluded) targetSet.add(normalized);
+    else targetSet.delete(normalized);
+
+    // 유효 제외 목록(현재 채널 ∪ 모든 채널) 재구성.
+    state.settings.excludedCollectNicknames = new Set([
+      ...(state.settings.excludedCollectScopedNicknames || []),
+      ...(state.settings.excludedCollectGlobalNicknames || []),
+    ]);
+    return true;
+  }
+
   ns.trackedApi = {
     getPillNicknameSettingItems,
     extractSettingsRoleBadges,
@@ -397,5 +451,7 @@
     createTrackedTargetChip,
     createSettingToggleRow,
     isExcludedCollectNickname,
+    isExcludedCollectNicknameInScope,
+    setExcludedCollect,
   };
 })();

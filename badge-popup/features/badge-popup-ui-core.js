@@ -39,6 +39,12 @@
         : () => {};
     const onPillClick =
       typeof deps.onPillClick === "function" ? deps.onPillClick : () => {};
+    const openMoaWindow =
+      typeof deps.openMoaWindow === "function" ? deps.openMoaWindow : () => {};
+    const isMoaWindowContext =
+      typeof deps.isMoaWindowContext === "function"
+        ? deps.isMoaWindowContext
+        : () => false;
     const closePopup =
       typeof deps.closePopup === "function" ? deps.closePopup : () => {};
     const setDisplayStyle =
@@ -69,6 +75,14 @@
     const scheduleChatHighlightScan =
       typeof deps.scheduleChatHighlightScan === "function"
         ? deps.scheduleChatHighlightScan
+        : () => {};
+    const adjustPopupFontScale =
+      typeof deps.adjustPopupFontScale === "function"
+        ? deps.adjustPopupFontScale
+        : () => {};
+    const syncPopupFontScaleControl =
+      typeof deps.syncPopupFontScaleControl === "function"
+        ? deps.syncPopupFontScaleControl
         : () => {};
 
     const header = findLiveChatHeader();
@@ -151,6 +165,27 @@
     blockButton.dataset.mode = "block";
     setViewModeButtonContent(blockButton, "block");
 
+    const popupFontScaleWrap = document.createElement("div");
+    popupFontScaleWrap.className = "chzzk-badge-moa-popup-font-scale";
+    popupFontScaleWrap.hidden = !(
+      isMoaWindowContext() ||
+      state.settings?.showPopupFontScaleControl === true
+    );
+    popupFontScaleWrap.setAttribute("role", "group");
+    popupFontScaleWrap.setAttribute("aria-label", "모아보기 글자 크기");
+
+    const popupFontScaleDecrease = createPopupFontScaleButton("decrease");
+    const popupFontScaleText = document.createElement("span");
+    popupFontScaleText.className = "chzzk-badge-moa-popup-font-scale-text";
+    popupFontScaleText.setAttribute("aria-live", "polite");
+    popupFontScaleText.textContent = "100%";
+    const popupFontScaleIncrease = createPopupFontScaleButton("increase");
+    popupFontScaleWrap.append(
+      popupFontScaleDecrease,
+      popupFontScaleText,
+      popupFontScaleIncrease,
+    );
+
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "chzzk-badge-moa-popup-close";
@@ -166,6 +201,17 @@
     setPopupActionButtonContent(pinButton, "pin");
     pinButton.setAttribute("aria-pressed", "false");
 
+    // 별도 창으로 분리 버튼: 라이브에서만, 이미 분리된 모아보기 창에서는 숨긴다.
+    const detachButton = document.createElement("button");
+    detachButton.type = "button";
+    detachButton.className = "chzzk-badge-moa-popup-detach";
+    detachButton.setAttribute("aria-label", "모아보기 별도 창으로 열기");
+    detachButton.title = "별도 창으로 열기";
+    setPopupActionButtonContent(detachButton, "detach");
+    if (isVodHeader || isMoaWindowContext()) {
+      detachButton.style.display = "none";
+    }
+
     const filterToggleButton = document.createElement("button");
     filterToggleButton.type = "button";
     filterToggleButton.className = "chzzk-badge-moa-popup-filter-toggle";
@@ -173,7 +219,12 @@
     filterToggleButton.textContent = "필터 펴기";
 
     viewModeWrap.append(inlineButton, blockButton);
-    actionWrap.append(pinButton, closeButton);
+    actionWrap.append(
+      popupFontScaleWrap,
+      detachButton,
+      pinButton,
+      closeButton,
+    );
     subActionWrap.append(viewModeWrap, filterToggleButton);
     headTop.append(title, actionWrap);
     headBottom.append(subActionWrap);
@@ -200,7 +251,7 @@
     const confirmBackdrop = document.createElement("button");
     confirmBackdrop.type = "button";
     confirmBackdrop.className = "chzzk-badge-moa-confirm-backdrop";
-    confirmBackdrop.setAttribute("aria-label", "삭제 확인 모달 닫기");
+    confirmBackdrop.setAttribute("aria-label", "확인창 닫기");
 
     const confirmDialog = document.createElement("div");
     confirmDialog.className = "chzzk-badge-moa-confirm-dialog";
@@ -227,17 +278,31 @@
     confirmCancelButton.className = "chzzk-badge-moa-confirm-btn";
     confirmCancelButton.textContent = "취소";
 
+    const confirmSecondaryButton = document.createElement("button");
+    confirmSecondaryButton.type = "button";
+    confirmSecondaryButton.className =
+      "chzzk-badge-moa-confirm-btn is-secondary";
+    confirmSecondaryButton.textContent = "제외";
+    confirmSecondaryButton.hidden = true;
+
     const confirmDeleteButton = document.createElement("button");
     confirmDeleteButton.type = "button";
     confirmDeleteButton.className = "chzzk-badge-moa-confirm-btn is-danger";
     confirmDeleteButton.textContent = "삭제";
 
-    confirmActions.append(confirmCancelButton, confirmDeleteButton);
+    confirmActions.append(
+      confirmCancelButton,
+      confirmSecondaryButton,
+      confirmDeleteButton,
+    );
     confirmDialog.append(confirmTitle, confirmMessage, confirmActions);
     confirmModal.append(confirmBackdrop, confirmDialog);
 
     popup.append(popupHead, filterBar, list, empty, resizer);
-    root.append(pill, popup, confirmModal);
+    root.append(pill, popup);
+    // 확인창은 body 직속 프로필 카드보다 항상 위에 보여야 한다. 헤더 내부 root에
+    // 넣으면 root의 stacking context(z-index: 200)에 갇혀 프로필 카드 뒤로 숨는다.
+    document.body.appendChild(confirmModal);
 
     if (
       header instanceof HTMLElement &&
@@ -269,6 +334,14 @@
       event.stopPropagation();
       setDisplayStyle("block");
     });
+    popupFontScaleDecrease.addEventListener("click", (event) => {
+      event.stopPropagation();
+      adjustPopupFontScale(-1);
+    });
+    popupFontScaleIncrease.addEventListener("click", (event) => {
+      event.stopPropagation();
+      adjustPopupFontScale(1);
+    });
     filterToggleButton.addEventListener("click", (event) => {
       event.stopPropagation();
       state.filterBarCollapsed = !state.filterBarCollapsed;
@@ -279,6 +352,10 @@
       state.popupPinned = !state.popupPinned;
       updatePopupPinStateUi();
     });
+    detachButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMoaWindow();
+    });
     resizer.addEventListener("mousedown", onResizeStart);
     confirmBackdrop.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -287,6 +364,10 @@
     confirmCancelButton.addEventListener("click", (event) => {
       event.stopPropagation();
       resolveConfirmDialog(false);
+    });
+    confirmSecondaryButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      resolveConfirmDialog("secondary");
     });
     confirmDeleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -308,7 +389,12 @@
       empty,
       inlineButton,
       blockButton,
+      popupFontScaleWrap,
+      popupFontScaleDecrease,
+      popupFontScaleText,
+      popupFontScaleIncrease,
       pinButton,
+      detachButton,
       closeButton,
       resizer,
       confirmModal,
@@ -316,12 +402,14 @@
       confirmTitle,
       confirmMessage,
       confirmCancelButton,
+      confirmSecondaryButton,
       confirmDeleteButton,
     };
 
     applyPopupHeight();
     syncPillPositionForHeader();
     updateViewModeButtons();
+    syncPopupFontScaleControl();
     updatePopupPinStateUi();
     applySettingsClasses();
     render();
@@ -557,6 +645,9 @@
     if (state.ui.root && state.ui.root.parentNode) {
       state.ui.root.parentNode.removeChild(state.ui.root);
     }
+    if (state.ui.confirmModal && state.ui.confirmModal.parentNode) {
+      state.ui.confirmModal.parentNode.removeChild(state.ui.confirmModal);
+    }
     // 이전 UI(팝업/필)를 제거했으므로 열림 상태도 초기화한다. 초기화하지 않으면
     // (예: 항상 펼침으로 열린 채 SPA 이동으로 헤더가 교체돼 UI가 재생성될 때)
     // state.isOpen 이 true 로 남아, 새로 만든 팝업의 자동 펼침(render)과 필 클릭이
@@ -586,6 +677,10 @@
       empty: null,
       inlineButton: null,
       blockButton: null,
+      popupFontScaleWrap: null,
+      popupFontScaleDecrease: null,
+      popupFontScaleText: null,
+      popupFontScaleIncrease: null,
       pinButton: null,
       closeButton: null,
       resizer: null,
@@ -594,6 +689,7 @@
       confirmTitle: null,
       confirmMessage: null,
       confirmCancelButton: null,
+      confirmSecondaryButton: null,
       confirmDeleteButton: null,
       livePillResizeObserver: null,
     };
@@ -625,6 +721,16 @@
       path2.setAttribute("stroke-linecap", "round");
       path2.setAttribute("stroke-linejoin", "round");
       svg.append(path1, path2);
+    } else if (type === "detach") {
+      // 새 창으로 분리(외부 링크) 아이콘: 상자 + 오른쪽 위 화살표.
+      const box = document.createElementNS(svgNs, "path");
+      box.setAttribute(
+        "d",
+        "M14 4h6v6M20 4l-8 8M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+      );
+      box.setAttribute("stroke-linecap", "round");
+      box.setAttribute("stroke-linejoin", "round");
+      svg.append(box);
     } else {
       svg.setAttribute("viewBox", "0 0 19 20");
       svg.removeAttribute("stroke");
@@ -657,6 +763,46 @@
     }
 
     button.appendChild(svg);
+  }
+
+  function createPopupFontScaleButton(direction) {
+    const isDecrease = direction === "decrease";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chzzk-badge-moa-popup-font-scale-button";
+    button.setAttribute(
+      "aria-label",
+      isDecrease ? "모아보기 글자 크기 줄이기" : "모아보기 글자 크기 늘리기",
+    );
+    button.title = isDecrease ? "글자 크기 줄이기" : "글자 크기 늘리기";
+
+    const svgNs = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNs, "svg");
+    svg.setAttribute("viewBox", "0 0 14 14");
+    svg.setAttribute("width", "14");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+
+    const path = document.createElementNS(svgNs, "path");
+    path.setAttribute("fill", "currentColor");
+    if (isDecrease) {
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute(
+        "d",
+        "M1.196 7c0-.419.34-.758.758-.758h10.092a.758.758 0 0 1 0 1.516H1.954A.758.758 0 0 1 1.196 7Z",
+      );
+    } else {
+      path.setAttribute(
+        "d",
+        "M7.759 1.954a.758.758 0 1 0-1.517 0v4.288H1.954a.758.758 0 0 0 0 1.516h4.288v4.288a.758.758 0 0 0 1.517 0V7.758h4.287a.758.758 0 1 0 0-1.516H7.759V1.954Z",
+      );
+    }
+    svg.appendChild(path);
+    button.appendChild(svg);
+    return button;
   }
 
   function setViewModeButtonContent(button, mode) {
