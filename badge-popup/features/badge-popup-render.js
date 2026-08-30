@@ -433,6 +433,9 @@
 
     updateViewModeButtonsFn();
     const showPopupTime = state.settings?.hidePopupTime !== true;
+    const popupTimestampFormat = normalizeTimestampFormat(
+      state.settings?.popupTimestampFormat,
+    );
 
     const preserveBottom = scrollToBottom === "preserve-bottom";
     const stickToBottom = preserveBottom || isNearBottomFn(list);
@@ -494,7 +497,12 @@
     const fragment = document.createDocumentFragment();
     let lastDateKey = "";
 
-    for (const entry of visibleEntries) {
+    for (
+      let entryIndex = 0;
+      entryIndex < visibleEntries.length;
+      entryIndex += 1
+    ) {
+      const entry = visibleEntries[entryIndex];
       const dateKey = getDateKeyFn(entry.timestamp);
       if (dateKey && dateKey !== lastDateKey) {
         fragment.appendChild(createDateDividerFn(entry.timestamp));
@@ -503,6 +511,12 @@
 
       const item = document.createElement("article");
       item.className = "chzzk-badge-moa-item";
+      const captureApi = window.__chzzkBadgeMoa?.captureApi;
+      const captureKey =
+        captureApi && typeof captureApi.getEntryCaptureKey === "function"
+          ? captureApi.getEntryCaptureKey(entry, entryIndex)
+          : `fallback:${entryIndex}`;
+      item.dataset.chzzkBadgeMoaCaptureKey = captureKey;
       if (Number.isFinite(entry.sequence)) {
         item.dataset.seq = String(entry.sequence);
       }
@@ -647,7 +661,10 @@
       if (showPopupTime) {
         const time = document.createElement("time");
         time.className = "chzzk-badge-moa-item-time";
-        time.textContent = formatTimeFn(entry.timestamp);
+        time.textContent = formatTimeFn(
+          entry.timestamp,
+          popupTimestampFormat,
+        );
 
         if (state.displayStyle === "inline") {
           headMain.append(time, user);
@@ -1582,16 +1599,24 @@
     return wrap;
   }
 
-  function formatTime(timestamp) {
-    try {
-      return new Date(timestamp).toLocaleTimeString("ko-KR", {
-        hour12: false,
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (_error) {
-      return "--:--";
+  function normalizeTimestampFormat(value) {
+    return value === "12h-en" || value === "12h-ko" ? value : "24h";
+  }
+
+  function formatTime(timestamp, format = "24h") {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return "--:--";
+    const normalizedFormat = normalizeTimestampFormat(format);
+    const hour24 = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    if (normalizedFormat === "24h") {
+      return `${String(hour24).padStart(2, "0")}:${minutes}`;
     }
+    const hour12 = hour24 % 12 || 12;
+    if (normalizedFormat === "12h-ko") {
+      return `${hour24 < 12 ? "오전" : "오후"} ${hour12}:${minutes}`;
+    }
+    return `${hour24 < 12 ? "AM" : "PM"} ${hour12}:${minutes}`;
   }
 
   function getDateKey(timestamp) {

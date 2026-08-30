@@ -2,12 +2,13 @@
   "manifest_version": 3,
   "name": "배지 모아 챗 - 치지직 배지 채팅 모아보기",
   "description": "치지직 스트리머, 매니저, 파트너 등의 배지 채팅을 놓치지 않게 한눈에 모아서 보여주는 도구입니다.",
-  "version": "1.2.11",
+  "version": "1.3.0",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "https://chzzk.naver.com/*",
     "https://api.chzzk.naver.com/*",
-    "https://comm-api.game.naver.com/*"
+    "https://comm-api.game.naver.com/*",
+    "https://*.pstatic.net/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -35,6 +36,7 @@
       "matches": ["https://chzzk.naver.com/*"],
       "exclude_matches": ["https://chzzk.naver.com/live/*/chat*"],
       "js": [
+        "vendor/html-to-image.js",
         "badge-popup/core/badge-popup-fonts.js",
         "badge-popup/core/badge-popup-constants.js",
         "badge-popup/core/badge-popup-state.js",
@@ -51,6 +53,7 @@
         "badge-popup/features/badge-popup-tracked.js",
         "badge-popup/features/badge-popup-observer.js",
         "badge-popup/features/badge-popup-entry.js",
+        "badge-popup/features/badge-popup-capture.js",
         "badge-popup/features/badge-popup-ui-core.js",
         "badge-popup/features/badge-popup-profile-card.js",
         "badge-popup/features/badge-popup-render.js",
@@ -64,6 +67,7 @@
     {
       "matches": ["https://chzzk.naver.com/live/*/chat*"],
       "js": [
+        "vendor/html-to-image.js",
         "badge-popup/core/badge-popup-fonts.js",
         "badge-popup/core/badge-popup-constants.js",
         "badge-popup/core/badge-popup-state.js",
@@ -80,6 +84,7 @@
         "badge-popup/features/badge-popup-tracked.js",
         "badge-popup/features/badge-popup-observer.js",
         "badge-popup/features/badge-popup-entry.js",
+        "badge-popup/features/badge-popup-capture.js",
         "badge-popup/features/badge-popup-ui-core.js",
         "badge-popup/features/badge-popup-profile-card.js",
         "badge-popup/features/badge-popup-render.js",

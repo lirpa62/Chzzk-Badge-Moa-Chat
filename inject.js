@@ -22,6 +22,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // 가려진 채팅 표시 / 채팅 시간 표시 토글 상태(원문은 MAIN world 메모리에만).
   let restoreBlindedChat = false;
   let showChatTimestamp = false;
+  let chatTimestampFormat = "24h";
+  let chatTimestampColorMode = "default";
   let captureOriginalSpecialChats = false;
   const trackedNicknameTargets = new Set();
   const PROFILE_CACHE_MAX = 600;
@@ -122,6 +124,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
   // 재복원/원복이 동작하지 않는다.
   const CHAT_ROW_SELECTOR =
     "[class*='live_chatting_list_item'], [class*='vod_chatting_item'], [class*='_item_']";
+  const CHAT_DECORATION_NODE_SELECTOR =
+    ".chzzk-badge-moa-chat-time, .cheese-chat-time, .cheese-chat-os";
   let chatRowObserver = null;
   let chatRowObserverRetryTimer = null;
   let chatObserverHealthTimer = null;
@@ -183,6 +187,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       (restoreBlindedChat || showChatTimestamp) &&
       row.querySelector("[class*='_chatting_message_']")
     ) {
+      return true;
+    }
+    if (showChatTimestamp && getOriginalSpecialChatKind(row) !== "") {
       return true;
     }
     return (
@@ -645,20 +652,129 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     return "";
   }
 
-  // 닉네임 앞에 회색 HH:MM 시간 span을 삽입.
-  function applyTimestamp(row, epochMs) {
-    if (row.querySelector(":scope .chzzk-badge-moa-chat-time")) return;
-    const nicknameBtn =
+  function normalizeChatTimestampFormat(value) {
+    return value === "12h-en" || value === "12h-ko" ? value : "24h";
+  }
+
+  function normalizeChatTimestampColorMode(value) {
+    return value === "contrast" ? "contrast" : "default";
+  }
+
+  function formatChatTimestamp(epochMs) {
+    const date = new Date(epochMs);
+    const hour24 = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    if (chatTimestampFormat === "24h") {
+      return `${String(hour24).padStart(2, "0")}:${minutes}`;
+    }
+    const hour12 = hour24 % 12 || 12;
+    if (chatTimestampFormat === "12h-ko") {
+      return `${hour24 < 12 ? "오전" : "오후"} ${hour12}:${minutes}`;
+    }
+    return `${hour24 < 12 ? "AM" : "PM"} ${hour12}:${minutes}`;
+  }
+
+  function findTimestampNickname(row) {
+    if (!(row instanceof HTMLElement)) return null;
+    return (
       row.querySelector("button[class*='_nickname_']") ||
-      row.querySelector("[class*='_nickname_']");
-    if (!nicknameBtn || !nicknameBtn.parentNode) return;
-    const d = new Date(epochMs);
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
+      row.querySelector("[class*='_nickname_']")
+    );
+  }
+
+  function placeTimestamp(row, span, specialKind) {
+    if (!(span instanceof HTMLElement)) return false;
+    const nickname = findTimestampNickname(row);
+    if (!(nickname instanceof HTMLElement)) return false;
+
+    if (specialKind) {
+      const identity = nickname.closest(
+        ":is([class*='_is_donation_'], [class*='_is_subscription_'], " +
+          "[class*='_is_mission_'], [class*='_container_o04z9_'], " +
+          "[class*='_container_zw6kq_'])",
+      );
+      if (identity instanceof HTMLElement) {
+        const badgeWrapper = Array.from(identity.children).find((child) =>
+          String(child.className || "").includes("_wrapper_"),
+        );
+        const anchor = badgeWrapper || identity.firstElementChild;
+        if (
+          anchor !== span &&
+          (span.parentElement !== identity ||
+            !(span.compareDocumentPosition(anchor) &
+              Node.DOCUMENT_POSITION_FOLLOWING))
+        ) {
+          identity.insertBefore(span, anchor || null);
+        }
+        return true;
+      }
+    }
+
+    if (nickname.parentNode) {
+      if (
+        span.parentNode !== nickname.parentNode ||
+        !(span.compareDocumentPosition(nickname) &
+          Node.DOCUMENT_POSITION_FOLLOWING)
+      ) {
+        nickname.parentNode.insertBefore(span, nickname);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // 닉네임 앞에 설정한 형식의 시간 span을 삽입.
+  function applyTimestamp(row, epochMs) {
+    const specialKind = getOriginalSpecialChatKind(row);
+    const existing = row.querySelector(":scope .chzzk-badge-moa-chat-time");
+    if (existing) {
+      existing.classList.toggle(
+        "chzzk-badge-moa-chat-time-special",
+        specialKind !== "",
+      );
+      if (specialKind) {
+        existing.dataset.chatKind = specialKind;
+      } else {
+        delete existing.dataset.chatKind;
+      }
+      placeTimestamp(row, existing, specialKind);
+      return;
+    }
     const span = document.createElement("span");
     span.className = "chzzk-badge-moa-chat-time";
-    span.textContent = `${hh}:${mm}`;
-    nicknameBtn.parentNode.insertBefore(span, nicknameBtn);
+    span.dataset.chatEpochMs = String(epochMs);
+    span.textContent = formatChatTimestamp(epochMs);
+    if (specialKind) {
+      span.classList.add("chzzk-badge-moa-chat-time-special");
+      span.dataset.chatKind = specialKind;
+    }
+    placeTimestamp(row, span, specialKind);
+  }
+
+  function refreshAllTimestamps() {
+    let needsSweep = false;
+    document.querySelectorAll(".chzzk-badge-moa-chat-time").forEach((span) => {
+      const epochMs = Number(span.dataset.chatEpochMs);
+      if (Number.isFinite(epochMs) && epochMs > 0) {
+        span.textContent = formatChatTimestamp(epochMs);
+        const row = span.closest(CHAT_ROW_SELECTOR);
+        const specialKind = getOriginalSpecialChatKind(row);
+        span.classList.toggle(
+          "chzzk-badge-moa-chat-time-special",
+          specialKind !== "",
+        );
+        if (specialKind) {
+          span.dataset.chatKind = specialKind;
+        } else {
+          delete span.dataset.chatKind;
+        }
+        placeTimestamp(row, span, specialKind);
+        return;
+      }
+      span.remove();
+      needsSweep = true;
+    });
+    if (needsSweep && showChatTimestamp) sweepExistingRows();
   }
 
   function removeAllTimestamps() {
@@ -899,6 +1015,27 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     );
   }
 
+  function isChatDecorationNode(node) {
+    const element =
+      node instanceof Element ? node : node?.parentElement || null;
+    return Boolean(
+      element?.matches?.(CHAT_DECORATION_NODE_SELECTOR) ||
+        element?.closest?.(CHAT_DECORATION_NODE_SELECTOR),
+    );
+  }
+
+  function isChatDecorationOnlyMutation(mutation) {
+    if (isChatDecorationNode(mutation.target)) return true;
+    const changedNodes = [
+      ...mutation.addedNodes,
+      ...mutation.removedNodes,
+    ];
+    return (
+      changedNodes.length > 0 &&
+      changedNodes.every((node) => isChatDecorationNode(node))
+    );
+  }
+
   function sweepExistingRows() {
     findChatListContainers().forEach((container) => {
       container
@@ -923,6 +1060,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       if (blindRestoreWriting) return;
       for (const mutation of mutations) {
         if (mutation.type !== "childList") continue;
+        // 시간과 작성 기기 아이콘은 다른 확장도 같은 닉네임 영역에 삽입할 수 있다.
+        // 장식 노드만 이동한 변이를 다시 처리하면 서로 닉네임 바로 앞을 차지하려 하며
+        // DOM 재배치 루프가 생기므로 채팅 행 자체의 변경으로 취급하지 않는다.
+        if (isChatDecorationOnlyMutation(mutation)) continue;
         if (mutation.target instanceof Element) {
           reapplyRestoreForTarget(mutation.target);
           const targetRow = mutation.target.closest(CHAT_ROW_SELECTOR);
@@ -1650,16 +1791,26 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (messageType === INJECT_CHAT_TIMESTAMP_TOGGLE_TYPE) {
       markChatFeatureSettingReceived(messageType);
       const next = payload.enabled === true;
-      if (next === showChatTimestamp) return;
+      const nextFormat = normalizeChatTimestampFormat(payload.format);
+      const nextColorMode = normalizeChatTimestampColorMode(payload.colorMode);
+      const enabledChanged = next !== showChatTimestamp;
+      const formatChanged = nextFormat !== chatTimestampFormat;
       showChatTimestamp = next;
+      chatTimestampFormat = nextFormat;
+      chatTimestampColorMode = nextColorMode;
       document.documentElement.classList.toggle(
         "chzzk-badge-moa-chat-timestamp-enabled",
         showChatTimestamp,
       );
+      document.documentElement.classList.toggle(
+        "chzzk-badge-moa-chat-time-contrast",
+        chatTimestampColorMode === "contrast",
+      );
       if (showChatTimestamp) {
         ensureChatRowObserver();
-        sweepExistingRows();
-      } else {
+        if (formatChanged) refreshAllTimestamps();
+        if (enabledChanged || formatChanged) sweepExistingRows();
+      } else if (enabledChanged) {
         removeAllTimestamps();
         disconnectChatRowObserverIfIdle();
       }

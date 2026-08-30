@@ -84,6 +84,40 @@
       typeof deps.syncPopupFontScaleControl === "function"
         ? deps.syncPopupFontScaleControl
         : () => {};
+    const toggleCaptureSelectionMode =
+      typeof deps.toggleCaptureSelectionMode === "function"
+        ? deps.toggleCaptureSelectionMode
+        : () => {};
+    const captureSelectedChats =
+      typeof deps.captureSelectedChats === "function"
+        ? deps.captureSelectedChats
+        : () => {};
+    const toggleAllCaptureItems =
+      typeof deps.toggleAllCaptureItems === "function"
+        ? deps.toggleAllCaptureItems
+        : () => false;
+    const handleCaptureListClick =
+      typeof deps.handleCaptureListClick === "function"
+        ? deps.handleCaptureListClick
+        : () => false;
+    const handleCaptureListKeydown =
+      typeof deps.handleCaptureListKeydown === "function"
+        ? deps.handleCaptureListKeydown
+        : () => false;
+    const handleCapturePointerDown =
+      typeof deps.handleCapturePointerDown === "function"
+        ? deps.handleCapturePointerDown
+        : () => false;
+    const handleCapturePointerMove =
+      typeof deps.handleCapturePointerMove === "function"
+        ? deps.handleCapturePointerMove
+        : () => false;
+    const handleCapturePointerEnd =
+      typeof deps.handleCapturePointerEnd === "function"
+        ? deps.handleCapturePointerEnd
+        : () => false;
+    const syncCaptureUi =
+      typeof deps.syncCaptureUi === "function" ? deps.syncCaptureUi : () => {};
 
     const header = findLiveChatHeader();
     if (!header) {
@@ -186,6 +220,48 @@
       popupFontScaleIncrease,
     );
 
+    const captureSelectButton = document.createElement("button");
+    captureSelectButton.type = "button";
+    captureSelectButton.className = "chzzk-badge-moa-popup-capture-select";
+    captureSelectButton.setAttribute("aria-label", "캡처할 채팅 선택");
+    captureSelectButton.setAttribute("aria-pressed", "false");
+    captureSelectButton.title = "캡처할 채팅 선택";
+    setPopupActionButtonContent(captureSelectButton, "capture-select");
+
+    const captureDownloadButton = document.createElement("button");
+    captureDownloadButton.type = "button";
+    captureDownloadButton.className =
+      "chzzk-badge-moa-popup-capture-download";
+    captureDownloadButton.setAttribute(
+      "aria-label",
+      "선택한 채팅 PNG로 저장",
+    );
+    captureDownloadButton.title = "선택한 채팅 PNG로 저장";
+    captureDownloadButton.hidden = true;
+    captureDownloadButton.disabled = true;
+    setPopupActionButtonContent(captureDownloadButton, "capture-download");
+
+    const captureToggleAllButton = document.createElement("button");
+    captureToggleAllButton.type = "button";
+    captureToggleAllButton.className =
+      "chzzk-badge-moa-popup-capture-toggle-all";
+    captureToggleAllButton.hidden = true;
+    captureToggleAllButton.setAttribute("aria-pressed", "false");
+    captureToggleAllButton.setAttribute("aria-label", "전체 선택");
+    captureToggleAllButton.title = "전체 선택";
+    const captureToggleAllBox = document.createElement("span");
+    captureToggleAllBox.className =
+      "chzzk-badge-moa-popup-capture-toggle-all-box";
+    captureToggleAllBox.setAttribute("aria-hidden", "true");
+    const captureToggleAllText = document.createElement("span");
+    captureToggleAllText.className =
+      "chzzk-badge-moa-popup-capture-toggle-all-text";
+    captureToggleAllText.textContent = "전체 선택";
+    captureToggleAllButton.append(
+      captureToggleAllBox,
+      captureToggleAllText,
+    );
+
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "chzzk-badge-moa-popup-close";
@@ -221,17 +297,38 @@
     viewModeWrap.append(inlineButton, blockButton);
     actionWrap.append(
       popupFontScaleWrap,
+      captureSelectButton,
+      captureDownloadButton,
       detachButton,
       pinButton,
       closeButton,
     );
     subActionWrap.append(viewModeWrap, filterToggleButton);
     headTop.append(title, actionWrap);
-    headBottom.append(subActionWrap);
+    headBottom.append(captureToggleAllButton, subActionWrap);
     popupHead.append(headTop, headBottom);
 
     const list = document.createElement("div");
     list.className = "chzzk-badge-moa-popup-list";
+
+    const captureProgressOverlay = document.createElement("div");
+    captureProgressOverlay.className =
+      "chzzk-badge-moa-popup-capture-progress";
+    captureProgressOverlay.hidden = true;
+    captureProgressOverlay.setAttribute("role", "status");
+    captureProgressOverlay.setAttribute("aria-live", "polite");
+    const captureProgressSpinner = document.createElement("span");
+    captureProgressSpinner.className =
+      "chzzk-badge-moa-popup-capture-progress-spinner";
+    captureProgressSpinner.setAttribute("aria-hidden", "true");
+    const captureProgressText = document.createElement("span");
+    captureProgressText.className =
+      "chzzk-badge-moa-popup-capture-progress-text";
+    captureProgressText.textContent = "이미지 준비 중";
+    captureProgressOverlay.append(
+      captureProgressSpinner,
+      captureProgressText,
+    );
 
     const filterBar = document.createElement("div");
     filterBar.className = "chzzk-badge-moa-popup-filters";
@@ -298,7 +395,14 @@
     confirmDialog.append(confirmTitle, confirmMessage, confirmActions);
     confirmModal.append(confirmBackdrop, confirmDialog);
 
-    popup.append(popupHead, filterBar, list, empty, resizer);
+    popup.append(
+      popupHead,
+      filterBar,
+      list,
+      empty,
+      captureProgressOverlay,
+      resizer,
+    );
     root.append(pill, popup);
     // 확인창은 body 직속 프로필 카드보다 항상 위에 보여야 한다. 헤더 내부 root에
     // 넣으면 root의 stacking context(z-index: 200)에 갇혀 프로필 카드 뒤로 숨는다.
@@ -322,6 +426,36 @@
       state.filterBarCollapsed = true;
       renderList(false);
     });
+    list.addEventListener(
+      "click",
+      (event) => handleCaptureListClick(event),
+      true,
+    );
+    list.addEventListener(
+      "keydown",
+      (event) => handleCaptureListKeydown(event),
+      true,
+    );
+    list.addEventListener(
+      "pointerdown",
+      (event) => handleCapturePointerDown(event),
+      true,
+    );
+    list.addEventListener(
+      "pointermove",
+      (event) => handleCapturePointerMove(event),
+      true,
+    );
+    list.addEventListener(
+      "pointerup",
+      (event) => handleCapturePointerEnd(event),
+      true,
+    );
+    list.addEventListener(
+      "pointercancel",
+      (event) => handleCapturePointerEnd(event),
+      true,
+    );
     closeButton.addEventListener("click", (event) => {
       event.stopPropagation();
       closePopup();
@@ -341,6 +475,18 @@
     popupFontScaleIncrease.addEventListener("click", (event) => {
       event.stopPropagation();
       adjustPopupFontScale(1);
+    });
+    captureSelectButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleCaptureSelectionMode();
+    });
+    captureDownloadButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void captureSelectedChats();
+    });
+    captureToggleAllButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleAllCaptureItems();
     });
     filterToggleButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -393,6 +539,11 @@
       popupFontScaleDecrease,
       popupFontScaleText,
       popupFontScaleIncrease,
+      captureSelectButton,
+      captureDownloadButton,
+      captureToggleAllButton,
+      captureProgressOverlay,
+      captureProgressText,
       pinButton,
       detachButton,
       closeButton,
@@ -410,6 +561,7 @@
     syncPillPositionForHeader();
     updateViewModeButtons();
     syncPopupFontScaleControl();
+    syncCaptureUi();
     updatePopupPinStateUi();
     applySettingsClasses();
     render();
@@ -681,6 +833,11 @@
       popupFontScaleDecrease: null,
       popupFontScaleText: null,
       popupFontScaleIncrease: null,
+      captureSelectButton: null,
+      captureDownloadButton: null,
+      captureToggleAllButton: null,
+      captureProgressOverlay: null,
+      captureProgressText: null,
       pinButton: null,
       closeButton: null,
       resizer: null,
@@ -731,6 +888,24 @@
       box.setAttribute("stroke-linecap", "round");
       box.setAttribute("stroke-linejoin", "round");
       svg.append(box);
+    } else if (type === "capture-select") {
+      const box = document.createElementNS(svgNs, "rect");
+      box.setAttribute("x", "4");
+      box.setAttribute("y", "4");
+      box.setAttribute("width", "16");
+      box.setAttribute("height", "16");
+      box.setAttribute("rx", "3");
+      const check = document.createElementNS(svgNs, "path");
+      check.setAttribute("d", "m8 12 2.5 2.5L16 9");
+      check.setAttribute("stroke-linecap", "round");
+      check.setAttribute("stroke-linejoin", "round");
+      svg.append(box, check);
+    } else if (type === "capture-download") {
+      const arrow = document.createElementNS(svgNs, "path");
+      arrow.setAttribute("d", "M12 4v11m0 0 4-4m-4 4-4-4M5 20h14");
+      arrow.setAttribute("stroke-linecap", "round");
+      arrow.setAttribute("stroke-linejoin", "round");
+      svg.append(arrow);
     } else {
       svg.setAttribute("viewBox", "0 0 19 20");
       svg.removeAttribute("stroke");

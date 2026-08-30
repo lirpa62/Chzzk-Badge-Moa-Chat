@@ -387,7 +387,7 @@ body {
 /* 헤더 아래 상위 설정 분류 세그먼트 컨트롤 */
 .settings-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 0.9fr 1.35fr 0.7fr 1fr;
   gap: 3px;
   margin: 0 0 10px;
   padding: 3px;
@@ -469,7 +469,7 @@ body {
   position: absolute;
   z-index: 30;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
   width: min(238px, calc(200% + 8px));
   box-sizing: border-box;
   border: 1px solid var(--section-border);
@@ -617,6 +617,13 @@ body {
   outline: none;
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 2px var(--input-focus-shadow);
+}
+
+.custom-select.is-disabled .custom-select-trigger {
+  opacity: 0.5;
+  cursor: default;
+  border-color: var(--input-border);
+  box-shadow: none;
 }
 
 .custom-select-value {
@@ -785,6 +792,11 @@ body {
 .field-grid-2col .field-row .custom-select {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.chat-timestamp-options,
+.popup-timestamp-options {
+  margin-top: 8px;
 }
 
 .toggle-grid-2col .toggle-row {

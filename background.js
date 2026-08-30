@@ -15,7 +15,57 @@ const ORIGINAL_HTML_KINDS = new Set([
   "mission",
   "purchase",
 ]);
+const CAPTURE_IMAGE_FETCH_TYPE = "chzzk_badge_moa_capture_image_fetch";
+const CAPTURE_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 let originalHtmlSessionReadyPromise = null;
+
+function normalizeCaptureImageUrl(rawUrl) {
+  try {
+    const url = new URL(String(rawUrl || ""));
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== "https:") return "";
+    if (hostname !== "pstatic.net" && !hostname.endsWith(".pstatic.net")) {
+      return "";
+    }
+    return url.href;
+  } catch (_error) {
+    return "";
+  }
+}
+
+function captureImageBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function fetchCaptureImageAsDataUrl(rawUrl) {
+  const url = normalizeCaptureImageUrl(rawUrl);
+  if (!url) throw new Error("capture image host is not allowed");
+  const response = await fetch(url, {
+    credentials: "omit",
+    cache: "force-cache",
+  });
+  if (!response.ok) {
+    throw new Error(`capture image fetch failed: ${response.status}`);
+  }
+  const contentType = String(response.headers.get("content-type") || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    throw new Error("capture resource is not an image");
+  }
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength === 0 || buffer.byteLength > CAPTURE_IMAGE_MAX_BYTES) {
+    throw new Error("capture image exceeds the size limit");
+  }
+  return `data:${contentType};base64,${captureImageBufferToBase64(buffer)}`;
+}
 
 function getChzzkContentScriptFiles(key, options = {}) {
   const manifest =
@@ -359,6 +409,18 @@ void ensureOriginalHtmlSession();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const type = message && message.type ? String(message.type) : "";
   if (!type) return false;
+
+  if (type === CAPTURE_IMAGE_FETCH_TYPE) {
+    (async () => {
+      try {
+        const dataUrl = await fetchCaptureImageAsDataUrl(message?.url);
+        sendResponse({ ok: true, dataUrl });
+      } catch (_error) {
+        sendResponse({ ok: false, dataUrl: "" });
+      }
+    })();
+    return true;
+  }
 
   if (type === "chzzk_badge_moa_get_tab_context") {
     const tabId = Number(sender && sender.tab && sender.tab.id);

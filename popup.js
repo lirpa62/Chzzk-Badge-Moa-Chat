@@ -39,6 +39,10 @@
   const MIN_CHAT_FONT_SCALE = 0.8;
   const MAX_CHAT_FONT_SCALE = 2;
   const MIN_CHAT_WIDTH = 220;
+  const DEFAULT_CHAT_TIMESTAMP_FORMAT = "24h";
+  const DEFAULT_CHAT_TIMESTAMP_COLOR_MODE = "default";
+  const DEFAULT_POPUP_TIMESTAMP_FORMAT = "24h";
+  const DEFAULT_POPUP_TIMESTAMP_COLOR_MODE = "default";
   const darkThemeMedia =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia(THEME_MEDIA_QUERY)
@@ -70,6 +74,8 @@
     hidePopupBackground: false,
     hidePopupBorder: false,
     hidePopupTime: false,
+    popupTimestampFormat: DEFAULT_POPUP_TIMESTAMP_FORMAT,
+    popupTimestampColorMode: DEFAULT_POPUP_TIMESTAMP_COLOR_MODE,
     hideChatRanking: false,
     hideChatMission: false,
     hideChatMissionMessage: false,
@@ -78,9 +84,14 @@
     hideChatDonation: false,
     restoreBlindedChat: false,
     showChatTimestamp: false,
+    chatTimestampFormat: DEFAULT_CHAT_TIMESTAMP_FORMAT,
+    chatTimestampColorMode: DEFAULT_CHAT_TIMESTAMP_COLOR_MODE,
     useOriginalSpecialChatStyle: false,
     showPopupRoleBadgesOnly: false,
     showPopupFontScaleControl: false,
+    showCaptureButton: false,
+    enableCaptureDragSelection: false,
+    showCapturePreview: false,
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
     placeChatOnLeft: false,
@@ -153,6 +164,10 @@
     hidePopupBg: document.getElementById("hide-popup-bg"),
     hidePopupBorder: document.getElementById("hide-popup-border"),
     hidePopupTime: document.getElementById("hide-popup-time"),
+    popupTimestampFormat: document.getElementById("popup-timestamp-format"),
+    popupTimestampColorMode: document.getElementById(
+      "popup-timestamp-color-mode",
+    ),
     hideChatRanking: document.getElementById("hide-chat-ranking"),
     hideChatMission: document.getElementById("hide-chat-mission"),
     hideChatMissionMessage: document.getElementById(
@@ -163,6 +178,10 @@
     hideChatDonation: document.getElementById("hide-chat-donation"),
     restoreBlindedChat: document.getElementById("restore-blinded-chat"),
     showChatTimestamp: document.getElementById("show-chat-timestamp"),
+    chatTimestampFormat: document.getElementById("chat-timestamp-format"),
+    chatTimestampColorMode: document.getElementById(
+      "chat-timestamp-color-mode",
+    ),
     useOriginalSpecialChatStyle: document.getElementById(
       "use-original-special-chat-style",
     ),
@@ -176,6 +195,11 @@
     showPopupFontScaleControl: document.getElementById(
       "show-popup-font-scale-control",
     ),
+    showCaptureButton: document.getElementById("show-capture-button"),
+    enableCaptureDragSelection: document.getElementById(
+      "enable-capture-drag-selection",
+    ),
+    showCapturePreview: document.getElementById("show-capture-preview"),
     popupFontScale: document.getElementById("popup-font-scale"),
     chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
@@ -436,10 +460,16 @@
         item.setAttribute("aria-selected", String(isSelected));
       },
     );
+    const disabled = select.disabled === true;
+    custom.root.classList.toggle("is-disabled", disabled);
+    custom.root.setAttribute("aria-disabled", String(disabled));
+    custom.trigger.disabled = disabled;
+    if (disabled) closeCustomSelect(custom.root, { restoreFocus: false });
   }
 
   function setCustomSelectValue(select, value) {
     if (!(select instanceof HTMLSelectElement)) return;
+    if (select.disabled) return;
     if (select.value === value) {
       syncCustomSelect(select);
       return;
@@ -461,6 +491,7 @@
 
   function openCustomSelect(root, options = {}) {
     if (!(root instanceof HTMLElement)) return;
+    if (root.classList.contains("is-disabled")) return;
     closeCustomSelects(root);
     root.dataset.expanded = "true";
     const trigger = root.querySelector(".custom-select-trigger");
@@ -603,6 +634,10 @@
       el.popupFontScale,
       el.chatFontScale,
       el.detachedOriginView,
+      el.popupTimestampFormat,
+      el.popupTimestampColorMode,
+      el.chatTimestampFormat,
+      el.chatTimestampColorMode,
     ]);
 
     (el.settingsTabButtons || []).forEach((button) => {
@@ -699,6 +734,21 @@
 
     el.hidePopupTime.addEventListener("change", async () => {
       state.hidePopupTime = el.hidePopupTime.checked;
+      syncPopupTimestampOptionControls();
+      await persistAndApply();
+    });
+
+    el.popupTimestampFormat.addEventListener("change", async () => {
+      state.popupTimestampFormat = normalizePopupTimestampFormat(
+        el.popupTimestampFormat.value,
+      );
+      await persistAndApply();
+    });
+
+    el.popupTimestampColorMode.addEventListener("change", async () => {
+      state.popupTimestampColorMode = normalizePopupTimestampColorMode(
+        el.popupTimestampColorMode.value,
+      );
       await persistAndApply();
     });
 
@@ -739,6 +789,21 @@
 
     el.showChatTimestamp.addEventListener("change", async () => {
       state.showChatTimestamp = el.showChatTimestamp.checked;
+      syncChatTimestampOptionControls();
+      await persistAndApply();
+    });
+
+    el.chatTimestampFormat.addEventListener("change", async () => {
+      state.chatTimestampFormat = normalizeChatTimestampFormat(
+        el.chatTimestampFormat.value,
+      );
+      await persistAndApply();
+    });
+
+    el.chatTimestampColorMode.addEventListener("change", async () => {
+      state.chatTimestampColorMode = normalizeChatTimestampColorMode(
+        el.chatTimestampColorMode.value,
+      );
       await persistAndApply();
     });
 
@@ -766,6 +831,22 @@
     el.showPopupFontScaleControl.addEventListener("change", async () => {
       state.showPopupFontScaleControl =
         el.showPopupFontScaleControl.checked;
+      await persistAndApply();
+    });
+
+    el.showCaptureButton.addEventListener("change", async () => {
+      state.showCaptureButton = el.showCaptureButton.checked;
+      await persistAndApply();
+    });
+
+    el.enableCaptureDragSelection.addEventListener("change", async () => {
+      state.enableCaptureDragSelection =
+        el.enableCaptureDragSelection.checked;
+      await persistAndApply();
+    });
+
+    el.showCapturePreview.addEventListener("change", async () => {
+      state.showCapturePreview = el.showCapturePreview.checked;
       await persistAndApply();
     });
 
@@ -1090,6 +1171,13 @@
     el.hidePopupBg.checked = state.hidePopupBackground;
     el.hidePopupBorder.checked = state.hidePopupBorder;
     el.hidePopupTime.checked = state.hidePopupTime;
+    el.popupTimestampFormat.value = normalizePopupTimestampFormat(
+      state.popupTimestampFormat,
+    );
+    el.popupTimestampColorMode.value = normalizePopupTimestampColorMode(
+      state.popupTimestampColorMode,
+    );
+    syncPopupTimestampOptionControls();
     el.hideChatRanking.checked = state.hideChatRanking === true;
     el.hideChatMission.checked = state.hideChatMission === true;
     el.hideChatMissionMessage.checked = state.hideChatMissionMessage === true;
@@ -1098,6 +1186,13 @@
     el.hideChatDonation.checked = state.hideChatDonation === true;
     el.restoreBlindedChat.checked = state.restoreBlindedChat === true;
     el.showChatTimestamp.checked = state.showChatTimestamp === true;
+    el.chatTimestampFormat.value = normalizeChatTimestampFormat(
+      state.chatTimestampFormat,
+    );
+    el.chatTimestampColorMode.value = normalizeChatTimestampColorMode(
+      state.chatTimestampColorMode,
+    );
+    syncChatTimestampOptionControls();
     el.useOriginalSpecialChatStyle.checked =
       state.useOriginalSpecialChatStyle === true;
     el.placeChatOnLeft.checked = state.placeChatOnLeft === true;
@@ -1106,6 +1201,10 @@
       state.showPopupRoleBadgesOnly === true;
     el.showPopupFontScaleControl.checked =
       state.showPopupFontScaleControl === true;
+    el.showCaptureButton.checked = state.showCaptureButton === true;
+    el.enableCaptureDragSelection.checked =
+      state.enableCaptureDragSelection === true;
+    el.showCapturePreview.checked = state.showCapturePreview === true;
     el.popupFontScale.value = String(
       normalizePopupFontScale(state.popupFontScale),
     );
@@ -1116,6 +1215,10 @@
     syncCustomSelect(el.popupFontScale);
     syncCustomSelect(el.chatFontScale);
     syncCustomSelect(el.detachedOriginView);
+    syncCustomSelect(el.popupTimestampFormat);
+    syncCustomSelect(el.popupTimestampColorMode);
+    syncCustomSelect(el.chatTimestampFormat);
+    syncCustomSelect(el.chatTimestampColorMode);
     el.deleteWithoutConfirm.checked = state.deleteWithoutConfirm === true;
     el.hidePillButton.checked = state.hidePillButton === true;
     el.keepPopupOpen.checked =
@@ -1141,6 +1244,22 @@
     renderHiddenChips();
     renderTrackedChips();
     updateActionButtonsState();
+  }
+
+  function syncChatTimestampOptionControls() {
+    const disabled = state.showChatTimestamp !== true;
+    el.chatTimestampFormat.disabled = disabled;
+    el.chatTimestampColorMode.disabled = disabled;
+    syncCustomSelect(el.chatTimestampFormat);
+    syncCustomSelect(el.chatTimestampColorMode);
+  }
+
+  function syncPopupTimestampOptionControls() {
+    const disabled = state.hidePopupTime === true;
+    el.popupTimestampFormat.disabled = disabled;
+    el.popupTimestampColorMode.disabled = disabled;
+    syncCustomSelect(el.popupTimestampFormat);
+    syncCustomSelect(el.popupTimestampColorMode);
   }
 
   function renderHiddenChips() {
@@ -1893,7 +2012,7 @@
     }
     if (el.hiddenExcludeSelected) {
       el.hiddenExcludeSelected.disabled =
-        !hasNicknames || state.hiddenAdvancedSelectedSet.size === 0;
+        state.hiddenAdvancedSelectedSet.size === 0;
     }
     const prevSize = state.lastHiddenAdvancedSelectedSize || 0;
     const currSize = state.hiddenAdvancedSelectedSet.size;
@@ -2016,6 +2135,12 @@
       hidePopupBackground: state.hidePopupBackground,
       hidePopupBorder: state.hidePopupBorder,
       hidePopupTime: state.hidePopupTime,
+      popupTimestampFormat: normalizePopupTimestampFormat(
+        state.popupTimestampFormat,
+      ),
+      popupTimestampColorMode: normalizePopupTimestampColorMode(
+        state.popupTimestampColorMode,
+      ),
       hideChatRanking: state.hideChatRanking === true,
       hideChatMission: state.hideChatMission === true,
       hideChatMissionMessage: state.hideChatMissionMessage === true,
@@ -2024,6 +2149,12 @@
       hideChatDonation: state.hideChatDonation === true,
       restoreBlindedChat: state.restoreBlindedChat === true,
       showChatTimestamp: state.showChatTimestamp === true,
+      chatTimestampFormat: normalizeChatTimestampFormat(
+        state.chatTimestampFormat,
+      ),
+      chatTimestampColorMode: normalizeChatTimestampColorMode(
+        state.chatTimestampColorMode,
+      ),
       useOriginalSpecialChatStyle:
         state.useOriginalSpecialChatStyle === true,
       placeChatOnLeft: state.placeChatOnLeft === true,
@@ -2032,6 +2163,10 @@
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
       showPopupFontScaleControl:
         state.showPopupFontScaleControl === true,
+      showCaptureButton: state.showCaptureButton === true,
+      enableCaptureDragSelection:
+        state.enableCaptureDragSelection === true,
+      showCapturePreview: state.showCapturePreview === true,
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
@@ -2114,6 +2249,18 @@
     state.hidePopupBackground = settings.hidePopupBackground === true;
     state.hidePopupBorder = settings.hidePopupBorder === true;
     state.hidePopupTime = settings.hidePopupTime === true;
+    if (Object.prototype.hasOwnProperty.call(settings, "popupTimestampFormat")) {
+      state.popupTimestampFormat = normalizePopupTimestampFormat(
+        settings.popupTimestampFormat,
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(settings, "popupTimestampColorMode")
+    ) {
+      state.popupTimestampColorMode = normalizePopupTimestampColorMode(
+        settings.popupTimestampColorMode,
+      );
+    }
     state.hideChatRanking = settings.hideChatRanking === true;
     state.hideChatMission = settings.hideChatMission === true;
     state.hideChatMissionMessage = settings.hideChatMissionMessage === true;
@@ -2122,6 +2269,18 @@
     state.hideChatDonation = settings.hideChatDonation === true;
     state.restoreBlindedChat = settings.restoreBlindedChat === true;
     state.showChatTimestamp = settings.showChatTimestamp === true;
+    if (Object.prototype.hasOwnProperty.call(settings, "chatTimestampFormat")) {
+      state.chatTimestampFormat = normalizeChatTimestampFormat(
+        settings.chatTimestampFormat,
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(settings, "chatTimestampColorMode")
+    ) {
+      state.chatTimestampColorMode = normalizeChatTimestampColorMode(
+        settings.chatTimestampColorMode,
+      );
+    }
     state.useOriginalSpecialChatStyle =
       settings.useOriginalSpecialChatStyle === true;
     state.placeChatOnLeft = settings.placeChatOnLeft === true;
@@ -2131,6 +2290,10 @@
       settings.showPopupRoleBadgesOnly === true;
     state.showPopupFontScaleControl =
       settings.showPopupFontScaleControl === true;
+    state.showCaptureButton = settings.showCaptureButton === true;
+    state.enableCaptureDragSelection =
+      settings.enableCaptureDragSelection === true;
+    state.showCapturePreview = settings.showCapturePreview === true;
     state.popupFontScale = normalizePopupFontScale(settings.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
@@ -2294,6 +2457,12 @@
     state.hidePopupBackground = raw.hidePopupBackground === true;
     state.hidePopupBorder = raw.hidePopupBorder === true;
     state.hidePopupTime = raw.hidePopupTime === true;
+    state.popupTimestampFormat = normalizePopupTimestampFormat(
+      raw.popupTimestampFormat,
+    );
+    state.popupTimestampColorMode = normalizePopupTimestampColorMode(
+      raw.popupTimestampColorMode,
+    );
     state.hideChatRanking = raw.hideChatRanking === true;
     state.hideChatMission = raw.hideChatMission === true;
     state.hideChatMissionMessage = raw.hideChatMissionMessage === true;
@@ -2302,6 +2471,12 @@
     state.hideChatDonation = raw.hideChatDonation === true;
     state.restoreBlindedChat = raw.restoreBlindedChat === true;
     state.showChatTimestamp = raw.showChatTimestamp === true;
+    state.chatTimestampFormat = normalizeChatTimestampFormat(
+      raw.chatTimestampFormat,
+    );
+    state.chatTimestampColorMode = normalizeChatTimestampColorMode(
+      raw.chatTimestampColorMode,
+    );
     state.useOriginalSpecialChatStyle =
       raw.useOriginalSpecialChatStyle === true;
     state.placeChatOnLeft = raw.placeChatOnLeft === true;
@@ -2310,6 +2485,10 @@
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
     state.showPopupFontScaleControl =
       raw.showPopupFontScaleControl === true;
+    state.showCaptureButton = raw.showCaptureButton === true;
+    state.enableCaptureDragSelection =
+      raw.enableCaptureDragSelection === true;
+    state.showCapturePreview = raw.showCapturePreview === true;
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
@@ -2416,6 +2595,12 @@
     raw.hidePopupBackground = state.hidePopupBackground === true;
     raw.hidePopupBorder = state.hidePopupBorder === true;
     raw.hidePopupTime = state.hidePopupTime === true;
+    raw.popupTimestampFormat = normalizePopupTimestampFormat(
+      state.popupTimestampFormat,
+    );
+    raw.popupTimestampColorMode = normalizePopupTimestampColorMode(
+      state.popupTimestampColorMode,
+    );
     raw.hideChatRanking = state.hideChatRanking === true;
     raw.hideChatMission = state.hideChatMission === true;
     raw.hideChatMissionMessage = state.hideChatMissionMessage === true;
@@ -2424,6 +2609,12 @@
     raw.hideChatDonation = state.hideChatDonation === true;
     raw.restoreBlindedChat = state.restoreBlindedChat === true;
     raw.showChatTimestamp = state.showChatTimestamp === true;
+    raw.chatTimestampFormat = normalizeChatTimestampFormat(
+      state.chatTimestampFormat,
+    );
+    raw.chatTimestampColorMode = normalizeChatTimestampColorMode(
+      state.chatTimestampColorMode,
+    );
     raw.useOriginalSpecialChatStyle =
       state.useOriginalSpecialChatStyle === true;
     raw.placeChatOnLeft = state.placeChatOnLeft === true;
@@ -2432,6 +2623,10 @@
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
     raw.showPopupFontScaleControl =
       state.showPopupFontScaleControl === true;
+    raw.showCaptureButton = state.showCaptureButton === true;
+    raw.enableCaptureDragSelection =
+      state.enableCaptureDragSelection === true;
+    raw.showCapturePreview = state.showCapturePreview === true;
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
     raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
@@ -2769,7 +2964,11 @@
 
   function normalizeSettingsTab(value) {
     const normalized = String(value || "").trim();
-    if (normalized === "targets" || normalized === "data") {
+    if (
+      normalized === "targets" ||
+      normalized === "capture" ||
+      normalized === "data"
+    ) {
       return normalized;
     }
     return "display";
@@ -2847,6 +3046,22 @@
       Math.max(MIN_CHAT_FONT_SCALE, numeric),
     );
     return Math.round(clamped * 100) / 100;
+  }
+
+  function normalizeChatTimestampFormat(value) {
+    return value === "12h-en" || value === "12h-ko" ? value : "24h";
+  }
+
+  function normalizeChatTimestampColorMode(value) {
+    return value === "contrast" ? "contrast" : "default";
+  }
+
+  function normalizePopupTimestampFormat(value) {
+    return normalizeChatTimestampFormat(value);
+  }
+
+  function normalizePopupTimestampColorMode(value) {
+    return normalizeChatTimestampColorMode(value);
   }
 
   function normalizeDetachedOriginView(value) {

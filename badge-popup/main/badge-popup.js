@@ -27,6 +27,7 @@
     !ns.observerApi ||
     !ns.entryApi ||
     !ns.uiCoreApi ||
+    !ns.captureApi ||
     !ns.renderApi ||
     !ns.feedApi ||
     !ns.lifecycleApi ||
@@ -111,6 +112,7 @@
   const observerApi = ns.observerApi;
   const entryApi = ns.entryApi;
   const uiCoreApi = ns.uiCoreApi;
+  const captureApi = ns.captureApi;
   const renderApi = ns.renderApi;
   const feedApi = ns.feedApi;
   const lifecycleApi = ns.lifecycleApi;
@@ -395,6 +397,8 @@
       render,
       normalizeChannelId,
       isStableChannelId,
+      getLocationKey,
+      getRawChannelIdFromLocationPath,
       MAX_KEEP_ENTRIES,
     });
   }
@@ -469,8 +473,40 @@
       nextResolvedChannelId &&
       nextResolvedChannelId !== prevResolvedChannelId
     ) {
+      resetCollectedEntriesForChannelSwitch(prevResolvedChannelId);
       maybeRestoreResolvedChannelCache(nextResolvedChannelId);
     }
+  }
+
+  function resetCollectedEntriesForChannelSwitch(previousChannelId) {
+    clearPersistChannelCacheTimer();
+    if (
+      isSessionCacheEnabled() &&
+      isStableChannelId(previousChannelId) &&
+      Array.isArray(state.entries) &&
+      state.entries.length > 0
+    ) {
+      persistChannelCacheNow(previousChannelId);
+    }
+
+    state.entries = [];
+    state.dedupeKeys.clear();
+    state.unseenCount = 0;
+    state.unseenActors.clear();
+    if (state.nicknameRoleBadgesByNickname instanceof Map) {
+      state.nicknameRoleBadgesByNickname.clear();
+    }
+    state.sequence = 0;
+    if (state.originalChatSnapshots instanceof Map) {
+      state.originalChatSnapshots.clear();
+    }
+    if (state.cache && typeof state.cache === "object") {
+      state.cache.restoreToken = Number(state.cache.restoreToken || 0) + 1;
+      state.cache.resolvedRestoreChannelId = "";
+      state.cache.resolvedRestoreInFlight = "";
+    }
+    resetPillCycle(true);
+    render();
   }
 
   function maybeRestoreResolvedChannelCache(resolvedChannelId) {
@@ -504,9 +540,16 @@
         const currentRestoringChannelId = normalizeChannelId(
           cacheState.resolvedRestoreInFlight,
         );
-        if (currentRestoringChannelId === nextChannelId) {
-          cacheState.resolvedRestoreInFlight = "";
+        const currentResolvedChannelId = normalizeChannelId(
+          state.resolvedChannelId,
+        );
+        if (
+          currentRestoringChannelId !== nextChannelId ||
+          currentResolvedChannelId !== nextChannelId
+        ) {
+          return;
         }
+        cacheState.resolvedRestoreInFlight = "";
         cacheState.resolvedRestoreChannelId = nextChannelId;
         state.incoming.pauseProcessing = false;
         scheduleIncomingPayloadFlush();
@@ -539,6 +582,15 @@
       scheduleChatHighlightScan,
       adjustPopupFontScale,
       syncPopupFontScaleControl,
+      toggleCaptureSelectionMode,
+      toggleAllCaptureItems,
+      captureSelectedChats,
+      handleCapturePointerDown,
+      handleCapturePointerMove,
+      handleCapturePointerEnd,
+      handleCaptureListClick,
+      handleCaptureListKeydown,
+      syncCaptureUi,
     });
   }
 
@@ -562,6 +614,7 @@
   }
 
   function teardownUi() {
+    captureApi.resetCaptureSelection(state);
     uiCoreApi.teardownUi(state, {
       resolveConfirmDialog,
       resetPillCycle,
@@ -590,6 +643,7 @@
   }
 
   function closePopup(immediate = false) {
+    const wasOpen = state.isOpen === true;
     popupApi.closePopup(state, immediate, {
       resolveConfirmDialog,
       updateFilterToggleButton,
@@ -599,6 +653,9 @@
       renderPill,
       CLOSE_ANIMATION_MS,
     });
+    if (wasOpen && state.isOpen !== true) {
+      captureApi.resetCaptureSelection(state);
+    }
   }
 
   function updatePopupPinStateUi() {
@@ -1047,6 +1104,43 @@
       isExcludedCollectInScope,
       setExcludedCollect,
     });
+    captureApi.syncCaptureUi(state);
+  }
+
+  function toggleCaptureSelectionMode() {
+    captureApi.toggleCaptureSelectionMode(state);
+  }
+
+  function toggleAllCaptureItems() {
+    return captureApi.toggleAllCaptureItems(state);
+  }
+
+  function handleCaptureListClick(event) {
+    return captureApi.handleCaptureListClick(state, event);
+  }
+
+  function handleCapturePointerDown(event) {
+    return captureApi.handleCapturePointerDown(state, event);
+  }
+
+  function handleCapturePointerMove(event) {
+    return captureApi.handleCapturePointerMove(state, event);
+  }
+
+  function handleCapturePointerEnd(event) {
+    return captureApi.handleCapturePointerEnd(state, event);
+  }
+
+  function handleCaptureListKeydown(event) {
+    return captureApi.handleCaptureListKeydown(state, event);
+  }
+
+  function syncCaptureUi() {
+    captureApi.syncCaptureUi(state);
+  }
+
+  async function captureSelectedChats() {
+    return captureApi.captureSelectedChats(state);
   }
 
   function syncPopupContentHeight() {
@@ -1582,8 +1676,8 @@
     return popupApi.isNearBottom(container);
   }
 
-  function formatTime(timestamp) {
-    return renderApi.formatTime(timestamp);
+  function formatTime(timestamp, format) {
+    return renderApi.formatTime(timestamp, format);
   }
 
   function getDateKey(timestamp) {

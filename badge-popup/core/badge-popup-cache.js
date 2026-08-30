@@ -329,6 +329,19 @@
     if (!isSessionCacheEnabled(state)) return;
     const token = (state.cache.restoreToken = state.cache.restoreToken + 1);
     const storageKeys = getChannelCacheStorageKeys(state, channelIdCandidate, deps);
+    const normalizeChannelId =
+      typeof deps.normalizeChannelId === "function"
+        ? deps.normalizeChannelId
+        : (value) => String(value || "").trim().toLowerCase();
+    const requestedChannelId =
+      channelIdFromCacheStorageKey(storageKeys[0]) ||
+      normalizeChannelId(
+        channelIdCandidate == null ? state.resolvedChannelId : channelIdCandidate,
+      );
+    const isRestoreTargetCurrent = () => {
+      if (!/^[a-f0-9]{32}$/i.test(requestedChannelId)) return true;
+      return normalizeChannelId(state.resolvedChannelId) === requestedChannelId;
+    };
 
     if (storageKeys.length === 0) {
       if (token !== state.cache.restoreToken) return;
@@ -362,7 +375,7 @@
       matchedStorageKey = storageKey;
       break;
     }
-    if (token !== state.cache.restoreToken) return;
+    if (token !== state.cache.restoreToken || !isRestoreTargetCurrent()) return;
 
     // 이 캐시가 소속된 채널: 저장키에서 뽑거나, 없으면 캐시에 기록된 channelId.
     const targetChannelId =
@@ -393,7 +406,7 @@
       .map((entry) => String(entry?.originalChatRef || "").trim())
       .filter((ref) => ref.startsWith(ORIGINAL_HTML_LOCAL_PREFIX));
     const restoredOriginals = await loadOriginalChatHtmlFn(originalRefs);
-    if (token !== state.cache.restoreToken) return;
+    if (token !== state.cache.restoreToken || !isRestoreTargetCurrent()) return;
     restoredEntries.forEach((entry) => {
       const ref = String(entry.originalChatRef || "").trim();
       const original =
@@ -410,6 +423,7 @@
       entry.originalChatPersisted = !!entry.originalChatHtml;
     });
 
+    if (!isRestoreTargetCurrent()) return;
     state.entries = restoredEntries;
     if (typeof deps.syncRoleBadgeCacheFromEntries === "function") {
       deps.syncRoleBadgeCacheFromEntries(state.entries);

@@ -240,6 +240,18 @@
         <button
           type="button"
           class="settings-tab"
+          data-tab="capture"
+          role="tab"
+          tabindex="-1"
+          aria-selected="false"
+          aria-controls="tab-panel-capture"
+          id="tab-btn-capture"
+        >
+          캡처
+        </button>
+        <button
+          type="button"
+          class="settings-tab"
           data-tab="data"
           role="tab"
           tabindex="-1"
@@ -324,7 +336,6 @@
             </label>
             <label
               class="toggle-row has-setting-tooltip"
-              title="치지직이 해당 특수 채팅을 실제 채팅창에 표시한 경우에만 원본 스타일로 모아봅니다. 다른 탭을 보고 있거나 채팅 행이 표시되지 않으면 기본 스타일로 모아봅니다."
               data-tooltip="실제 채팅창에 표시된 특수 채팅만 원본 스타일로 모아봅니다. 다른 탭을 보고 있거나 채팅 행이 표시되지 않으면 기본 스타일을 사용합니다."
             >
               <input type="checkbox" id="use-original-special-chat-style" />
@@ -337,6 +348,26 @@
             <label class="toggle-row">
               <input type="checkbox" id="delete-without-confirm" />
               <span>필터 확인 없이 바로 삭제</span>
+            </label>
+          </div>
+          <div class="field-grid-2col popup-timestamp-options">
+            <label class="field-row">
+              <span>팝업 시간 형식</span>
+              <select id="popup-timestamp-format">
+                <option value="24h" selected>24시간</option>
+                <option value="12h-en">AM/PM</option>
+                <option value="12h-ko">오전/오후</option>
+              </select>
+            </label>
+            <label
+              class="field-row"
+              title="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다. 색상 배경의 특수 채팅 시간은 가독성을 위해 흰색을 유지합니다."
+            >
+              <span>팝업 시간 색상</span>
+              <select id="popup-timestamp-color-mode">
+                <option value="default" selected>기존 색상</option>
+                <option value="contrast">테마 대비색</option>
+              </select>
             </label>
           </div>
           <label class="field-row">
@@ -369,7 +400,7 @@
             </label>
             <label
               class="toggle-row"
-              title="각 채팅 앞에 보낸 시각(HH:MM)을 표시합니다."
+              title="각 채팅 앞에 보낸 시각을 선택한 형식으로 표시합니다."
             >
               <input type="checkbox" id="show-chat-timestamp" />
               <span>채팅 시간 표시</span>
@@ -381,6 +412,26 @@
             <label class="toggle-row">
               <input type="checkbox" id="hide-pill-button" />
               <span>배지 알림 버튼 숨김</span>
+            </label>
+          </div>
+          <div class="field-grid-2col chat-timestamp-options">
+            <label class="field-row">
+              <span>시간 표시 형식</span>
+              <select id="chat-timestamp-format">
+                <option value="24h" selected>24시간</option>
+                <option value="12h-en">AM/PM</option>
+                <option value="12h-ko">오전/오후</option>
+              </select>
+            </label>
+            <label
+              class="field-row"
+              title="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다."
+            >
+              <span>시간 글자 색상</span>
+              <select id="chat-timestamp-color-mode">
+                <option value="default" selected>기존 색상</option>
+                <option value="contrast">테마 대비색</option>
+              </select>
             </label>
           </div>
         </section>
@@ -414,22 +465,6 @@
             </label>
           </div>
         </section>
-
-        <section class="section">
-          <h2>세션 캐시</h2>
-          <label class="toggle-row toggle-row-with-action">
-            <input type="checkbox" id="enable-session-cache" />
-            <span>채널 채팅 유지 (브라우저 종료 시 삭제)</span>
-            <button
-              type="button"
-              id="clear-current-channel-session"
-              class="inline-action-btn"
-            >
-              현재 채널 채팅 비우기
-            </button>
-          </label>
-        </section>
-
       </div>
 
       <div
@@ -539,11 +574,61 @@
 
       <div
         class="settings-tab-panel"
+        id="tab-panel-capture"
+        role="tabpanel"
+        aria-labelledby="tab-btn-capture"
+        hidden
+      >
+        <section class="section">
+          <h2>캡처</h2>
+          <div class="toggle-grid-2col">
+            <label
+              class="toggle-row"
+              title="모아보기 팝업 헤더에 채팅 캡처 선택 버튼을 표시합니다."
+            >
+              <input type="checkbox" id="show-capture-button" />
+              <span>캡처 버튼 표시</span>
+            </label>
+            <label
+              class="toggle-row"
+              title="선택 모드에서 채팅을 드래그하여 연속 선택하거나 선택 해제합니다."
+            >
+              <input type="checkbox" id="enable-capture-drag-selection" />
+              <span>드래그 선택 사용</span>
+            </label>
+            <label
+              class="toggle-row"
+              title="PNG 파일을 저장하기 전에 생성된 이미지를 확인합니다. 여러 파일로 나뉘면 이전·다음 버튼으로 확인할 수 있습니다."
+            >
+              <input type="checkbox" id="show-capture-preview" />
+              <span>저장 전 미리보기</span>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div
+        class="settings-tab-panel"
         id="tab-panel-data"
         role="tabpanel"
         aria-labelledby="tab-btn-data"
         hidden
       >
+        <section class="section">
+          <h2>세션 캐시</h2>
+          <label class="toggle-row toggle-row-with-action">
+            <input type="checkbox" id="enable-session-cache" />
+            <span>채널 채팅 유지 (브라우저 종료 시 삭제)</span>
+            <button
+              type="button"
+              id="clear-current-channel-session"
+              class="inline-action-btn"
+            >
+              현재 채널 채팅 비우기
+            </button>
+          </label>
+        </section>
+
         <section class="section">
           <h2>데이터 관리</h2>
           <p class="section-description">
@@ -553,11 +638,7 @@
             <button type="button" id="export-settings">설정 내보내기</button>
             <button type="button" id="import-settings">설정 가져오기</button>
             <button type="button" id="export-full-backup">전체 백업</button>
-            <button
-              type="button"
-              id="import-full-backup"
-              class="is-restore"
-            >
+            <button type="button" id="import-full-backup" class="is-restore">
               전체 복원
             </button>
           </div>

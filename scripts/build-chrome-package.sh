@@ -29,6 +29,7 @@ copy_path() {
 
 copy_path "badge-popup"
 copy_path "fonts"
+copy_path "vendor"
 copy_path "popup.html"
 copy_path "popup.css"
 copy_path "popup.js"

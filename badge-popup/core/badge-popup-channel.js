@@ -275,6 +275,28 @@
       ? fromStreaming
       : fromStreaming || fromChannel;
     if (!nextChannelId) return;
+
+    // SPA 이동 직후에는 이전 화면의 WebSocket/fetch 응답이 늦게 도착할 수 있다.
+    // 현재 URL이 확정한 라이브 채널이나 VOD 번호와 다른 payload는 채널 힌트와
+    // resolvedChannelId를 오염시키기 전에 버린다.
+    const rawLocationChannelId = getRawChannelIdFromLocationPath();
+    if (
+      isStableChannelId(rawLocationChannelId) &&
+      isStableChannelId(nextChannelId) &&
+      rawLocationChannelId !== nextChannelId
+    ) {
+      return;
+    }
+    const currentVideoNo = getVideoNoFromLocationPath();
+    const payloadVideoNo = String(payload.videoNo || "").trim();
+    if (
+      currentVideoNo &&
+      payloadVideoNo &&
+      currentVideoNo !== payloadVideoNo
+    ) {
+      return;
+    }
+
     const hintedVideoNo =
       payload && typeof payload === "object" ? String(payload.videoNo || "").trim() : "";
     if (hintedVideoNo && isStableChannelId(nextChannelId)) {
@@ -321,7 +343,15 @@
 
   function handleLocationChange(state, forceReset, deps = {}) {
     const nextKey = getLocationKey();
-    const nextResolvedChannelId = getChannelIdFromLocationPath();
+    const previousLocationKey = String(state.locationKey || "");
+    const isDifferentVideoNavigation =
+      nextKey.startsWith("video:") && nextKey !== previousLocationKey;
+    // pushState 알림은 React DOM 교체보다 먼저 온다. 다른 VOD로 이동한 순간에는
+    // 아직 남아 있는 이전 영상 DOM을 채널 근거로 쓰지 않고, 새 videoNo에 이미
+    // 저장된 힌트만 사용한다. 힌트가 없으면 payload/API 응답이 올 때까지 미확정.
+    const nextResolvedChannelId = isDifferentVideoNavigation
+      ? getVideoChannelHint(nextKey.slice("video:".length))
+      : getChannelIdFromLocationPath();
     const prevResolvedChannelId = normalizeChannelId(state.resolvedChannelId);
     const nextResolvedChannelIdNormalized = normalizeChannelId(
       nextResolvedChannelId,
@@ -329,14 +359,23 @@
 
     let isChannelIdChanged =
       nextResolvedChannelIdNormalized !== prevResolvedChannelId;
-    if (isVideoPage() && !nextResolvedChannelIdNormalized) {
+    if (
+      isVideoPage() &&
+      !nextResolvedChannelIdNormalized &&
+      !isDifferentVideoNavigation
+    ) {
       isChannelIdChanged = false;
     }
 
-    const activeChannelId = isChannelIdChanged
+    const activeChannelId = isDifferentVideoNavigation
       ? nextResolvedChannelIdNormalized
-      : prevResolvedChannelId;
-    const nextScopeKey = getSettingsScopeKey(activeChannelId);
+      : isChannelIdChanged
+        ? nextResolvedChannelIdNormalized
+        : prevResolvedChannelId;
+    const nextScopeKey =
+      isDifferentVideoNavigation && !isStableChannelId(activeChannelId)
+        ? "home"
+        : getSettingsScopeKey(activeChannelId);
     const scopeChanged = nextScopeKey !== state.settingsScopeKey;
     const locationChanged = nextKey !== state.locationKey || isChannelIdChanged;
 
@@ -355,14 +394,18 @@
       deps.clearPersistChannelCacheTimer();
     }
     const prevChannelId = normalizeChannelId(state.resolvedChannelId);
-    if (nextKey.startsWith("video:") && isStableChannelId(prevChannelId)) {
-      rememberVideoChannelHint(nextKey.slice("video:".length), prevChannelId);
+    if (
+      previousLocationKey.startsWith("video:") &&
+      isStableChannelId(prevChannelId)
+    ) {
+      rememberVideoChannelHint(
+        previousLocationKey.slice("video:".length),
+        prevChannelId,
+      );
     }
     if (isStableChannelId(prevChannelId)) {
-      const livePathParts = window.location.pathname.split("/").filter(Boolean);
-      const liveHintKey = getLivePathHintKeyFromParts(livePathParts);
-      if (liveHintKey) {
-        rememberLiveChannelHint(liveHintKey, prevChannelId);
+      if (previousLocationKey.startsWith("live:")) {
+        rememberLiveChannelHint(previousLocationKey, prevChannelId);
       }
     }
     if (typeof deps.isSessionCacheEnabled === "function" && deps.isSessionCacheEnabled()) {
@@ -405,6 +448,7 @@
     state.unseenActors.clear();
     state.isSettingsOpen = false;
     if (state.cache && typeof state.cache === "object") {
+      state.cache.restoreToken = Number(state.cache.restoreToken || 0) + 1;
       state.cache.resolvedRestoreChannelId = "";
       state.cache.resolvedRestoreInFlight = "";
     }

@@ -1562,6 +1562,10 @@
       "chzzk-badge-moa-no-popup-border",
       state.settings.hidePopupBorder === true,
     );
+    root.classList.toggle(
+      "chzzk-badge-moa-popup-time-contrast",
+      state.settings.popupTimestampColorMode === "contrast",
+    );
     const popupFontScale = String(
       normalizePopupFontScaleFn(state.settings.popupFontScale),
     );

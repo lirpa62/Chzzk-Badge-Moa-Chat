@@ -687,6 +687,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   min-height: 22px;
 }
 
@@ -808,6 +809,8 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 }
 
 .chzzk-badge-moa-view-mode-btn,
+.chzzk-badge-moa-popup-capture-select,
+.chzzk-badge-moa-popup-capture-download,
 .chzzk-badge-moa-popup-detach,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin,
@@ -829,6 +832,8 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 }
 
 .chzzk-badge-moa-popup-detach,
+.chzzk-badge-moa-popup-capture-select,
+.chzzk-badge-moa-popup-capture-download,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin,
 .chzzk-badge-moa-popup-settings-toggle {
@@ -873,10 +878,175 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 }
 
 .chzzk-badge-moa-popup-detach,
+.chzzk-badge-moa-popup-capture-select,
+.chzzk-badge-moa-popup-capture-download,
 .chzzk-badge-moa-popup-close,
 .chzzk-badge-moa-popup-pin {
   width: 22px;
   padding: 0;
+}
+
+.chzzk-badge-moa-popup-capture-select[aria-pressed="true"],
+.chzzk-badge-moa-popup-capture-download:hover:not(:disabled),
+.chzzk-badge-moa-popup-capture-select:hover:not(:disabled) {
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-popup-capture-select:disabled,
+.chzzk-badge-moa-popup-capture-download:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chzzk-badge-moa-popup-capture-select[hidden],
+.chzzk-badge-moa-popup-capture-download[hidden] {
+  display: none !important;
+}
+
+.chzzk-badge-moa-popup-capture-download.is-busy svg {
+  visibility: hidden;
+}
+
+.chzzk-badge-moa-popup-capture-download.is-busy {
+  position: relative;
+}
+
+.chzzk-badge-moa-popup-capture-download.is-busy::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: chzzkBadgeMoaCaptureSpin 0.7s linear infinite;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 24px;
+  margin-right: auto;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all:hover:not(:disabled) {
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all[hidden] {
+  display: none !important;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all-box {
+  position: relative;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1.5px solid
+    var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  border-radius: 3px;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all[aria-pressed="true"]
+  .chzzk-badge-moa-popup-capture-toggle-all-box,
+.chzzk-badge-moa-popup-capture-toggle-all.is-partial
+  .chzzk-badge-moa-popup-capture-toggle-all-box {
+  border-color: #00c98d;
+  background: #00c98d;
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all[aria-pressed="true"]
+  .chzzk-badge-moa-popup-capture-toggle-all-box::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 4px;
+  height: 7px;
+  border-right: 2px solid #071a13;
+  border-bottom: 2px solid #071a13;
+  /* 체크 모양(└를 회전)을 박스 중앙에 정렬. 절대 좌표 대신 중앙 기준 변환으로
+     박스 크기가 바뀌어도 항상 가운데 오도록 한다. */
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all.is-partial
+  .chzzk-badge-moa-popup-capture-toggle-all-box::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: #071a13;
+  transform: translate(-50%, -50%);
+}
+
+.chzzk-badge-moa-popup-capture-toggle-all-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chzzk-badge-moa-popup-capture-progress {
+  position: absolute;
+  z-index: 12;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  background: rgba(20, 22, 27, 0.78);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+.chzzk-badge-moa-popup-capture-progress[hidden] {
+  display: none !important;
+}
+
+.chzzk-badge-moa-popup-capture-progress-spinner {
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-right-color: #00e6a7;
+  border-radius: 50%;
+  animation: chzzkBadgeMoaCaptureSpin 0.7s linear infinite;
+}
+
+.chzzk-badge-moa-popup-capture-progress-text {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .chzzk-badge-moa-popup-filter-toggle {
@@ -1629,6 +1799,11 @@ html[style*="color-scheme: light"]
   padding: 6px 8px;
 }
 
+.chzzk-badge-moa-popup-list
+  > :is(.chzzk-badge-moa-item, .chzzk-badge-moa-date-divider) {
+  flex: 0 0 auto;
+}
+
 .chzzk-badge-moa-popup-list::-webkit-scrollbar {
   width: 12px;
   -webkit-appearance: none;
@@ -1696,6 +1871,349 @@ html[style*="color-scheme: light"]
     border-color 0.18s ease;
 }
 
+.chzzk-badge-moa-root.is-capture-selecting
+  .chzzk-badge-moa-item.is-capture-selectable {
+  position: relative;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(77, 217, 155, 0.22);
+}
+
+.chzzk-badge-moa-root.is-capture-selecting .chzzk-badge-moa-popup-list,
+.chzzk-badge-moa-root.is-capture-selecting .chzzk-badge-moa-popup-list * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.chzzk-badge-moa-root.is-capture-drag-enabled
+  .chzzk-badge-moa-item.is-capture-selectable {
+  cursor: crosshair;
+}
+
+.chzzk-badge-moa-root.is-capture-dragging,
+.chzzk-badge-moa-root.is-capture-dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.chzzk-badge-moa-root.is-capture-dragging
+  .chzzk-badge-moa-item.is-capture-selectable {
+  cursor: grabbing;
+}
+
+.chzzk-badge-moa-root.is-capture-selecting
+  .chzzk-badge-moa-item.is-capture-selectable::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 3;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  background: rgba(21, 25, 31, 0.72);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+  pointer-events: none;
+}
+
+.chzzk-badge-moa-root.is-capture-selecting
+  .chzzk-badge-moa-item.is-capture-selected {
+  border-color: #00c98d !important;
+  box-shadow:
+    inset 0 0 0 2px #00c98d,
+    0 0 0 1px rgba(0, 201, 141, 0.22);
+}
+
+.chzzk-badge-moa-root.is-capture-selecting
+  .chzzk-badge-moa-item.is-capture-selected::after {
+  content: "✓";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: #00c98d;
+  background: #00c98d;
+  color: #071a13;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.chzzk-badge-moa-capture-stage.chzzk-badge-moa-root {
+  position: fixed !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: -100000px !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+.chzzk-badge-moa-capture-surface.chzzk-badge-moa-popup-list {
+  position: relative !important;
+  display: flex !important;
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  scrollbar-gutter: auto !important;
+  box-sizing: border-box !important;
+  padding: 6px 8px !important;
+}
+
+.chzzk-badge-moa-capture-unicode-emoji {
+  display: inline-block;
+  min-width: 1em;
+  padding-block: 0.12em;
+  line-height: 1;
+  vertical-align: -0.18em;
+}
+
+.chzzk-badge-moa-capture-surface
+  > .chzzk-badge-moa-item:not(.chzzk-badge-moa-item-original-chat) {
+  overflow: hidden !important;
+}
+
+/* html-to-image의 foreignObject는 float 뒤에서 줄바꿈된 마지막 컬러 이모지를
+   부모 높이에서 누락할 수 있다. 일반 채팅 캡처본만 실제 인라인 흐름으로 만든다. */
+.chzzk-badge-moa-capture-surface.is-inline
+  > .chzzk-badge-moa-item:not(.chzzk-badge-moa-item-original-chat):not(
+    [class*="chzzk-badge-moa-item-type-"]
+  ) {
+  display: block !important;
+}
+
+.chzzk-badge-moa-capture-surface.is-inline
+  > .chzzk-badge-moa-item:not(.chzzk-badge-moa-item-original-chat):not(
+    [class*="chzzk-badge-moa-item-type-"]
+  )
+  > .chzzk-badge-moa-item-head {
+  float: none !important;
+  display: inline-flex !important;
+  margin-right: 8px !important;
+}
+
+.chzzk-badge-moa-capture-surface.is-inline
+  > .chzzk-badge-moa-item:not(.chzzk-badge-moa-item-original-chat):not(
+    [class*="chzzk-badge-moa-item-type-"]
+  )
+  > .chzzk-badge-moa-item-message {
+  display: inline !important;
+}
+
+@keyframes chzzkBadgeMoaCaptureSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chzzk-badge-moa-capture-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  font-family:
+    "Pretendard Variable",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Malgun Gothic",
+    sans-serif;
+}
+
+.chzzk-badge-moa-capture-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.58);
+  cursor: default;
+}
+
+.chzzk-badge-moa-capture-preview-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid
+    var(
+      --sem-color-border-neutral-weak,
+      var(--chzzk-badge-moa-c-border-neutral-weak)
+    );
+  border-radius: 8px;
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  background: var(
+    --sem-color-surface-neutral-base,
+    var(--chzzk-badge-moa-c-surface-neutral-base)
+  );
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+}
+
+.chzzk-badge-moa-capture-preview-dialog:focus {
+  outline: none;
+}
+
+.chzzk-badge-moa-capture-preview-header,
+.chzzk-badge-moa-capture-preview-footer,
+.chzzk-badge-moa-capture-preview-nav {
+  display: flex;
+  align-items: center;
+}
+
+.chzzk-badge-moa-capture-preview-header {
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+}
+
+.chzzk-badge-moa-capture-preview-header strong {
+  font-size: 14px;
+}
+
+.chzzk-badge-moa-capture-preview-close,
+.chzzk-badge-moa-capture-preview-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-capture-preview-close:hover,
+.chzzk-badge-moa-capture-preview-nav-button:hover:not(:disabled) {
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-capture-preview-nav-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chzzk-badge-moa-capture-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: var(
+    --sem-color-surface-neutral-weakest,
+    var(--chzzk-badge-moa-c-surface-neutral-weakest)
+  );
+}
+
+.chzzk-badge-moa-capture-preview-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+}
+
+.chzzk-badge-moa-capture-preview-nav {
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border-top: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+}
+
+.chzzk-badge-moa-capture-preview-page {
+  min-width: 48px;
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.chzzk-badge-moa-capture-preview-footer {
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 12px 0 16px;
+  border-top: 1px solid
+    var(
+      --sem-color-border-neutral-weaker,
+      var(--chzzk-badge-moa-c-border-neutral-weaker)
+    );
+}
+
+.chzzk-badge-moa-capture-preview-file {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chzzk-badge-moa-capture-preview-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.chzzk-badge-moa-capture-preview-cancel,
+.chzzk-badge-moa-capture-preview-save {
+  min-width: 64px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-capture-preview-cancel {
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-capture-preview-save {
+  color: #071a13;
+  background: #00e6a7;
+}
+
 .chzzk-badge-moa-item.chzzk-badge-moa-item-original-chat {
   display: block;
   padding: 0 !important;
@@ -1752,10 +2270,7 @@ html[style*="color-scheme: light"]
 
 .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
   .chzzk-badge-moa-item-time {
-  color: var(
-    --sem-color-content-neutral-alpha-stronger-static,
-    var(--chzzk-badge-moa-c-content-neutral-alpha-stronger-static)
-  );
+  color: #fff !important;
   font-family:
     "Escoredream",
     "Pretendard Variable",
@@ -2083,6 +2598,30 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   flex: 0 0 auto;
 }
 
+.chzzk-badge-moa-root.chzzk-badge-moa-popup-time-contrast
+  .chzzk-badge-moa-item-time {
+  color: #000 !important;
+}
+
+html.theme_dark
+  .chzzk-badge-moa-root.chzzk-badge-moa-popup-time-contrast
+  .chzzk-badge-moa-item-time,
+html[data-theme="dark"]
+  .chzzk-badge-moa-root.chzzk-badge-moa-popup-time-contrast
+  .chzzk-badge-moa-item-time,
+html[style*="color-scheme: dark"]
+  .chzzk-badge-moa-root.chzzk-badge-moa-popup-time-contrast
+  .chzzk-badge-moa-item-time {
+  color: #fff !important;
+}
+
+/* 색상형 특수 채팅은 라이트 테마에서도 카드 배경과 대비되도록 흰색을 유지한다. */
+.chzzk-badge-moa-root.chzzk-badge-moa-popup-time-contrast
+  .chzzk-badge-moa-item[class*="chzzk-badge-moa-item-type-"]
+  .chzzk-badge-moa-item-time {
+  color: #fff !important;
+}
+
 .chzzk-badge-moa-item-message {
   font-size: 11px;
   line-height: 1.4;
@@ -2250,7 +2789,10 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-item-message:has(img) {
-  line-height: 25px;
+  line-height: max(
+    25px,
+    calc(19px * var(--chzzk-popup-font-scale, 1))
+  );
 }
 
 .chzzk-badge-moa-popup-list.is-inline
@@ -2260,14 +2802,17 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item {
+  display: flow-root;
   padding: 4px 6px;
   border-radius: 6px;
   line-height: calc(20px * var(--chzzk-popup-font-scale, 1));
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-head {
+  float: left;
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   margin: 0 8px 0 0;
   vertical-align: top;
   gap: 4px;
@@ -2284,13 +2829,16 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-user {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 3px;
+  min-width: 0;
   max-width: 100%;
   vertical-align: top;
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-nickname {
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 160px;
   vertical-align: top;
 }
@@ -2300,7 +2848,7 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-message {
-  display: inline;
+  display: block;
   line-height: calc(19px * var(--chzzk-popup-font-scale, 1));
   vertical-align: top;
 }
@@ -2357,7 +2905,10 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-item-message:has(img) {
-  line-height: 25px;
+  line-height: max(
+    25px,
+    calc(19px * var(--chzzk-popup-font-scale, 1))
+  );
 }
 
 .chzzk-badge-moa-popup-list.is-inline .chzzk-badge-moa-badge-list-popup {
@@ -2823,7 +3374,7 @@ img.chzzk-badge-moa-blind-emoji {
   ) !important;
 }
 
-/* 채팅 시간 표시: 닉네임 앞 회색 작은 글씨 HH:MM */
+/* 채팅 시간 표시: 닉네임 앞 작은 글씨 */
 .chzzk-badge-moa-chat-time {
   margin-right: 4px;
   font-size: 0.85em;
@@ -2834,6 +3385,32 @@ img.chzzk-badge-moa-blind-emoji {
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+html.chzzk-badge-moa-chat-time-contrast .chzzk-badge-moa-chat-time {
+  color: #000 !important;
+}
+
+html.chzzk-badge-moa-chat-time-contrast.theme_dark .chzzk-badge-moa-chat-time,
+html.chzzk-badge-moa-chat-time-contrast[data-theme="dark"]
+  .chzzk-badge-moa-chat-time,
+html.chzzk-badge-moa-chat-time-contrast[style*="color-scheme: dark"]
+  .chzzk-badge-moa-chat-time,
+html.chzzk-badge-moa-chat-time-contrast .theme_dark .chzzk-badge-moa-chat-time,
+html.chzzk-badge-moa-chat-time-contrast
+  [data-theme="dark"]
+  .chzzk-badge-moa-chat-time {
+  color: #fff !important;
+}
+
+/* 색상 배경을 쓰는 특수 채팅에서는 테마/시간 색상 설정과 무관하게 대비를 유지한다.
+   구독 알림은 일반 배경을 사용하므로 기존 시간 글자 색상 설정을 그대로 따른다. */
+html
+  :is(aside#aside-chatting, aside#vod-aside)
+  .chzzk-badge-moa-chat-time.chzzk-badge-moa-chat-time-special:not(
+    [data-chat-kind="subscription"]
+  ) {
+  color: #fff !important;
 }
 
 /* === 새 치지직 채팅 구조 하이라이트 ===
@@ -3565,6 +4142,62 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   line-height: calc(
     12px * var(--chzzk-badge-moa-chat-font-scale) * 1.4
   ) !important;
+}
+
+/* 3-2. 후원·구독·미션·구매 특수 채팅. 일반 채팅 규칙에서는 특수 마커를 의도적으로
+   제외하므로, 실제 채팅 행 안의 텍스트 요소에 13px 기준 배율과 충분한 줄높이를 직접
+   적용한다. 모아보기로 복제한 원본 DOM과 프로필 다이얼로그는 별도 UI이므로 제외한다. */
+html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  :is(
+    [class*="_item_"],
+    [class*="live_chatting_list_item"],
+    [class*="vod_chatting_item"]
+  ):not(.chzzk-badge-moa-original-chat *):not([class*="_fixed_"] *):has(
+    :is(
+      [class*="_is_donation_"],
+      [class*="_is_subscription_"],
+      [class*="_is_mission_"],
+      [class*="_thumbnail_"] img
+    ):not([role="alertdialog"] *)
+  )
+  :is(
+    button,
+    p,
+    em,
+    strong,
+    [class*="_text_"],
+    [class*="_word_"],
+    [class*="_money_"],
+    [class*="_description_"],
+    [class*="_detail_"],
+    [class*="_mark_"],
+    [class*="_time_"],
+    [class*="_username_"]
+  ):not([role="alertdialog"] *) {
+  font-size: calc(13px * var(--chzzk-badge-moa-chat-font-scale)) !important;
+  line-height: calc(19px * var(--chzzk-badge-moa-chat-font-scale)) !important;
+}
+
+html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
+  :is(aside#aside-chatting, aside#vod-aside)
+  :is(
+    [class*="_item_"],
+    [class*="live_chatting_list_item"],
+    [class*="vod_chatting_item"]
+  ):not(.chzzk-badge-moa-original-chat *):not([class*="_fixed_"] *):has(
+    :is(
+      [class*="_is_donation_"],
+      [class*="_is_subscription_"],
+      [class*="_is_mission_"],
+      [class*="_thumbnail_"] img
+    ):not([role="alertdialog"] *)
+  )
+  .chzzk-badge-moa-chat-time-special {
+  font-size: calc(
+    13px * 0.85 * var(--chzzk-badge-moa-chat-font-scale)
+  ) !important;
+  line-height: calc(19px * var(--chzzk-badge-moa-chat-font-scale)) !important;
 }
 
 /* 3-1. 필터/공지 시스템 메시지 아이콘(_icon_1fbww_59) — 치지직 네이티브는 폰트 배율에

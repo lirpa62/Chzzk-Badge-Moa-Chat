@@ -27,6 +27,27 @@
     hideChatDonation: "chzzk-badge-moa-hidden-chat-donation",
   };
 
+  function isCaptureStageNode(node) {
+    const element =
+      node instanceof Element ? node : node?.parentElement || null;
+    return Boolean(
+      element?.matches?.(".chzzk-badge-moa-capture-stage") ||
+        element?.closest?.(".chzzk-badge-moa-capture-stage"),
+    );
+  }
+
+  function isCaptureOnlyMutation(mutation) {
+    if (isCaptureStageNode(mutation?.target)) return true;
+    const changedNodes = [
+      ...Array.from(mutation?.addedNodes || []),
+      ...Array.from(mutation?.removedNodes || []),
+    ];
+    return (
+      changedNodes.length > 0 &&
+      changedNodes.every((node) => isCaptureStageNode(node))
+    );
+  }
+
   function startObserver(state, refs, deps = {}) {
     if (refs.observer) return;
 
@@ -40,7 +61,14 @@
         ? deps.scheduleHiddenChatElementSync
         : () => {};
 
-    refs.observer = new MutationObserver(() => {
+    refs.observer = new MutationObserver((mutations) => {
+      const mutationList = Array.from(mutations || []);
+      if (
+        mutationList.length > 0 &&
+        mutationList.every((mutation) => isCaptureOnlyMutation(mutation))
+      ) {
+        return;
+      }
       scheduleHiddenChatElementSync();
 
       const uiStable =
@@ -379,11 +407,29 @@
       typeof deps.isStableChannelId === "function"
         ? deps.isStableChannelId
         : () => false;
+    const getLocationKey =
+      typeof deps.getLocationKey === "function"
+        ? deps.getLocationKey
+        : () => "";
+    const getRawChannelIdFromLocationPath =
+      typeof deps.getRawChannelIdFromLocationPath === "function"
+        ? deps.getRawChannelIdFromLocationPath
+        : () => "";
 
     const queue = state.incoming.queue.splice(0, state.incoming.queue.length);
     let appendedCount = 0;
     for (let i = 0; i < queue.length; i += 1) {
       const payload = queue[i];
+      if (
+        !isIncomingPayloadForCurrentLocation(payload, {
+          normalizeChannelId,
+          isStableChannelId,
+          getLocationKey,
+          getRawChannelIdFromLocationPath,
+        })
+      ) {
+        continue;
+      }
       updateResolvedChannelIdFromPayload(payload);
       if (state?.incoming?.pauseProcessing === true) {
         const remaining = queue.slice(i);
@@ -436,6 +482,48 @@
     if (appendedCount > 0) {
       render();
     }
+  }
+
+  function isIncomingPayloadForCurrentLocation(payload, deps = {}) {
+    if (!payload || typeof payload !== "object") return false;
+    const normalizeChannelId =
+      typeof deps.normalizeChannelId === "function"
+        ? deps.normalizeChannelId
+        : (value) => String(value || "").trim();
+    const isStableChannelId =
+      typeof deps.isStableChannelId === "function"
+        ? deps.isStableChannelId
+        : () => false;
+    const getLocationKey =
+      typeof deps.getLocationKey === "function"
+        ? deps.getLocationKey
+        : () => "";
+    const getRawChannelIdFromLocationPath =
+      typeof deps.getRawChannelIdFromLocationPath === "function"
+        ? deps.getRawChannelIdFromLocationPath
+        : () => "";
+
+    const locationKey = String(getLocationKey() || "");
+    const payloadVideoNo = String(payload.videoNo || "").trim();
+    if (locationKey.startsWith("video:") && payloadVideoNo) {
+      const currentVideoNo = locationKey.slice("video:".length);
+      if (currentVideoNo && currentVideoNo !== payloadVideoNo) return false;
+    }
+
+    const locationChannelId = normalizeChannelId(
+      getRawChannelIdFromLocationPath(),
+    );
+    const payloadChannelId = normalizeChannelId(
+      payload.streamingChannelId || payload.channelId || "",
+    );
+    if (
+      isStableChannelId(locationChannelId) &&
+      isStableChannelId(payloadChannelId) &&
+      locationChannelId !== payloadChannelId
+    ) {
+      return false;
+    }
+    return true;
   }
 
   function refreshChatHighlightObserver(state, refs, deps = {}) {
@@ -793,6 +881,7 @@
     enqueueIncomingPayload,
     scheduleIncomingPayloadFlush,
     flushIncomingPayloads,
+    isIncomingPayloadForCurrentLocation,
     scheduleHiddenChatElementSync,
     applyHiddenChatElements,
     applyHiddenChatElementsToNode,
