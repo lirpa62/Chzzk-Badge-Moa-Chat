@@ -30,6 +30,14 @@
   const OWNER_BADGE_FALLBACK_URL =
     "https://ssl.pstatic.net/static/nng/glive/icon/owner.png";
   const ACHIEVEMENT_BADGE_URL_MAP = {
+    "2026chzzkopencup_1":
+      "https://nng-phinf.pstatic.net/MjAyNjA4MzFfMjA4/MDAxNzg4MTUyNDYzNzIx.n4bUzo6SJ4S8n31pkbB3_gI9OmJZF48jR6t0ZERGayAg.0PXwykFB7voFglPiPurnjTxCnJNvqCNSKQFrjJK2mVog.PNG/1%EC%9C%84.png?type=f120_120_na",
+    "2026chzzkopencup_2":
+      "https://nng-phinf.pstatic.net/MjAyNjA4MzFfMTIz/MDAxNzg4MTUyNjkyODQy.YH27ysL9OHVKiri3UvOzoGOaYvqnBJUCbulz4SsVPM4g.XU1ocFsNd9YK5a2YjVgI4GGE7-mVI92G-QitPI3tHDog.PNG/2%EC%9C%84.png?type=f120_120_na",
+    "2026chzzkopencup_3":
+      "https://nng-phinf.pstatic.net/MjAyNjA4MzFfOTUg/MDAxNzg4MTUyODE3MDM2.grjB2YLSzNM4yBNlsxia_XD9d-ozxxoBAeb-jqa6JcQg.e7VBfF-gOrYQaB_dYe3xWIX63y-dkoqkayYV45ej5qEg.PNG/3%EC%9C%84.png?type=f120_120_na",
+    "2026chzzkopencup_4":
+      "https://nng-phinf.pstatic.net/MjAyNjA4MzFfMjM5/MDAxNzg4MTUyOTM2MjU1.hkR7clu52DuHfOUXt2m4d3eRrDMhg3vS1_-81KcIWXkg.Hl1mOCp2cfqXD_q6S9SoqEyfWiQiMQdcymDGn83hYckg.PNG/4-10%EC%9C%84.png?type=f120_120_na",
     "2025chzzkcup_1":
       "https://nng-phinf.pstatic.net/MjAyNTEyMzBfMjU4/MDAxNzY3MDgxODczNjA2.WSIGn-NlCjbGAKomslHWdyPOADmnaX5cvBfCskSwEsQg.dZDFrMbTTVAPZBBOE6sUOGAk6D_DYvL-dsQK9wKdZbQg.PNG/%EC%9A%B0%EC%8A%B9%ED%8C%80.png",
     "2025chzzkcup_2":
