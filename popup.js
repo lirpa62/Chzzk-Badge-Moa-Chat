@@ -1,7 +1,6 @@
 (() => {
   const STORAGE_SETTINGS_KEY = "chzzk_badge_moa_popup_settings";
-  const UPDATE_BANNER_ENABLED_KEY =
-    "chzzk_badge_moa_update_banner_enabled";
+  const UPDATE_BANNER_ENABLED_KEY = "chzzk_badge_moa_update_banner_enabled";
   const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
   const SETTINGS_TAB_STORAGE_KEY = "chzzkBadgeMoaSettingsTab";
   const SETTINGS_EXPORT_FORMAT = "chzzk-badge-moa-chat-settings";
@@ -99,8 +98,10 @@
     chatWidth: 0,
     deleteWithoutConfirm: false,
     hidePillButton: false,
+    hideEmptyPill: false,
     keepPopupOpen: false,
     pillGlowEnabled: true,
+    compactPill: false,
     enableSessionCache: false,
     detachedOriginView: "hide",
     autoPruneManagedHiddenOnReconnect: false,
@@ -186,9 +187,7 @@
       "use-original-special-chat-style",
     ),
     placeChatOnLeft: document.getElementById("place-chat-on-left"),
-    enableChatWidthResize: document.getElementById(
-      "enable-chat-width-resize",
-    ),
+    enableChatWidthResize: document.getElementById("enable-chat-width-resize"),
     showPopupRoleBadgesOnly: document.getElementById(
       "show-popup-role-badges-only",
     ),
@@ -204,9 +203,11 @@
     chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
     hidePillButton: document.getElementById("hide-pill-button"),
+    hideEmptyPill: document.getElementById("hide-empty-pill"),
     keepPopupOpen: document.getElementById("keep-popup-open"),
     detachedOriginView: document.getElementById("detached-origin-view"),
     pillGlowEnabled: document.getElementById("pill-glow-enabled"),
+    compactPill: document.getElementById("compact-pill"),
     enableSessionCache: document.getElementById("enable-session-cache"),
     clearCurrentChannelSession: document.getElementById(
       "clear-current-channel-session",
@@ -236,13 +237,16 @@
     genericConfirmMessage: document.getElementById("generic-confirm-message"),
     genericConfirmCancel: document.getElementById("generic-confirm-cancel"),
     genericConfirmOk: document.getElementById("generic-confirm-ok"),
+    settingsTooltip: document.getElementById("settings-tooltip"),
   };
+  let suppressCustomTooltips = () => {};
 
   init().catch(() => {
     setStatus("설정을 불러오지 못했습니다.");
   });
 
   async function init() {
+    initializeCustomTooltips();
     bindEvents();
     applySettingsTab(loadSettingsTab());
     const [tab] = await chrome.tabs.query({
@@ -301,6 +305,221 @@
     setIdleStatus();
   }
 
+  function initializeCustomTooltips() {
+    if (!(el.settingsTooltip instanceof HTMLElement)) return;
+
+    let hoverTarget = null;
+    let focusTarget = null;
+    let activeTarget = null;
+    let describedElement = null;
+    let previousDescribedBy = null;
+    let suppressedUntil = 0;
+
+    const migrateNativeTooltip = (element) => {
+      if (!(element instanceof HTMLElement) || !element.hasAttribute("title")) {
+        return;
+      }
+      const message = String(element.getAttribute("title") || "").trim();
+      element.removeAttribute("title");
+      if (message) element.dataset.tooltip = message;
+    };
+
+    document.querySelectorAll("[title]").forEach(migrateNativeTooltip);
+
+    const getTooltipTarget = (target) =>
+      target instanceof Element ? target.closest("[data-tooltip]") : null;
+
+    const restoreDescription = () => {
+      if (!(describedElement instanceof HTMLElement)) return;
+      if (previousDescribedBy) {
+        describedElement.setAttribute("aria-describedby", previousDescribedBy);
+      } else {
+        describedElement.removeAttribute("aria-describedby");
+      }
+      describedElement = null;
+      previousDescribedBy = null;
+    };
+
+    const hideTooltip = () => {
+      restoreDescription();
+      activeTarget = null;
+      el.settingsTooltip.hidden = true;
+      el.settingsTooltip.textContent = "";
+      el.settingsTooltip.classList.remove("is-nowrap");
+    };
+
+    const positionTooltip = () => {
+      if (!(activeTarget instanceof HTMLElement) || !activeTarget.isConnected) {
+        hideTooltip();
+        return;
+      }
+      const targetRect = activeTarget.getBoundingClientRect();
+      const tooltipRect = el.settingsTooltip.getBoundingClientRect();
+      const viewportPadding = 8;
+      const gap = 6;
+      const maxLeft = Math.max(
+        viewportPadding,
+        window.innerWidth - tooltipRect.width - viewportPadding,
+      );
+      const preferredLeft =
+        activeTarget.dataset.tooltipAlign === "end"
+          ? targetRect.right - tooltipRect.width - 20
+          : targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+      const left = Math.min(maxLeft, Math.max(viewportPadding, preferredLeft));
+      const below = targetRect.bottom + gap;
+      const above = targetRect.top - tooltipRect.height - gap;
+      const top =
+        below + tooltipRect.height <= window.innerHeight - viewportPadding ||
+        above < viewportPadding
+          ? below
+          : above;
+      el.settingsTooltip.style.left = `${Math.round(left)}px`;
+      el.settingsTooltip.style.top = `${Math.round(
+        Math.max(viewportPadding, top),
+      )}px`;
+    };
+
+    const showTooltip = (target) => {
+      if (!(target instanceof HTMLElement)) return;
+      if (
+        target.classList.contains("theme-toggle-option") &&
+        Date.now() < suppressedUntil
+      ) {
+        hideTooltip();
+        return;
+      }
+      const message = String(target.dataset.tooltip || "").trim();
+      if (!message) {
+        hideTooltip();
+        return;
+      }
+
+      restoreDescription();
+      activeTarget = target;
+      el.settingsTooltip.textContent = message;
+      el.settingsTooltip.classList.toggle(
+        "is-nowrap",
+        target.dataset.tooltipNowrap === "true",
+      );
+      el.settingsTooltip.hidden = false;
+
+      const focusable = target.matches("button, input, select, textarea")
+        ? target
+        : target.querySelector(
+            "button:not(:disabled), input:not(:disabled), select:not(.native-select-hidden):not(:disabled), textarea:not(:disabled)",
+          );
+      if (focusable instanceof HTMLElement) {
+        describedElement = focusable;
+        previousDescribedBy = focusable.getAttribute("aria-describedby");
+        const describedBy = [previousDescribedBy, el.settingsTooltip.id]
+          .filter(Boolean)
+          .join(" ");
+        focusable.setAttribute("aria-describedby", describedBy);
+      }
+      positionTooltip();
+    };
+
+    suppressCustomTooltips = (durationMs = 0) => {
+      suppressedUntil = Math.max(
+        suppressedUntil,
+        Date.now() + Math.max(0, Number(durationMs) || 0),
+      );
+      hoverTarget = null;
+      focusTarget = null;
+      hideTooltip();
+    };
+
+    document.addEventListener("pointerover", (event) => {
+      const target = getTooltipTarget(event.target);
+      if (!(target instanceof HTMLElement)) return;
+      const related = event.relatedTarget;
+      if (related instanceof Node && target.contains(related)) return;
+      hoverTarget = target;
+      showTooltip(target);
+    });
+    document.addEventListener("pointerout", (event) => {
+      const target = getTooltipTarget(event.target);
+      if (!(target instanceof HTMLElement) || hoverTarget !== target) return;
+      const related = event.relatedTarget;
+      if (related instanceof Node && target.contains(related)) return;
+      hoverTarget = null;
+      if (focusTarget instanceof HTMLElement) {
+        showTooltip(focusTarget);
+      } else {
+        hideTooltip();
+      }
+    });
+    document.addEventListener("focusin", (event) => {
+      const target = getTooltipTarget(event.target);
+      if (!(target instanceof HTMLElement)) return;
+      focusTarget = target;
+      showTooltip(target);
+    });
+    document.addEventListener("focusout", (event) => {
+      const target = getTooltipTarget(event.target);
+      if (!(target instanceof HTMLElement) || focusTarget !== target) return;
+      const related = event.relatedTarget;
+      if (related instanceof Node && target.contains(related)) return;
+      focusTarget = null;
+      if (hoverTarget instanceof HTMLElement) {
+        showTooltip(hoverTarget);
+      } else {
+        hideTooltip();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideTooltip();
+    });
+    document.addEventListener("scroll", positionTooltip, true);
+    window.addEventListener("resize", positionTooltip);
+
+    const tooltipObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (
+          mutation.type === "childList" &&
+          activeTarget instanceof HTMLElement &&
+          !activeTarget.isConnected
+        ) {
+          hoverTarget = null;
+          focusTarget = null;
+          hideTooltip();
+          return;
+        }
+        if (
+          mutation.type === "attributes" &&
+          mutation.attributeName === "title"
+        ) {
+          migrateNativeTooltip(mutation.target);
+          return;
+        }
+        if (
+          mutation.type === "attributes" &&
+          mutation.attributeName === "data-tooltip" &&
+          mutation.target === activeTarget
+        ) {
+          showTooltip(activeTarget);
+        }
+      });
+    });
+    tooltipObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["title", "data-tooltip"],
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  function setCustomTooltip(element, message) {
+    if (!(element instanceof HTMLElement)) return;
+    element.removeAttribute("title");
+    const text = String(message || "").trim();
+    if (text) {
+      element.dataset.tooltip = text;
+    } else {
+      delete element.dataset.tooltip;
+    }
+  }
+
   function isThemeToggleExpanded() {
     return (
       el.themeToggle instanceof HTMLElement &&
@@ -311,6 +530,8 @@
   function setThemeToggleExpanded(expanded) {
     if (!(el.themeToggle instanceof HTMLElement)) return;
     const next = expanded === true;
+    const changed = isThemeToggleExpanded() !== next;
+    if (changed) suppressCustomTooltips(540);
     el.themeToggle.dataset.expanded = String(next);
     if (el.themeToggleCurrent) {
       el.themeToggleCurrent.setAttribute("aria-expanded", String(next));
@@ -331,12 +552,10 @@
   function syncUpdateBannerToggleUi() {
     if (!(el.updateBannerToggle instanceof HTMLButtonElement)) return;
     const enabled = state.updateBannerEnabled !== false;
-    const actionLabel = enabled
-      ? "업데이트 배너 끄기"
-      : "업데이트 배너 켜기";
+    const actionLabel = enabled ? "업데이트 배너 끄기" : "업데이트 배너 켜기";
     el.updateBannerToggle.setAttribute("aria-pressed", String(enabled));
     el.updateBannerToggle.setAttribute("aria-label", actionLabel);
-    el.updateBannerToggle.title = actionLabel;
+    setCustomTooltip(el.updateBannerToggle, actionLabel);
   }
 
   function triggerHintPulse(element) {
@@ -549,8 +768,7 @@
     const options = getCustomOptionButtons(root);
     if (options.length === 0) return;
     const currentIndex = Math.max(0, options.indexOf(current));
-    const nextIndex =
-      (currentIndex + delta + options.length) % options.length;
+    const nextIndex = (currentIndex + delta + options.length) % options.length;
     options[nextIndex].focus();
   }
 
@@ -689,9 +907,7 @@
       });
     });
     document.addEventListener("click", (event) => {
-      closeCustomSelects(
-        event.target instanceof Node ? event.target : null,
-      );
+      closeCustomSelects(event.target instanceof Node ? event.target : null);
       if (!isThemeToggleExpanded()) return;
       if (
         el.themeToggle &&
@@ -829,8 +1045,7 @@
     });
 
     el.showPopupFontScaleControl.addEventListener("change", async () => {
-      state.showPopupFontScaleControl =
-        el.showPopupFontScaleControl.checked;
+      state.showPopupFontScaleControl = el.showPopupFontScaleControl.checked;
       await persistAndApply();
     });
 
@@ -840,8 +1055,7 @@
     });
 
     el.enableCaptureDragSelection.addEventListener("change", async () => {
-      state.enableCaptureDragSelection =
-        el.enableCaptureDragSelection.checked;
+      state.enableCaptureDragSelection = el.enableCaptureDragSelection.checked;
       await persistAndApply();
     });
 
@@ -893,6 +1107,11 @@
       await persistAndApply();
     });
 
+    el.compactPill.addEventListener("change", async () => {
+      state.compactPill = el.compactPill.checked;
+      await persistAndApply();
+    });
+
     el.keepPopupOpen.addEventListener("change", async () => {
       state.keepPopupOpen = el.keepPopupOpen.checked;
       if (state.keepPopupOpen) {
@@ -921,6 +1140,11 @@
         state.keepPopupOpen = false;
         el.keepPopupOpen.checked = false;
       }
+      await persistAndApply();
+    });
+
+    el.hideEmptyPill.addEventListener("change", async () => {
+      state.hideEmptyPill = el.hideEmptyPill.checked;
       await persistAndApply();
     });
 
@@ -1197,8 +1421,7 @@
       state.useOriginalSpecialChatStyle === true;
     el.placeChatOnLeft.checked = state.placeChatOnLeft === true;
     el.enableChatWidthResize.checked = state.enableChatWidthResize === true;
-    el.showPopupRoleBadgesOnly.checked =
-      state.showPopupRoleBadgesOnly === true;
+    el.showPopupRoleBadgesOnly.checked = state.showPopupRoleBadgesOnly === true;
     el.showPopupFontScaleControl.checked =
       state.showPopupFontScaleControl === true;
     el.showCaptureButton.checked = state.showCaptureButton === true;
@@ -1208,7 +1431,9 @@
     el.popupFontScale.value = String(
       normalizePopupFontScale(state.popupFontScale),
     );
-    el.chatFontScale.value = String(normalizeChatFontScale(state.chatFontScale));
+    el.chatFontScale.value = String(
+      normalizeChatFontScale(state.chatFontScale),
+    );
     el.detachedOriginView.value = normalizeDetachedOriginView(
       state.detachedOriginView,
     );
@@ -1221,18 +1446,23 @@
     syncCustomSelect(el.chatTimestampColorMode);
     el.deleteWithoutConfirm.checked = state.deleteWithoutConfirm === true;
     el.hidePillButton.checked = state.hidePillButton === true;
+    el.hideEmptyPill.checked = state.hideEmptyPill === true;
     el.keepPopupOpen.checked =
       state.hidePillButton !== true && state.keepPopupOpen === true;
     el.pillGlowEnabled.checked = state.pillGlowEnabled === true;
+    el.compactPill.checked = state.compactPill === true;
     el.enableSessionCache.checked = state.enableSessionCache === true;
     if (el.clearCurrentChannelSession) {
       const isChzzkChannelTab =
         typeof state.scopeKey === "string" &&
         state.scopeKey.startsWith("channel:");
       el.clearCurrentChannelSession.disabled = !isChzzkChannelTab;
-      el.clearCurrentChannelSession.title = isChzzkChannelTab
-        ? "현재 채널의 모아보기 채팅과 세션 캐시를 비웁니다"
-        : "치지직 채널 탭에서만 사용할 수 있습니다";
+      setCustomTooltip(
+        el.clearCurrentChannelSession,
+        isChzzkChannelTab
+          ? "현재 채널의 모아보기 채팅과 세션 캐시를 비웁니다"
+          : "치지직 채널 탭에서만 사용할 수 있습니다",
+      );
     }
     if (el.hiddenAutoPruneToggle) {
       el.hiddenAutoPruneToggle.checked =
@@ -1345,7 +1575,7 @@
         "aria-label",
         `${nickname} 모아보기 제외 대상으로 선택`,
       );
-      excludeCheckbox.title = "모아보기 제외 대상 선택";
+      setCustomTooltip(excludeCheckbox, "모아보기 제외 대상 선택");
       excludeCheckbox.addEventListener("change", () => {
         if (excludeCheckbox.checked) {
           state.hiddenAdvancedSelectedSet.add(nickname);
@@ -1438,9 +1668,12 @@
         countText.textContent = count;
         toggleButton.appendChild(countText);
       }
-      toggleButton.title = state.hiddenSet.has(nickname)
-        ? "현재 채팅창 알림 숨김 상태 - 클릭하면 해제"
-        : "클릭하면 채팅창 알림 숨김";
+      setCustomTooltip(
+        toggleButton,
+        state.hiddenSet.has(nickname)
+          ? "현재 채팅창 알림 숨김 상태 - 클릭하면 해제"
+          : "클릭하면 채팅창 알림 숨김",
+      );
 
       toggleButton.addEventListener("click", async () => {
         if (state.hiddenSet.has(nickname)) {
@@ -1610,18 +1843,21 @@
       toggleButton.type = "button";
       toggleButton.className = "chip-toggle-btn";
       toggleButton.setAttribute("aria-label", `${item.value} 선택/해제`);
-      toggleButton.title = state.selectedTrackedNicknameSet.has(item.value)
-        ? "선택됨 - 클릭하여 선택 해제"
-        : "클릭하여 선택";
+      setCustomTooltip(
+        toggleButton,
+        state.selectedTrackedNicknameSet.has(item.value)
+          ? "선택됨 - 클릭하여 선택 해제"
+          : "클릭하여 선택",
+      );
       toggleButton.addEventListener("click", () => {
         if (state.selectedTrackedNicknameSet.has(item.value)) {
           state.selectedTrackedNicknameSet.delete(item.value);
           chip.classList.remove("is-selected");
-          toggleButton.title = "클릭하여 선택";
+          setCustomTooltip(toggleButton, "클릭하여 선택");
         } else {
           state.selectedTrackedNicknameSet.add(item.value);
           chip.classList.add("is-selected");
-          toggleButton.title = "선택됨 - 클릭하여 선택 해제";
+          setCustomTooltip(toggleButton, "선택됨 - 클릭하여 선택 해제");
         }
         updateActionButtonsState();
       });
@@ -1815,8 +2051,7 @@
   async function excludeSelectedFromTrackedTargets() {
     if (state.hiddenAdvancedSelectedSet.size === 0) return;
     const selectedNicknames = Array.from(state.hiddenAdvancedSelectedSet);
-    const isGlobal =
-      state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL;
+    const isGlobal = state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL;
     const nextExcluded = new Set(getExcludedEditSet());
     let changed = false;
     let addedCount = 0;
@@ -1947,8 +2182,7 @@
       .map((nickname) => normalizeNickname(nickname))
       .filter(
         (nickname) =>
-          !!nickname &&
-          visibleScopeMap.get(nickname) === TRACKED_SCOPE_CHANNEL,
+          !!nickname && visibleScopeMap.get(nickname) === TRACKED_SCOPE_CHANNEL,
       );
     state.selectedTrackedNicknameSet.clear();
     if (!changed) {
@@ -2155,25 +2389,24 @@
       chatTimestampColorMode: normalizeChatTimestampColorMode(
         state.chatTimestampColorMode,
       ),
-      useOriginalSpecialChatStyle:
-        state.useOriginalSpecialChatStyle === true,
+      useOriginalSpecialChatStyle: state.useOriginalSpecialChatStyle === true,
       placeChatOnLeft: state.placeChatOnLeft === true,
       enableChatWidthResize: state.enableChatWidthResize === true,
       chatWidth: normalizeChatWidth(state.chatWidth),
       showPopupRoleBadgesOnly: state.showPopupRoleBadgesOnly === true,
-      showPopupFontScaleControl:
-        state.showPopupFontScaleControl === true,
+      showPopupFontScaleControl: state.showPopupFontScaleControl === true,
       showCaptureButton: state.showCaptureButton === true,
-      enableCaptureDragSelection:
-        state.enableCaptureDragSelection === true,
+      enableCaptureDragSelection: state.enableCaptureDragSelection === true,
       showCapturePreview: state.showCapturePreview === true,
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
       hidePillButton: state.hidePillButton === true,
+      hideEmptyPill: state.hideEmptyPill === true,
       keepPopupOpen:
         state.hidePillButton === true ? false : state.keepPopupOpen === true,
       pillGlowEnabled: state.pillGlowEnabled,
+      compactPill: state.compactPill === true,
       enableSessionCache: state.enableSessionCache,
       detachedOriginView: normalizeDetachedOriginView(state.detachedOriginView),
       newTrackedNicknames: forceTrackedNicknames,
@@ -2249,7 +2482,9 @@
     state.hidePopupBackground = settings.hidePopupBackground === true;
     state.hidePopupBorder = settings.hidePopupBorder === true;
     state.hidePopupTime = settings.hidePopupTime === true;
-    if (Object.prototype.hasOwnProperty.call(settings, "popupTimestampFormat")) {
+    if (
+      Object.prototype.hasOwnProperty.call(settings, "popupTimestampFormat")
+    ) {
       state.popupTimestampFormat = normalizePopupTimestampFormat(
         settings.popupTimestampFormat,
       );
@@ -2286,8 +2521,7 @@
     state.placeChatOnLeft = settings.placeChatOnLeft === true;
     state.enableChatWidthResize = settings.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(settings.chatWidth);
-    state.showPopupRoleBadgesOnly =
-      settings.showPopupRoleBadgesOnly === true;
+    state.showPopupRoleBadgesOnly = settings.showPopupRoleBadgesOnly === true;
     state.showPopupFontScaleControl =
       settings.showPopupFontScaleControl === true;
     state.showCaptureButton = settings.showCaptureButton === true;
@@ -2298,9 +2532,15 @@
     state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
     state.hidePillButton = settings.hidePillButton === true;
+    if (Object.prototype.hasOwnProperty.call(settings, "hideEmptyPill")) {
+      state.hideEmptyPill = settings.hideEmptyPill === true;
+    }
     state.keepPopupOpen =
       state.hidePillButton !== true && settings.keepPopupOpen === true;
     state.pillGlowEnabled = settings.pillGlowEnabled !== false;
+    if (Object.prototype.hasOwnProperty.call(settings, "compactPill")) {
+      state.compactPill = settings.compactPill === true;
+    }
     state.detachedOriginView = normalizeDetachedOriginView(
       settings.detachedOriginView,
     );
@@ -2339,9 +2579,7 @@
       !!scopedTracked && Array.isArray(scopedTracked.nicknames);
     const hasScopedExcluded = Array.isArray(excludedByScope[state.scopeKey]);
     const hasGlobalTracked = Array.isArray(raw.trackedGlobalNicknames);
-    const hasGlobalExcluded = Array.isArray(
-      raw.excludedCollectGlobalNicknames,
-    );
+    const hasGlobalExcluded = Array.isArray(raw.excludedCollectGlobalNicknames);
 
     if (!hasScopedHidden) {
       const hidden = Array.isArray(settings.hiddenPillNicknames)
@@ -2398,9 +2636,7 @@
         ? settings.excludedCollectGlobalNicknames
         : [];
       state.excludedCollectGlobalNicknameSet = new Set(
-        excludedGlobal
-          .map((value) => normalizeNickname(value))
-          .filter(Boolean),
+        excludedGlobal.map((value) => normalizeNickname(value)).filter(Boolean),
       );
     }
     rebuildEffectiveExcludedCollectNicknames();
@@ -2483,11 +2719,9 @@
     state.enableChatWidthResize = raw.enableChatWidthResize === true;
     state.chatWidth = normalizeChatWidth(raw.chatWidth);
     state.showPopupRoleBadgesOnly = raw.showPopupRoleBadgesOnly === true;
-    state.showPopupFontScaleControl =
-      raw.showPopupFontScaleControl === true;
+    state.showPopupFontScaleControl = raw.showPopupFontScaleControl === true;
     state.showCaptureButton = raw.showCaptureButton === true;
-    state.enableCaptureDragSelection =
-      raw.enableCaptureDragSelection === true;
+    state.enableCaptureDragSelection = raw.enableCaptureDragSelection === true;
     state.showCapturePreview = raw.showCapturePreview === true;
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
@@ -2499,10 +2733,12 @@
       state.deleteWithoutConfirm = false;
     }
     state.hidePillButton = raw.hidePillButton === true;
+    state.hideEmptyPill = raw.hideEmptyPill === true;
     state.keepPopupOpen =
       state.hidePillButton !== true &&
       (raw.keepPopupOpen === true || raw.keepPillExpanded === true);
     state.pillGlowEnabled = raw.pillGlowEnabled !== false;
+    state.compactPill = raw.compactPill === true;
     state.enableSessionCache = raw.enableSessionCache === true;
     state.detachedOriginView = normalizeDetachedOriginView(
       raw.detachedOriginView,
@@ -2621,21 +2857,21 @@
     raw.enableChatWidthResize = state.enableChatWidthResize === true;
     raw.chatWidth = normalizeChatWidth(state.chatWidth);
     raw.showPopupRoleBadgesOnly = state.showPopupRoleBadgesOnly === true;
-    raw.showPopupFontScaleControl =
-      state.showPopupFontScaleControl === true;
+    raw.showPopupFontScaleControl = state.showPopupFontScaleControl === true;
     raw.showCaptureButton = state.showCaptureButton === true;
-    raw.enableCaptureDragSelection =
-      state.enableCaptureDragSelection === true;
+    raw.enableCaptureDragSelection = state.enableCaptureDragSelection === true;
     raw.showCapturePreview = state.showCapturePreview === true;
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
     raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
     delete raw.confirmDeleteDialog;
     raw.hidePillButton = state.hidePillButton === true;
+    raw.hideEmptyPill = state.hideEmptyPill === true;
     raw.keepPopupOpen =
       state.hidePillButton === true ? false : state.keepPopupOpen === true;
     delete raw.keepPillExpanded;
     raw.pillGlowEnabled = state.pillGlowEnabled !== false;
+    raw.compactPill = state.compactPill === true;
     raw.enableSessionCache = state.enableSessionCache === true;
     raw.detachedOriginView = normalizeDetachedOriginView(
       state.detachedOriginView,
@@ -3272,9 +3508,7 @@
       });
       settingsLocal[UPDATE_BANNER_ENABLED_KEY] =
         state.updateBannerEnabled !== false;
-      const settingsTab = window.localStorage.getItem(
-        SETTINGS_TAB_STORAGE_KEY,
-      );
+      const settingsTab = window.localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
       const data = {
         format: SETTINGS_EXPORT_FORMAT,
         formatVersion: DATA_EXPORT_FORMAT_VERSION,
@@ -3352,10 +3586,13 @@
         autoResetMs: 2400,
       });
     } catch (error) {
-      setStatus(String((error && error.message) || "설정을 가져오지 못했습니다."), {
-        variant: "error",
-        autoResetMs: 3200,
-      });
+      setStatus(
+        String((error && error.message) || "설정을 가져오지 못했습니다."),
+        {
+          variant: "error",
+          autoResetMs: 3200,
+        },
+      );
     }
   }
 
@@ -3429,7 +3666,9 @@
       window.setTimeout(() => window.location.reload(), 350);
     } catch (error) {
       setStatus(
-        String((error && error.message) || "전체 데이터를 복원하지 못했습니다."),
+        String(
+          (error && error.message) || "전체 데이터를 복원하지 못했습니다.",
+        ),
         { variant: "error", autoResetMs: 3200 },
       );
     }

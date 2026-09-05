@@ -33,7 +33,9 @@
           class="update-banner-toggle"
           aria-label="업데이트 배너 끄기"
           aria-pressed="true"
-          title="업데이트 배너 끄기"
+          data-tooltip="업데이트 배너 끄기"
+          data-tooltip-align="end"
+          data-tooltip-nowrap="true"
         >
           <span class="update-banner-icon is-enabled" aria-hidden="true">
             <svg
@@ -140,7 +142,9 @@
               data-theme-value="light"
               role="radio"
               aria-checked="false"
-              title="라이트"
+              data-tooltip="라이트"
+              data-tooltip-align="end"
+              data-tooltip-nowrap="true"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -165,7 +169,9 @@
               data-theme-value="dark"
               role="radio"
               aria-checked="false"
-              title="다크"
+              data-tooltip="다크"
+              data-tooltip-align="end"
+              data-tooltip-nowrap="true"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -187,7 +193,9 @@
               data-theme-value="system"
               role="radio"
               aria-checked="false"
-              title="시스템"
+              data-tooltip="시스템"
+              data-tooltip-align="end"
+              data-tooltip-nowrap="true"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -329,13 +337,13 @@
             </label>
             <label
               class="toggle-row"
-              title="일반 모아보기 팝업 헤더에도 글자 크기 조절 버튼을 표시합니다."
+              data-tooltip="일반 모아보기 팝업 헤더에도 글자 크기 조절 버튼을 표시합니다."
             >
               <input type="checkbox" id="show-popup-font-scale-control" />
               <span>폰트 크기 조절 버튼 표시</span>
             </label>
             <label
-              class="toggle-row has-setting-tooltip"
+              class="toggle-row"
               data-tooltip="실제 채팅창에 표시된 특수 채팅만 원본 스타일로 모아봅니다. 다른 탭을 보고 있거나 채팅 행이 표시되지 않으면 기본 스타일을 사용합니다."
             >
               <input type="checkbox" id="use-original-special-chat-style" />
@@ -361,7 +369,7 @@
             </label>
             <label
               class="field-row"
-              title="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다. 색상 배경의 특수 채팅 시간은 가독성을 위해 흰색을 유지합니다."
+              data-tooltip="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다. 색상 배경의 특수 채팅 시간은 가독성을 위해 흰색을 유지합니다."
             >
               <span>팝업 시간 색상</span>
               <select id="popup-timestamp-color-mode">
@@ -393,25 +401,45 @@
             </label>
             <label
               class="toggle-row"
-              title="블라인드/클린봇으로 가려진 채팅을 원문으로 표시합니다."
+              data-tooltip="블라인드/클린봇으로 가려진 채팅을 원문으로 표시합니다."
             >
               <input type="checkbox" id="restore-blinded-chat" />
               <span>가려진 채팅 표시</span>
             </label>
             <label
               class="toggle-row"
-              title="각 채팅 앞에 보낸 시각을 선택한 형식으로 표시합니다."
+              data-tooltip="각 채팅 앞에 보낸 시각을 선택한 형식으로 표시합니다."
             >
               <input type="checkbox" id="show-chat-timestamp" />
               <span>채팅 시간 표시</span>
             </label>
-            <label class="toggle-row">
+            <label
+              class="toggle-row"
+              data-tooltip="새 배지 채팅이 도착하면 상단 알림 버튼 주위가 잠시 반짝입니다. 끄면 버튼 내용과 읽지 않은 채팅 수만 갱신됩니다."
+            >
               <input type="checkbox" id="pill-glow-enabled" />
-              <span>배지 알림 효과 사용</span>
+              <span>새 채팅 반짝임 사용</span>
             </label>
-            <label class="toggle-row">
+            <label
+              class="toggle-row"
+              data-tooltip="닉네임 대신 정적인 채팅 아이콘과 읽지 않은 채팅 수만 표시합니다."
+            >
+              <input type="checkbox" id="compact-pill" />
+              <span>알림 버튼 간단히 표시</span>
+            </label>
+            <label
+              class="toggle-row"
+              data-tooltip="상태와 관계없이 상단 알림 버튼을 항상 숨깁니다. 모아보기 팝업을 열 수 없게 됩니다."
+            >
               <input type="checkbox" id="hide-pill-button" />
               <span>배지 알림 버튼 숨김</span>
+            </label>
+            <label
+              class="toggle-row"
+              data-tooltip="읽지 않은 배지 채팅이 없을 때만 상단 알림 버튼을 숨기고, 새 채팅이 도착하면 다시 표시합니다."
+            >
+              <input type="checkbox" id="hide-empty-pill" />
+              <span>새 채팅 없을 때 버튼 숨김</span>
             </label>
           </div>
           <div class="field-grid-2col chat-timestamp-options">
@@ -425,7 +453,7 @@
             </label>
             <label
               class="field-row"
-              title="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다."
+              data-tooltip="테마 대비색은 라이트 모드에서 검정, 다크 모드에서 흰색으로 표시합니다."
             >
               <span>시간 글자 색상</span>
               <select id="chat-timestamp-color-mode">
@@ -507,24 +535,24 @@
               id="hidden-exclude-selected"
               type="button"
               class="collapse-toggle-btn"
-              title="선택한 닉네임을 팝업창 모아보기에서 제외"
+              data-tooltip="선택한 닉네임을 팝업창 모아보기에서 제외"
             >
               모아보기 제외
             </button>
           </div>
           <div class="advanced-row hidden-prune-row">
-            <label class="toggle-row hidden-auto-prune-toggle">
+            <label
+              class="toggle-row hidden-auto-prune-toggle"
+              data-tooltip="탭/채널 재연결 시 채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 자동으로 목록에서 정리"
+            >
               <input type="checkbox" id="hidden-auto-prune-toggle" />
-              <span
-                title="탭/채널 재연결 시 채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 자동으로 목록에서 정리"
-                >미활동 닉네임 자동 정리</span
-              >
+              <span>미활동 닉네임 자동 정리</span>
             </label>
             <button
               id="hidden-prune-empty"
               type="button"
               class="collapse-toggle-btn"
-              title="채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 목록에서 제거"
+              data-tooltip="채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 목록에서 제거"
             >
               미활동 닉네임 정리
             </button>
@@ -564,7 +592,7 @@
               id="tracked-input"
               type="text"
               placeholder="닉네임 입력 (스트리머만 추가 가능)"
-              title="'익명의 후원자', '미션 결과'는 예외적으로 추가 가능"
+              data-tooltip="'익명의 후원자', '미션 결과'는 예외적으로 추가 가능"
             />
             <button id="add-nickname" type="button">닉네임 추가</button>
           </div>
@@ -584,21 +612,21 @@
           <div class="toggle-grid-2col">
             <label
               class="toggle-row"
-              title="모아보기 팝업 헤더에 채팅 캡처 선택 버튼을 표시합니다."
+              data-tooltip="모아보기 팝업 헤더에 채팅 캡처 선택 버튼을 표시합니다."
             >
               <input type="checkbox" id="show-capture-button" />
               <span>캡처 버튼 표시</span>
             </label>
             <label
               class="toggle-row"
-              title="선택 모드에서 채팅을 드래그하여 연속 선택하거나 선택 해제합니다."
+              data-tooltip="선택 모드에서 채팅을 드래그하여 연속 선택하거나 선택 해제합니다."
             >
               <input type="checkbox" id="enable-capture-drag-selection" />
               <span>드래그 선택 사용</span>
             </label>
             <label
               class="toggle-row"
-              title="PNG 파일을 저장하기 전에 생성된 이미지를 확인합니다. 여러 파일로 나뉘면 이전·다음 버튼으로 확인할 수 있습니다."
+              data-tooltip="PNG 파일을 저장하기 전에 생성된 이미지를 확인합니다. 여러 파일로 나뉘면 이전·다음 버튼으로 확인할 수 있습니다."
             >
               <input type="checkbox" id="show-capture-preview" />
               <span>저장 전 미리보기</span>
@@ -720,6 +748,13 @@
 
       <p id="status" class="status"></p>
     </main>
+
+    <div
+      id="settings-tooltip"
+      class="settings-tooltip"
+      role="tooltip"
+      hidden
+    ></div>
 
     <script src="popup.js"></script>
   </body>

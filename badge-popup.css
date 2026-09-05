@@ -257,6 +257,44 @@ html[style*="color-scheme: dark"] .chzzk-badge-moa-pill.is-attention::before {
   animation: chzzkBadgeMoaPillFade 2.4s ease-in-out infinite;
 }
 
+.chzzk-badge-moa-pill.is-compact {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+  overflow: visible;
+}
+
+.chzzk-badge-moa-pill.is-compact .chzzk-badge-moa-pill-icon-wrap,
+.chzzk-badge-moa-pill.is-compact.is-empty .chzzk-badge-moa-pill-icon-wrap {
+  display: inline-flex;
+}
+
+.chzzk-badge-moa-pill.is-compact .chzzk-badge-moa-pill-text {
+  display: none;
+}
+
+.chzzk-badge-moa-pill.is-compact .chzzk-badge-moa-pill-count {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  z-index: 3;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-color: rgba(255, 255, 255, 0.72);
+  background: #e83969;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(30, 12, 20, 0.28);
+  font-size: 9px;
+}
+
+.chzzk-badge-moa-pill-compact-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .chzzk-badge-moa-pill-icon-wrap {
   display: inline-flex;
   align-items: center;
@@ -3312,6 +3350,12 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
 }
 
 .chzzk-badge-moa-hide-pill .chzzk-badge-moa-pill {
+  display: none !important;
+}
+
+.chzzk-badge-moa-hide-empty-pill
+  .chzzk-badge-moa-root:not(.has-unseen)
+  .chzzk-badge-moa-pill {
   display: none !important;
 }
 

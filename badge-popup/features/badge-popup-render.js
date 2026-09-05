@@ -159,10 +159,38 @@
       typeof deps.renderPillIdentity === "function"
         ? deps.renderPillIdentity
         : () => {};
+    const compactPill = state.settings?.compactPill === true;
 
     clearAttentionIfNeededFn();
     iconWrap.innerHTML = "";
     text.innerHTML = "";
+
+    pill.classList.toggle("is-compact", compactPill);
+    if (compactPill) {
+      const hasEntries =
+        Array.isArray(state.entries) && state.entries.length > 0;
+      const actors =
+        state.unseenCount > 0 ? getUnseenActorsForPillFn() : [];
+      const compactUnseenCount = actors.reduce(
+        (sum, actor) => sum + Math.max(0, Number(actor?.count) || 0),
+        0,
+      );
+      const hasUnseen = compactUnseenCount > 0;
+
+      root.classList.toggle("has-chat", hasEntries);
+      root.classList.toggle("has-unseen", hasUnseen);
+      pill.classList.remove("is-rotating");
+      pill.classList.toggle("is-empty", !hasUnseen);
+      resetPillCycleFn(false);
+      applyPillRoleClassFn(
+        actors.length > 0 ? resolvePillRoleFromIdentityFn(actors[0]) : "",
+      );
+      renderCompactPill(state, compactUnseenCount);
+      return;
+    }
+
+    pill.setAttribute("aria-label", "배지 채팅 모아보기 열기");
+    pill.removeAttribute("title");
 
     if (!Array.isArray(state.entries) || state.entries.length === 0) {
       root.classList.remove("has-chat", "has-unseen");
@@ -198,6 +226,7 @@
 
     const actors = getUnseenActorsForPillFn();
     if (!Array.isArray(actors) || actors.length <= 0) {
+      root.classList.remove("has-unseen");
       resetPillCycleFn(true);
       pill.classList.remove("is-rotating");
       pill.classList.add("is-empty");
@@ -217,6 +246,45 @@
     applyPillRoleClassFn(resolvePillRoleFromIdentityFn(actor));
     renderPillIdentityFn(actor, actor.count, true);
     pill.classList.toggle("is-rotating", actors.length > 1 && !lockActive);
+  }
+
+  function renderCompactPill(state, unreadCount) {
+    const pill = state?.ui?.pill;
+    const iconWrap = state?.ui?.iconWrap;
+    const text = state?.ui?.text;
+    const count = state?.ui?.count;
+    if (!pill || !iconWrap || !text || !count) return;
+
+    const svgNs = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNs, "svg");
+    svg.classList.add("chzzk-badge-moa-pill-compact-icon");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+
+    const path = document.createElementNS(svgNs, "path");
+    path.setAttribute(
+      "d",
+      "M5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H10l-4.4 3.3a.75.75 0 0 1-1.2-.6v-2.83a2.25 2.25 0 0 1-1.4-2.12v-7.5A2.25 2.25 0 0 1 5.25 4.5Z",
+    );
+    svg.appendChild(path);
+    iconWrap.appendChild(svg);
+    text.textContent = "";
+
+    const unseenCount = Math.max(0, Math.floor(Number(unreadCount) || 0));
+    if (unseenCount > 0) {
+      count.textContent = unseenCount > 999 ? "999+" : String(unseenCount);
+      count.style.display = "inline-flex";
+      const label = `읽지 않은 배지 채팅 ${unseenCount}개, 모아보기 열기`;
+      pill.setAttribute("aria-label", label);
+      pill.title = label;
+      return;
+    }
+
+    count.textContent = "";
+    count.style.display = "none";
+    pill.setAttribute("aria-label", "배지 채팅 모아보기 열기, 새 채팅 없음");
+    pill.title = "배지 채팅 모아보기";
   }
 
   function renderPillIdentity(

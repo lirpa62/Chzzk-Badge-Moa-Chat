@@ -1504,6 +1504,10 @@
         state.settings.hidePillButton === true,
       );
       rootElement.classList.toggle(
+        "chzzk-badge-moa-hide-empty-pill",
+        state.settings.hideEmptyPill === true,
+      );
+      rootElement.classList.toggle(
         "chzzk-badge-moa-chat-left-position",
         isChatAsideLeftPositionEnabled(
           state,

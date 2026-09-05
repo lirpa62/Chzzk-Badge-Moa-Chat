@@ -332,11 +332,13 @@
       defaults.deleteWithoutConfirm = false;
     }
     defaults.hidePillButton = raw.hidePillButton === true;
+    defaults.hideEmptyPill = raw.hideEmptyPill === true;
     defaults.keepPopupOpen =
       raw.hidePillButton === true
         ? false
         : raw.keepPopupOpen === true || raw.keepPillExpanded === true;
     defaults.pillGlowEnabled = raw.pillGlowEnabled !== false;
+    defaults.compactPill = raw.compactPill === true;
     defaults.enableSessionCache = raw.enableSessionCache === true;
     defaults.detachedOriginView = normalizeDetachedOriginView(
       raw.detachedOriginView,
@@ -558,11 +560,13 @@
       chatWidth: normalizeChatWidth(state.settings.chatWidth),
       deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
       hidePillButton: state.settings.hidePillButton === true,
+      hideEmptyPill: state.settings.hideEmptyPill === true,
       keepPopupOpen:
         state.settings.hidePillButton === true
           ? false
           : state.settings.keepPopupOpen === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
+      compactPill: state.settings.compactPill === true,
       enableSessionCache: state.settings.enableSessionCache === true,
       detachedOriginView: normalizeDetachedOriginView(
         state.settings.detachedOriginView,
@@ -680,11 +684,13 @@
         chatWidth: normalizeChatWidth(state.settings.chatWidth),
         deleteWithoutConfirm: state.settings.deleteWithoutConfirm === true,
         hidePillButton: state.settings.hidePillButton === true,
+        hideEmptyPill: state.settings.hideEmptyPill === true,
         keepPopupOpen:
           state.settings.hidePillButton === true
             ? false
             : state.settings.keepPopupOpen === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
+        compactPill: state.settings.compactPill === true,
         enableSessionCache: state.settings.enableSessionCache === true,
         detachedOriginView: normalizeDetachedOriginView(
           state.settings.detachedOriginView,
@@ -861,6 +867,9 @@
         state.settings.keepPopupOpen = false;
       }
     }
+    if (typeof source.hideEmptyPill === "boolean") {
+      state.settings.hideEmptyPill = source.hideEmptyPill;
+    }
     if (
       typeof source.keepPopupOpen === "boolean" ||
       typeof source.keepPillExpanded === "boolean"
@@ -881,6 +890,17 @@
         if (state.ui.pill) {
           state.ui.pill.classList.remove("is-attention");
         }
+      }
+    }
+    if (typeof source.compactPill === "boolean") {
+      state.settings.compactPill = source.compactPill;
+      if (state.settings.compactPill && state.pillCycle) {
+        if (state.pillCycle.timer) {
+          clearInterval(state.pillCycle.timer);
+          state.pillCycle.timer = null;
+        }
+        state.pillCycle.index = 0;
+        state.pillCycle.signature = "";
       }
     }
     if (typeof source.detachedOriginView === "string") {

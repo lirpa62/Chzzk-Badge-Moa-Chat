@@ -60,8 +60,10 @@
       chatWidth: 0,
       deleteWithoutConfirm: false,
       hidePillButton: false,
+      hideEmptyPill: false,
       keepPopupOpen: false,
       pillGlowEnabled: true,
+      compactPill: false,
       enableSessionCache: false,
       // 전용 창을 열 때 원래 탭 인라인 UI: "hide"(기본)/"pill"/"keep"
       detachedOriginView: "hide",
