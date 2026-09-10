@@ -4029,7 +4029,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   [class*="_floating_"]
   :is([class*="_button_chatting_dswob_"], [class*="_button_chatting_1cgzf_"])
   :is([class*="_username_dswob_"], [class*="_username_1cgzf_"])
-  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]) {
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ) {
   align-items: center !important;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
@@ -4084,7 +4088,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     [class*="_floating_"]
   )
   [class*="_nickname_1s877_"]
-  > :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]) {
+  > :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ) {
   vertical-align: middle !important;
 }
 
@@ -4095,7 +4103,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
     [class*="_container_o04z9_"],
-    [class*="_container_zw6kq_"]
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
   )[class*="_is_ellipsis_"] {
   vertical-align: baseline !important;
 }
@@ -4116,7 +4125,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     ),
     [class*="_floating_"]
   )
-  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]):not(
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ):not(
     [class*="_is_mission_"]
   ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
     [class*="_is_subscription_"]
@@ -4131,7 +4144,11 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     ),
     [class*="_floating_"]
   )
-  :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]):not(
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ):not(
     [class*="_is_mission_"]
   ):not([class*="_is_donation_"]):not([class*="_donation_alarm_"]):not(
     [class*="_is_subscription_"]
@@ -4349,8 +4366,17 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     ),
     [class*="_floating_"]
   )
-  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
-  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"]) {
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ):not([class*="_is_mission_"]):not([class*="_is_donation_"]):not(
+    [class*="_donation_alarm_"]
+  ):not([class*="_is_subscription_"]):not([class*="_is_ticker_overlay_"]):not(
+    [class*="_is_overlay_"]
+  )
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"], [class*="_wrapper_"])
+  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"], [class*="_icon_"]) {
   width: calc(
     var(--chzzk-badge-moa-chat-badge-icon-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -4382,8 +4408,17 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     ),
     [class*="_floating_"]
   )
-  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
-  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"])
+  :is(
+    [class*="_container_o04z9_"],
+    [class*="_container_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+  ):not([class*="_is_mission_"]):not([class*="_is_donation_"]):not(
+    [class*="_donation_alarm_"]
+  ):not([class*="_is_subscription_"]):not([class*="_is_ticker_overlay_"]):not(
+    [class*="_is_overlay_"]
+  )
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"], [class*="_wrapper_"])
+  > :is([class*="_icon_o04z9_"], [class*="_icon_zw6kq_"], [class*="_icon_"])
   :is([class*="_container_"], img, svg) {
   width: 100% !important;
   height: 100% !important;
@@ -4402,7 +4437,7 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
     ),
     [class*="_floating_"]
   )
-  :is([class*="_icon_dtc6c_"], [class*="_icon_1iatj_"]) {
+  :is([class*="_icon_dtc6c_"], [class*="_icon_1iatj_"]):not([style*="width"]) {
   width: calc(
     var(--chzzk-badge-moa-chat-nickname-mark-size) *
       var(--chzzk-badge-moa-chat-font-scale)
@@ -4425,6 +4460,24 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
   transform: none !important;
 }
 
+/* 8-1. 인라인 크기가 '있는' 닉네임 마크(파트너 인증·우승 배지 등 가변 px)는 인라인
+   width/height 를 존중하고 zoom 으로 배율만 곱한다. transform:scale 은 레이아웃 공간을
+   안 늘려 말줄임 overflow 에 잘리므로 zoom 을 쓴다(Chromium·최신 Firefox 지원). */
+html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
+  :is(aside#aside-chatting, aside#vod-aside)
+  :is(
+    :is(
+      [class*="_item_"],
+      [class*="live_chatting_list_item"],
+      [class*="vod_chatting_item"]
+    ),
+    [class*="_floating_"]
+  )
+  :is([class*="_icon_dtc6c_"], [class*="_icon_1iatj_"])[style*="width"] {
+  zoom: var(--chzzk-badge-moa-chat-font-scale) !important;
+  transform: none !important;
+}
+
 /* 9. 닉네임 말줄임 처리 — 닉네임이 실제로 넘칠 때만 치지직 네이티브 말줄임이 동작하도록
    min-width:0 만 보강한다. max-width/overflow/flex 를 강제로 덮어쓰면 하이라이트
    (_has_highlight_dtc6c_: max-width calc(100% + 4px), margin -2px)가 무시돼 넘치지
@@ -4439,7 +4492,12 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
     ),
     [class*="_floating_"]
   )
-  :is([class*="_nickname_o04z9_"], [class*="_nickname_zw6kq_"]) {
+  :is(
+    [class*="_nickname_o04z9_"],
+    [class*="_nickname_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+      > [class*="_nickname_"]
+  ) {
   min-width: 0 !important;
 }
 
@@ -4473,13 +4531,20 @@ html.chzzk-badge-moa-chat-font-scale-ready.chzzk-badge-moa-chat-font-scale-ready
     [class*="_floating_"]
   )
   :is(
-    :is([class*="_container_o04z9_"], [class*="_container_zw6kq_"]),
-    :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"])
+    :is(
+      [class*="_container_o04z9_"],
+      [class*="_container_zw6kq_"],
+      [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+    ),
+    :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"]),
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+      > [class*="_wrapper_"]
   ) {
   min-width: 0 !important;
 }
 
-/* 11. 닉네임 행 정렬/gap */
+/* 11. 닉네임 행 정렬/gap. 해시 없는 폴백(_wrapper_)은 닉네임 컨테이너의 직계 자식으로만
+   한정해 이모티콘/메시지 래퍼까지 잡히지 않게 한다. */
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   :is(
@@ -4490,7 +4555,12 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
     ),
     [class*="_floating_"]
   )
-  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"]) {
+  :is(
+    [class*="_wrapper_o04z9_"],
+    [class*="_wrapper_zw6kq_"],
+    [class*="_container_"]:is([class*="_is_message_"], [class*="_is_ellipsis_"])
+      > [class*="_wrapper_"]
+  ) {
   align-items: center !important;
   gap: calc(5px * var(--chzzk-badge-moa-chat-font-scale)) !important;
 }
@@ -4511,7 +4581,7 @@ html.chzzk-badge-moa-chat-font-scale-enabled
 html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-enabled
   :is(aside#aside-chatting, aside#vod-aside)
   [role="alertdialog"]
-  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"]) {
+  :is([class*="_wrapper_o04z9_"], [class*="_wrapper_zw6kq_"], [class*="_wrapper_"]) {
   /* 네이티브값(gap 4px·margin-right 4px)으로 명시 — initial 은 gap 을 0 으로 만들어
      배지 사이 간격이 사라진다. */
   gap: 4px !important;
@@ -4526,7 +4596,8 @@ html.chzzk-badge-moa-chat-font-scale-enabled.chzzk-badge-moa-chat-font-scale-ena
   [role="alertdialog"]
   :is(
     [class*="_wrapper_o04z9_"],
-    [class*="_wrapper_zw6kq_"]
+    [class*="_wrapper_zw6kq_"],
+    [class*="_wrapper_"]
   )[class*="_is_button_badge_"] {
   gap: initial !important;
 }
