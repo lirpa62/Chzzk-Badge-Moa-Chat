@@ -98,6 +98,10 @@ html[style*="color-scheme: dark"] {
   pointer-events: none;
 }
 
+.chzzk-badge-moa-root.is-chat-popup {
+  z-index: 1100;
+}
+
 .chzzk-badge-moa-pill {
   --pill-bg: rgba(255, 148, 183, 0.24);
   --pill-text-color: var(
@@ -157,6 +161,10 @@ html[style*="color-scheme: dark"] {
     box-shadow 0.2s ease,
     transform 0.2s ease;
   isolation: isolate;
+}
+
+.chzzk-badge-moa-root.is-chat-popup .chzzk-badge-moa-pill {
+  left: 15px;
 }
 
 .chzzk-badge-moa-root.is-vod-header .chzzk-badge-moa-pill {
@@ -3368,6 +3376,20 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   border-color: transparent !important;
 }
 
+.chzzk-badge-moa-chat-filtered-no-bg
+  > [class*="live_chatting_message_container"],
+.chzzk-badge-moa-chat-filtered-no-bg
+  > [class*="vod_chatting_message_container"] {
+  background: transparent !important;
+}
+
+.chzzk-badge-moa-chat-filtered-no-border
+  > [class*="live_chatting_message_container"],
+.chzzk-badge-moa-chat-filtered-no-border
+  > [class*="vod_chatting_message_container"] {
+  border: 0 !important;
+}
+
 .chzzk-badge-moa-root.chzzk-badge-moa-no-popup-bg
   .chzzk-badge-moa-item:not([class*="chzzk-badge-moa-item-type-"]),
 .chzzk-badge-moa-root.chzzk-badge-moa-no-popup-bg
@@ -3546,6 +3568,14 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
   .chzzk-badge-moa-chat-highlight
   > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
   border-color: transparent !important;
+}
+.chzzk-badge-moa-chat-filtered-no-bg
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+  background: transparent !important;
+}
+.chzzk-badge-moa-chat-filtered-no-border
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+  border: 0 !important;
 }
 
 html.chzzk-badge-moa-hide-chat-ranking .chzzk-badge-moa-hidden-chat-ranking,

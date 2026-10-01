@@ -1478,6 +1478,10 @@
       typeof deps.applyHiddenChatElements === "function"
         ? deps.applyHiddenChatElements
         : () => {};
+    const applyHighlightToAllFn =
+      typeof deps.applyHighlightToAll === "function"
+        ? deps.applyHighlightToAll
+        : () => {};
     const syncPopupFontScaleControlFn =
       typeof deps.syncPopupFontScaleControl === "function"
         ? deps.syncPopupFontScaleControl
@@ -1555,6 +1559,7 @@
     }
     syncChatWidthResize(state, deps);
     applyHiddenChatElementsFn();
+    applyHighlightToAllFn();
 
     if (!root) return;
 

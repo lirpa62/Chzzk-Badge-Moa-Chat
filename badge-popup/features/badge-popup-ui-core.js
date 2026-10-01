@@ -45,6 +45,10 @@
       typeof deps.isMoaWindowContext === "function"
         ? deps.isMoaWindowContext
         : () => false;
+    const isChatPopupContext =
+      typeof deps.isChatPopupContext === "function"
+        ? deps.isChatPopupContext
+        : () => false;
     const closePopup =
       typeof deps.closePopup === "function" ? deps.closePopup : () => {};
     const setDisplayStyle =
@@ -127,6 +131,7 @@
     }
 
     const isVodHeader = isVodChatHeader(header);
+    const isChatPopup = isChatPopupContext();
 
     if (
       state.ui.root &&
@@ -134,6 +139,7 @@
       header.contains(state.ui.root)
     ) {
       state.ui.root.classList.toggle("is-vod-header", isVodHeader);
+      state.ui.root.classList.toggle("is-chat-popup", isChatPopup);
       applyPopupHeight();
       syncPillPositionForHeader();
       return;
@@ -144,6 +150,7 @@
     const root = document.createElement("div");
     root.className = "chzzk-badge-moa-root";
     root.classList.toggle("is-vod-header", isVodHeader);
+    root.classList.toggle("is-chat-popup", isChatPopup);
 
     const pill = document.createElement("button");
     pill.type = "button";

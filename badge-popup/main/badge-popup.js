@@ -570,6 +570,7 @@
       onPillClick,
       openMoaWindow,
       isMoaWindowContext,
+      isChatPopupContext,
       closePopup,
       setDisplayStyle,
       renderList,
@@ -929,7 +930,26 @@
     observerApi.applyHighlightToItem(item, {
       matchesChatItem,
       detectBadgeTypeFromItem,
+      resolveFilteredHighlightStyle,
     });
+  }
+
+  function resolveFilteredHighlightStyle(item) {
+    const nickname = normalizeNickname(
+      observerApi.getChatNicknameFromItem(item),
+    );
+    const isHiddenOrExcluded =
+      !!nickname &&
+      (state.settings.hiddenPillNicknames?.has(nickname) === true ||
+        state.settings.excludedCollectNicknames?.has(nickname) === true);
+    return {
+      removeBackground:
+        isHiddenOrExcluded &&
+        state.settings.hideExcludedHiddenChatBackground === true,
+      removeBorder:
+        isHiddenOrExcluded &&
+        state.settings.hideExcludedHiddenChatBorder === true,
+    };
   }
 
   function detectBadgeTypeFromItem(item) {
@@ -1379,6 +1399,7 @@
       MIN_CHAT_WIDTH,
       saveSettings,
       applyHiddenChatElements,
+      applyHighlightToAll,
       syncPopupFontScaleControl,
     });
   }

@@ -287,6 +287,10 @@
 
     defaults.hideChatBackground = raw.hideChatBackground === true;
     defaults.hideChatBorder = raw.hideChatBorder === true;
+    defaults.hideExcludedHiddenChatBackground =
+      raw.hideExcludedHiddenChatBackground === true;
+    defaults.hideExcludedHiddenChatBorder =
+      raw.hideExcludedHiddenChatBorder === true;
     defaults.hidePopupBackground = raw.hidePopupBackground === true;
     defaults.hidePopupBorder = raw.hidePopupBorder === true;
     defaults.hidePopupTime = raw.hidePopupTime === true;
@@ -519,6 +523,10 @@
       nicknameFiltersByChannel: nicknameFiltersByScope,
       hideChatBackground: state.settings.hideChatBackground === true,
       hideChatBorder: state.settings.hideChatBorder === true,
+      hideExcludedHiddenChatBackground:
+        state.settings.hideExcludedHiddenChatBackground === true,
+      hideExcludedHiddenChatBorder:
+        state.settings.hideExcludedHiddenChatBorder === true,
       hidePopupBackground: state.settings.hidePopupBackground === true,
       hidePopupBorder: state.settings.hidePopupBorder === true,
       hidePopupTime: state.settings.hidePopupTime === true,
@@ -643,6 +651,10 @@
       settings: {
         hideChatBackground: state.settings.hideChatBackground === true,
         hideChatBorder: state.settings.hideChatBorder === true,
+        hideExcludedHiddenChatBackground:
+          state.settings.hideExcludedHiddenChatBackground === true,
+        hideExcludedHiddenChatBorder:
+          state.settings.hideExcludedHiddenChatBorder === true,
         hidePopupBackground: state.settings.hidePopupBackground === true,
         hidePopupBorder: state.settings.hidePopupBorder === true,
         hidePopupTime: state.settings.hidePopupTime === true,
@@ -753,6 +765,14 @@
     }
     if (typeof source.hideChatBorder === "boolean") {
       state.settings.hideChatBorder = source.hideChatBorder;
+    }
+    if (typeof source.hideExcludedHiddenChatBackground === "boolean") {
+      state.settings.hideExcludedHiddenChatBackground =
+        source.hideExcludedHiddenChatBackground;
+    }
+    if (typeof source.hideExcludedHiddenChatBorder === "boolean") {
+      state.settings.hideExcludedHiddenChatBorder =
+        source.hideExcludedHiddenChatBorder;
     }
     if (typeof source.hidePopupBackground === "boolean") {
       state.settings.hidePopupBackground = source.hidePopupBackground;

@@ -10,6 +10,10 @@
     "chzzk-badge-moa-chat-highlight-partner",
   ];
   const HIGHLIGHT_TYPE_ATTR = "data-chzzk-badge-moa-highlight";
+  const FILTERED_NO_BACKGROUND_CLASS =
+    "chzzk-badge-moa-chat-filtered-no-bg";
+  const FILTERED_NO_BORDER_CLASS =
+    "chzzk-badge-moa-chat-filtered-no-border";
   const HIDDEN_CHAT_ELEMENT_CLASSES = [
     "chzzk-badge-moa-hidden-chat-ranking",
     "chzzk-badge-moa-hidden-chat-mission",
@@ -748,10 +752,25 @@
       typeof deps.detectBadgeTypeFromItem === "function"
         ? deps.detectBadgeTypeFromItem
         : () => "";
+    const resolveFilteredHighlightStyle =
+      typeof deps.resolveFilteredHighlightStyle === "function"
+        ? deps.resolveFilteredHighlightStyle
+        : () => ({ removeBackground: false, removeBorder: false });
     if (!matchesChatItem(item)) return;
 
     const previousType = String(item.getAttribute(HIGHLIGHT_TYPE_ATTR) || "");
     const badgeType = detectBadgeTypeFromItem(item);
+    const filteredStyle = badgeType
+      ? resolveFilteredHighlightStyle(item)
+      : { removeBackground: false, removeBorder: false };
+    item.classList.toggle(
+      FILTERED_NO_BACKGROUND_CLASS,
+      filteredStyle?.removeBackground === true,
+    );
+    item.classList.toggle(
+      FILTERED_NO_BORDER_CLASS,
+      filteredStyle?.removeBorder === true,
+    );
     if (badgeType === previousType) return;
 
     if (!badgeType && !previousType) return;
@@ -787,6 +806,18 @@
     if (hasOperatorBadge(item)) return "operator";
     if (hasPartnerMark(item)) return "partner";
     return "";
+  }
+
+  function getChatNicknameFromItem(item) {
+    if (!(item instanceof Element)) return "";
+    const nicknameRoot =
+      item.querySelector("button[class*='_nickname_']") ||
+      item.querySelector("[class*='_nickname_']") ||
+      item.querySelector("button[class*='chatting_username']");
+    if (!(nicknameRoot instanceof Element)) return "";
+    const textNode =
+      nicknameRoot.querySelector("[class*='_text_']") || nicknameRoot;
+    return String(textNode.textContent || "").trim();
   }
 
   function hasManagerBadge(item) {
@@ -893,6 +924,7 @@
     applyHighlightToAll,
     applyHighlightToItem,
     detectBadgeTypeFromItem,
+    getChatNicknameFromItem,
     hasManagerBadge,
     hasOperatorBadge,
     hasChannelOwnerBadge,

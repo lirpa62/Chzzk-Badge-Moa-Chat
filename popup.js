@@ -70,6 +70,8 @@
     hiddenExcludeEditScope: TRACKED_SCOPE_CHANNEL,
     hideChatBackground: false,
     hideChatBorder: false,
+    hideExcludedHiddenChatBackground: false,
+    hideExcludedHiddenChatBorder: false,
     hidePopupBackground: false,
     hidePopupBorder: false,
     hidePopupTime: false,
@@ -162,6 +164,12 @@
     ),
     hideChatBg: document.getElementById("hide-chat-bg"),
     hideChatBorder: document.getElementById("hide-chat-border"),
+    hideExcludedHiddenChatBg: document.getElementById(
+      "hide-excluded-hidden-chat-bg",
+    ),
+    hideExcludedHiddenChatBorder: document.getElementById(
+      "hide-excluded-hidden-chat-border",
+    ),
     hidePopupBg: document.getElementById("hide-popup-bg"),
     hidePopupBorder: document.getElementById("hide-popup-border"),
     hidePopupTime: document.getElementById("hide-popup-time"),
@@ -938,6 +946,18 @@
       await persistAndApply();
     });
 
+    el.hideExcludedHiddenChatBg.addEventListener("change", async () => {
+      state.hideExcludedHiddenChatBackground =
+        el.hideExcludedHiddenChatBg.checked;
+      await persistAndApply();
+    });
+
+    el.hideExcludedHiddenChatBorder.addEventListener("change", async () => {
+      state.hideExcludedHiddenChatBorder =
+        el.hideExcludedHiddenChatBorder.checked;
+      await persistAndApply();
+    });
+
     el.hidePopupBg.addEventListener("change", async () => {
       state.hidePopupBackground = el.hidePopupBg.checked;
       await persistAndApply();
@@ -1392,6 +1412,10 @@
     syncUpdateBannerToggleUi();
     el.hideChatBg.checked = state.hideChatBackground;
     el.hideChatBorder.checked = state.hideChatBorder;
+    el.hideExcludedHiddenChatBg.checked =
+      state.hideExcludedHiddenChatBackground;
+    el.hideExcludedHiddenChatBorder.checked =
+      state.hideExcludedHiddenChatBorder;
     el.hidePopupBg.checked = state.hidePopupBackground;
     el.hidePopupBorder.checked = state.hidePopupBorder;
     el.hidePopupTime.checked = state.hidePopupTime;
@@ -2366,6 +2390,9 @@
     const payload = {
       hideChatBackground: state.hideChatBackground,
       hideChatBorder: state.hideChatBorder,
+      hideExcludedHiddenChatBackground:
+        state.hideExcludedHiddenChatBackground,
+      hideExcludedHiddenChatBorder: state.hideExcludedHiddenChatBorder,
       hidePopupBackground: state.hidePopupBackground,
       hidePopupBorder: state.hidePopupBorder,
       hidePopupTime: state.hidePopupTime,
@@ -2479,6 +2506,10 @@
   function applyStateFromContextSettings(settings) {
     state.hideChatBackground = settings.hideChatBackground === true;
     state.hideChatBorder = settings.hideChatBorder === true;
+    state.hideExcludedHiddenChatBackground =
+      settings.hideExcludedHiddenChatBackground === true;
+    state.hideExcludedHiddenChatBorder =
+      settings.hideExcludedHiddenChatBorder === true;
     state.hidePopupBackground = settings.hidePopupBackground === true;
     state.hidePopupBorder = settings.hidePopupBorder === true;
     state.hidePopupTime = settings.hidePopupTime === true;
@@ -2690,6 +2721,10 @@
 
     state.hideChatBackground = raw.hideChatBackground === true;
     state.hideChatBorder = raw.hideChatBorder === true;
+    state.hideExcludedHiddenChatBackground =
+      raw.hideExcludedHiddenChatBackground === true;
+    state.hideExcludedHiddenChatBorder =
+      raw.hideExcludedHiddenChatBorder === true;
     state.hidePopupBackground = raw.hidePopupBackground === true;
     state.hidePopupBorder = raw.hidePopupBorder === true;
     state.hidePopupTime = raw.hidePopupTime === true;
@@ -2828,6 +2863,10 @@
 
     raw.hideChatBackground = state.hideChatBackground === true;
     raw.hideChatBorder = state.hideChatBorder === true;
+    raw.hideExcludedHiddenChatBackground =
+      state.hideExcludedHiddenChatBackground === true;
+    raw.hideExcludedHiddenChatBorder =
+      state.hideExcludedHiddenChatBorder === true;
     raw.hidePopupBackground = state.hidePopupBackground === true;
     raw.hidePopupBorder = state.hidePopupBorder === true;
     raw.hidePopupTime = state.hidePopupTime === true;

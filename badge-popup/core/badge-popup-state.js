@@ -32,6 +32,8 @@
       nicknameFiltersByScope: {},
       hideChatBackground: false,
       hideChatBorder: false,
+      hideExcludedHiddenChatBackground: false,
+      hideExcludedHiddenChatBorder: false,
       hidePopupBackground: false,
       hidePopupBorder: false,
       hidePopupTime: false,

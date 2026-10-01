@@ -1193,6 +1193,28 @@
     );
     visualList.appendChild(
       createSettingToggleRowFn(
+        "숨김·제외 채팅 배경색 제거",
+        state.settings.hideExcludedHiddenChatBackground,
+        (checked) => {
+          state.settings.hideExcludedHiddenChatBackground = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
+        "숨김·제외 채팅 테두리 제거",
+        state.settings.hideExcludedHiddenChatBorder,
+        (checked) => {
+          state.settings.hideExcludedHiddenChatBorder = checked;
+          saveSettingsFn();
+          applySettingsClassesFn();
+        },
+      ),
+    );
+    visualList.appendChild(
+      createSettingToggleRowFn(
         "팝업창 배경색 제거",
         state.settings.hidePopupBackground,
         (checked) => {
@@ -1389,6 +1411,7 @@
                 state.settings.hiddenPillNicknames.delete(normalizedNickname);
               }
               saveSettingsFn();
+              applySettingsClassesFn();
               renderPillFn();
               renderSettingsPanelFn();
             },
