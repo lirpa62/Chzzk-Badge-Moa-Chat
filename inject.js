@@ -1157,13 +1157,32 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     return trackedNicknameTargets.has(normalized);
   }
 
+  // 인증 마크 종류: PARTNER(파트너), CHALLENGER(챌린저), OFFICIAL(오피셜)
+  const VERIFIED_MARK_TYPES = new Set(["PARTNER", "CHALLENGER", "OFFICIAL"]);
+
+  function normalizeVerifiedMarkType(value) {
+    const type = String(value || "")
+      .trim()
+      .toUpperCase();
+    return VERIFIED_MARK_TYPES.has(type) ? type : "";
+  }
+
+  function hasVerifiedMark(profile) {
+    const safe = profile && typeof profile === "object" ? profile : {};
+    return (
+      safe.verifiedMark === true ||
+      safe.verifiedMark === "true" ||
+      !!normalizeVerifiedMarkType(safe.verifiedMarkType)
+    );
+  }
+
   function getProfileLiteCacheWeight(profileLite) {
     const safe =
       profileLite && typeof profileLite === "object" ? profileLite : {};
     let score = 0;
     if (normalizeNickname(safe.nickname)) score += 1;
     if (String(safe.userRoleCode || "").trim()) score += 1;
-    if (safe.verifiedMark === true) score += 1;
+    if (hasVerifiedMark(safe)) score += 1;
     if (String(safe?.badge?.imageUrl || "").trim()) score += 1;
     if (String(safe?.title?.color || "").trim()) score += 1;
     if (
@@ -1309,12 +1328,18 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         receiverProfile?.userRoleCode ||
         "",
     ).trim();
+    const receiverVerifiedMarkType = normalizeVerifiedMarkType(
+      safeBody.receiverVerifiedMarkType ||
+        safeReceiver.verifiedMarkType ||
+        receiverProfile?.verifiedMarkType ||
+        "",
+    );
     const receiverVerifiedMark =
       safeBody.receiverVerifiedMark === true ||
       safeBody.receiverVerifiedMark === "true" ||
-      safeReceiver.verifiedMark === true ||
-      safeReceiver.verifiedMark === "true" ||
-      receiverProfile?.verifiedMark === true;
+      hasVerifiedMark(safeReceiver) ||
+      hasVerifiedMark(receiverProfile) ||
+      !!receiverVerifiedMarkType;
     const receiverBadgeImageUrl = String(
       safeBody?.receiverBadge?.imageUrl ||
         safeReceiver?.badge?.imageUrl ||
@@ -1329,6 +1354,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         if (!lite.nickname) lite.nickname = receiverNickname;
         if (!lite.userRoleCode) lite.userRoleCode = receiverRoleCode;
         if (receiverVerifiedMark) lite.verifiedMark = true;
+        if (receiverVerifiedMarkType && !lite.verifiedMarkType) {
+          lite.verifiedMarkType = receiverVerifiedMarkType;
+        }
         if (!lite.badge?.imageUrl && receiverBadgeImageUrl) {
           lite.badge = { imageUrl: receiverBadgeImageUrl };
         }
@@ -1354,6 +1382,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       nickname,
       userRoleCode: roleCode,
       verifiedMark,
+      verifiedMarkType: receiverVerifiedMarkType,
       badge: {
         imageUrl: badgeImageUrl,
       },
@@ -1429,7 +1458,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         safeItem.userIdHash === "anonymous" ||
         extras.isAnonymous === true,
       senderUserRoleCode: senderProfile?.userRoleCode || "",
-      senderVerifiedMark: senderProfile?.verifiedMark === true,
+      senderVerifiedMark: hasVerifiedMark(senderProfile),
       senderBadge: senderProfile?.badge || null,
     });
     const timestamp =
@@ -1533,7 +1562,9 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       .trim()
       .toLowerCase();
     const verifiedMark =
-      safeBody.senderVerifiedMark === true || safeBody.verifiedMark === true;
+      safeBody.senderVerifiedMark === true ||
+      safeBody.verifiedMark === true ||
+      !!normalizeVerifiedMarkType(safeBody.verifiedMarkType);
 
     const hasRoleBadge =
       roleCode.includes("manager") ||
@@ -1565,7 +1596,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       roleCode.includes("broadcaster") ||
       roleBadgeUrl.includes("/icon/streamer.png");
     const isManager = roleCode.includes("manager") && !isOperator;
-    const isPartner = safeProfile.verifiedMark === true;
+    const isPartner = hasVerifiedMark(safeProfile);
     return { isOperator, isChannelOwner, isManager, isPartner };
   }
 
@@ -1576,7 +1607,8 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     const lite = {
       nickname: String(safeProfile.nickname || "").trim(),
       userRoleCode: String(safeProfile.userRoleCode || "").trim(),
-      verifiedMark: safeProfile.verifiedMark === true,
+      verifiedMark: hasVerifiedMark(safeProfile),
+      verifiedMarkType: normalizeVerifiedMarkType(safeProfile.verifiedMarkType),
       badge: {
         imageUrl: String(safeProfile?.badge?.imageUrl || "").trim(),
       },
@@ -1634,7 +1666,10 @@ if (!window.__chzzkBadgeMoaMainInjected) {
 
     const nickname = normalizeNickname(safeProfile.nickname);
     const userRoleCode = String(safeProfile.userRoleCode || "").trim();
-    const verifiedMark = safeProfile.verifiedMark === true;
+    const verifiedMark = hasVerifiedMark(safeProfile);
+    const verifiedMarkType = normalizeVerifiedMarkType(
+      safeProfile.verifiedMarkType,
+    );
     const badgeImageUrl = String(safeProfile?.badge?.imageUrl || "").trim();
     const titleColor = String(safeProfile?.title?.color || "").trim();
     const subscriptionBadgeImageUrl = String(
@@ -1665,6 +1700,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       nickname,
       userRoleCode,
       verifiedMark,
+      verifiedMarkType,
       badge: {
         imageUrl: badgeImageUrl,
       },

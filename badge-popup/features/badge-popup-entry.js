@@ -4,6 +4,19 @@
 
   const ORIGINAL_CHAT_SNAPSHOT_MAX_LENGTH = 80000;
   const ORIGINAL_CHAT_SNAPSHOT_MAX_COUNT = 200;
+  const FALLBACK_PARTNER_MARK = {
+    variant: "partner",
+    label: "파트너",
+    iconUrl: "https://ssl.pstatic.net/static/nng/glive/image/icon_partner_mark.png",
+  };
+
+  // 프로필의 인증 마크(파트너/챌린저/오피셜) 정보. 없으면 null.
+  function getVerifiedMarkForProfile(profile) {
+    const resolve = ns.constants && ns.constants.resolveVerifiedMark;
+    if (typeof resolve === "function") return resolve(profile);
+    return profile && profile.verifiedMark === true ? FALLBACK_PARTNER_MARK : null;
+  }
+
   const ORIGINAL_CHAT_SNAPSHOT_KINDS = new Set([
     "donation",
     "subscription",
@@ -263,7 +276,7 @@
 
     const safeProfile = profile && typeof profile === "object" ? profile : {};
     const roleInfo = extractRoleInfo(safeProfile);
-    const isPartner = safeProfile.verifiedMark === true;
+    const isPartner = !!getVerifiedMarkForProfile(safeProfile);
     const isTracked = isTrackedTarget(safeProfile, payload);
 
     return (
@@ -300,8 +313,6 @@
       typeof deps.buildAchievementMark === "function"
         ? deps.buildAchievementMark
         : () => null;
-    const officialMarkUrl = String(deps.OFFICIAL_MARK_URL || "");
-
     const profile = payload.profileLite || payload.profile || {};
     const roleInfo = extractRoleInfo(profile);
     const trackedTarget = isTrackedTarget(profile, payload);
@@ -371,8 +382,10 @@
     const dedupeKey = `${uniqueBase}:${badgeType}`;
     const pillBadges = buildPillBadges(profile, roleInfo);
     const popupBadges = buildPopupBadges(profile, roleInfo);
-    const partnerMark = roleInfo.isPartner
-      ? makeBadge("partner", "파트너", officialMarkUrl)
+    // 인증 마크는 역할 분류상 type "partner" 를 유지하고 이미지·라벨로 종류를 구분한다.
+    const verifiedMark = roleInfo.verifiedMark || getVerifiedMarkForProfile(profile);
+    const partnerMark = verifiedMark
+      ? makeBadge("partner", verifiedMark.label, verifiedMark.iconUrl)
       : null;
     const achievementMark = buildAchievementMark(profile);
 
@@ -699,8 +712,9 @@
       (roleCode.includes("owner") && !isOperator) ||
       roleCode.includes("broadcaster");
     const isManager = roleCode.includes("manager") && !isOperator;
-    const isPartner = profile.verifiedMark === true;
-    return { isManager, isOperator, isChannelOwner, isPartner };
+    const verifiedMark = getVerifiedMarkForProfile(profile);
+    const isPartner = !!verifiedMark;
+    return { isManager, isOperator, isChannelOwner, isPartner, verifiedMark };
   }
 
   function buildPillBadges(profile, roleInfo, deps = {}) {
@@ -710,8 +724,6 @@
     const managerBadge = String(deps.MANAGER_BADGE_FALLBACK_URL || "");
     const channelOwnerBadge = String(deps.CHANNEL_OWNER_BADGE_FALLBACK_URL || "");
     const ownerBadge = String(deps.OWNER_BADGE_FALLBACK_URL || "");
-    const officialMark = String(deps.OFFICIAL_MARK_URL || "");
-
     const badges = [];
     const seen = new Set();
 
@@ -739,8 +751,13 @@
       );
     }
 
-    if (roleInfo.isPartner) {
-      pushBadgeUnique(badges, seen, makeBadge("partner", "파트너", officialMark));
+    const verifiedMark = roleInfo.verifiedMark || getVerifiedMarkForProfile(profile);
+    if (verifiedMark) {
+      pushBadgeUnique(
+        badges,
+        seen,
+        makeBadge("partner", verifiedMark.label, verifiedMark.iconUrl),
+      );
     }
 
     return badges;

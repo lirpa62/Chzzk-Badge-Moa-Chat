@@ -6,8 +6,8 @@
     "https://comm-api.game.naver.com/nng_main/v1/chats";
   const POPUP_CLASS = "chzzk-badge-moa-profile-card";
   const BACKDROP_CLASS = "chzzk-badge-moa-profile-card-backdrop";
-  const OFFICIAL_MARK_URL =
-    "https://ssl.pstatic.net/static/nng/glive/image/icon_official_mark.png";
+  const PARTNER_MARK_URL =
+    "https://ssl.pstatic.net/static/nng/glive/image/icon_partner_mark.png";
 
   let activePopupRoot = null;
   let activeFetchToken = 0;
@@ -196,9 +196,19 @@
 
     // 닉네임 오른쪽에 붙는 마크 (파트너 verifiedMark, 활성화된 achievement 1개)
     // 이 두 마크는 툴팁을 표시하지 않음
-    const isPartner = content.verifiedMark === true;
-    if (isPartner) {
-      const partnerNode = createBadgeNode(OFFICIAL_MARK_URL, "", "");
+    // 인증 마크 종류(verifiedMarkType: 파트너/챌린저/오피셜)에 맞는 이미지를 쓴다.
+    const resolveVerifiedMark =
+      window.__chzzkBadgeMoa &&
+      window.__chzzkBadgeMoa.constants &&
+      window.__chzzkBadgeMoa.constants.resolveVerifiedMark;
+    const verifiedMark =
+      typeof resolveVerifiedMark === "function"
+        ? resolveVerifiedMark(content)
+        : content.verifiedMark === true
+          ? { iconUrl: PARTNER_MARK_URL }
+          : null;
+    if (verifiedMark) {
+      const partnerNode = createBadgeNode(verifiedMark.iconUrl, "", "");
       if (partnerNode) nameWrap.appendChild(partnerNode);
     }
 

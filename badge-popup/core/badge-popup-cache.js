@@ -749,7 +749,11 @@
     const type = String(badge.type || "unknown").trim() || "unknown";
     const label = String(badge.label || "배지").trim() || "배지";
     const iconUrl = String(badge.iconUrl || "").trim();
-    return { type, label, iconUrl };
+    const normalized = { type, label, iconUrl };
+    // 구버전 캐시의 파트너 배지(icon_official_mark)는 이제 오피셜 마크 이미지이므로
+    // 파트너 이미지로 옮긴다.
+    const migrate = constants && constants.normalizeLegacyVerifiedMarkBadge;
+    return typeof migrate === "function" ? migrate(normalized) : normalized;
   }
 
   function normalizeTagArray(tags) {

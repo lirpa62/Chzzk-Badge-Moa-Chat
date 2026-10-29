@@ -8,8 +8,15 @@
     "chzzk-badge-moa-chat-highlight-channel_owner",
     "chzzk-badge-moa-chat-highlight-owner",
     "chzzk-badge-moa-chat-highlight-partner",
+    "chzzk-badge-moa-chat-highlight-mark-partner",
+    "chzzk-badge-moa-chat-highlight-mark-challenger",
+    "chzzk-badge-moa-chat-highlight-mark-official",
   ];
   const HIGHLIGHT_TYPE_ATTR = "data-chzzk-badge-moa-highlight";
+  const VERIFIED_MARK_SELECTOR =
+    "img[alt*='파트너'], img[alt*='챌린저'], img[alt*='오피셜'], " +
+    "img[src*='icon_partner_mark'], img[src*='icon_challenger_mark'], " +
+    "img[src*='icon_official_mark']";
   const FILTERED_NO_BACKGROUND_CLASS =
     "chzzk-badge-moa-chat-filtered-no-bg";
   const FILTERED_NO_BORDER_CLASS =
@@ -760,6 +767,10 @@
 
     const previousType = String(item.getAttribute(HIGHLIGHT_TYPE_ATTR) || "");
     const badgeType = detectBadgeTypeFromItem(item);
+    // 인증 마크는 종류(파트너/챌린저/오피셜)별로 색을 달리한다.
+    const markVariant =
+      badgeType === "partner" ? getVerifiedMarkVariantFromItem(item) : "";
+    const highlightKey = markVariant ? `${badgeType}:${markVariant}` : badgeType;
     const filteredStyle = badgeType
       ? resolveFilteredHighlightStyle(item)
       : { removeBackground: false, removeBorder: false };
@@ -771,7 +782,7 @@
       FILTERED_NO_BORDER_CLASS,
       filteredStyle?.removeBorder === true,
     );
-    if (badgeType === previousType) return;
+    if (highlightKey === previousType) return;
 
     if (!badgeType && !previousType) return;
     item.classList.remove(...HIGHLIGHT_CLASS_LIST);
@@ -784,7 +795,10 @@
       "chzzk-badge-moa-chat-highlight",
       `chzzk-badge-moa-chat-highlight-${badgeType}`,
     );
-    item.setAttribute(HIGHLIGHT_TYPE_ATTR, badgeType);
+    if (markVariant) {
+      item.classList.add(`chzzk-badge-moa-chat-highlight-mark-${markVariant}`);
+    }
+    item.setAttribute(HIGHLIGHT_TYPE_ATTR, highlightKey);
   }
 
   function detectBadgeTypeFromItem(item, deps = {}) {
@@ -870,9 +884,58 @@
       if (text.includes("인증 마크")) return true;
     }
 
-    return !!item.querySelector(
-      "img[alt*='파트너'], img[src*='icon_official_mark']",
-    );
+    return !!item.querySelector(VERIFIED_MARK_SELECTOR);
+  }
+
+  function getVerifiedMarkVariantFromText(value) {
+    const text = String(value || "").toLowerCase();
+    if (!text) return "";
+    // 클래스(_is_challenger_ 등), 이미지 주소(icon_challenger_mark 등), 대체 텍스트
+    if (text.includes("challenger") || text.includes("챌린저")) {
+      return "challenger";
+    }
+    if (text.includes("official") || text.includes("오피셜")) {
+      return "official";
+    }
+    if (text.includes("partner") || text.includes("파트너")) {
+      return "partner";
+    }
+    return "";
+  }
+
+  // 채팅창의 인증 마크 종류를 판별한다. 마크는 <i class="_mark_ _is_partner_">처럼
+  // 배경 이미지로 그려지므로 대체 텍스트 → 클래스명 → 배경 이미지 주소 순으로 확인한다.
+  function getVerifiedMarkVariantFromItem(item) {
+    if (!(item instanceof Element)) return "partner";
+    const markImage = item.querySelector(VERIFIED_MARK_SELECTOR);
+    if (markImage instanceof Element) {
+      const variant = getVerifiedMarkVariantFromText(
+        `${markImage.getAttribute("src") || ""} ${markImage.getAttribute("alt") || ""}`,
+      );
+      if (variant) return variant;
+    }
+
+    const blindNodes = item.querySelectorAll(".blind");
+    for (const node of blindNodes) {
+      const text = String(node.textContent || "").trim();
+      if (!text.includes("인증 마크")) continue;
+      const textVariant = getVerifiedMarkVariantFromText(text);
+      if (textVariant) return textVariant;
+      const markNode = node.parentElement;
+      if (!(markNode instanceof Element)) continue;
+      const className =
+        typeof markNode.className === "string" ? markNode.className : "";
+      const classVariant = getVerifiedMarkVariantFromText(className);
+      if (classVariant) return classVariant;
+      try {
+        const backgroundImage = window.getComputedStyle(markNode).backgroundImage;
+        const imageVariant = getVerifiedMarkVariantFromText(backgroundImage);
+        if (imageVariant) return imageVariant;
+      } catch (_error) {
+        // 계산된 스타일을 읽지 못하면 기본값(파트너)을 쓴다.
+      }
+    }
+    return "partner";
   }
 
   function matchesChatItem(node) {
@@ -929,6 +992,7 @@
     hasOperatorBadge,
     hasChannelOwnerBadge,
     hasPartnerMark,
+    getVerifiedMarkVariantFromItem,
     matchesChatItem,
   };
 })();

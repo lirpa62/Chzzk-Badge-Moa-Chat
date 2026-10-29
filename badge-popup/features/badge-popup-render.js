@@ -601,6 +601,16 @@
       if (entry.badgeType) {
         item.classList.add(`chzzk-badge-moa-item-highlight-${entry.badgeType}`);
       }
+      // 인증 마크 강조(badgeType "partner")는 마크 종류(파트너/챌린저/오피셜)별로
+      // 배경·테두리·글자색을 달리한다.
+      if (entry.badgeType === "partner" && entry.partnerMark) {
+        const getVariant = ns.constants && ns.constants.getVerifiedMarkVariant;
+        const markVariant =
+          typeof getVariant === "function"
+            ? getVariant(entry.partnerMark)
+            : "partner";
+        item.classList.add(`chzzk-badge-moa-item-mark-${markVariant}`);
+      }
       const typeToneClass = getItemTypeToneClassFn(entry);
       if (typeToneClass) {
         item.classList.add(typeToneClass);

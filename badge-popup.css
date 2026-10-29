@@ -5143,3 +5143,92 @@ html.chzzk-badge-moa-window-mode .chzzk-badge-moa-popup {
   animation: none !important;
   display: flex !important;
 }
+
+/* === 인증 마크 종류별 하이라이트 ===
+   파트너(초록) 외에 챌린저(금색)·오피셜(파란색) 인증 마크가 추가되었다.
+   기본 파트너 하이라이트 규칙 위에 색상만 덮어쓴다. */
+.chzzk-badge-moa-item-mark-challenger,
+.chzzk-badge-moa-chat-highlight-mark-challenger {
+  --chzzk-badge-moa-partner-highlight-text: #fbbf24;
+}
+
+.chzzk-badge-moa-item-mark-official,
+.chzzk-badge-moa-chat-highlight-mark-official {
+  --chzzk-badge-moa-partner-highlight-text: #60a5fa;
+}
+
+html[data-theme="light"]
+  :is(
+    .chzzk-badge-moa-item-mark-challenger,
+    .chzzk-badge-moa-chat-highlight-mark-challenger
+  ),
+html[style*="color-scheme: light"]
+  :is(
+    .chzzk-badge-moa-item-mark-challenger,
+    .chzzk-badge-moa-chat-highlight-mark-challenger
+  ),
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  :is(
+    .chzzk-badge-moa-item-mark-challenger,
+    .chzzk-badge-moa-chat-highlight-mark-challenger
+  ) {
+  --chzzk-badge-moa-partner-highlight-text: #b45309;
+}
+
+html[data-theme="light"]
+  :is(
+    .chzzk-badge-moa-item-mark-official,
+    .chzzk-badge-moa-chat-highlight-mark-official
+  ),
+html[style*="color-scheme: light"]
+  :is(
+    .chzzk-badge-moa-item-mark-official,
+    .chzzk-badge-moa-chat-highlight-mark-official
+  ),
+html:not(.theme_dark):not([data-theme="dark"]):not(
+    [style*="color-scheme: dark"]
+  )
+  :is(
+    .chzzk-badge-moa-item-mark-official,
+    .chzzk-badge-moa-chat-highlight-mark-official
+  ) {
+  --chzzk-badge-moa-partner-highlight-text: #1d4ed8;
+}
+
+.chzzk-badge-moa-item-highlight-partner.chzzk-badge-moa-item-mark-challenger:not(
+    [class*="chzzk-badge-moa-item-type-"]
+  ),
+.chzzk-badge-moa-chat-highlight-partner.chzzk-badge-moa-chat-highlight-mark-challenger
+  > :is(
+    [class*="live_chatting_message_container"],
+    [class*="vod_chatting_message_container"]
+  ),
+.chzzk-badge-moa-chat-highlight-partner.chzzk-badge-moa-chat-highlight-mark-challenger
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+  background: linear-gradient(
+    90deg,
+    rgba(245, 158, 11, 0.22),
+    rgba(245, 158, 11, 0.06)
+  );
+  border-color: rgba(245, 158, 11, 0.62);
+}
+
+.chzzk-badge-moa-item-highlight-partner.chzzk-badge-moa-item-mark-official:not(
+    [class*="chzzk-badge-moa-item-type-"]
+  ),
+.chzzk-badge-moa-chat-highlight-partner.chzzk-badge-moa-chat-highlight-mark-official
+  > :is(
+    [class*="live_chatting_message_container"],
+    [class*="vod_chatting_message_container"]
+  ),
+.chzzk-badge-moa-chat-highlight-partner.chzzk-badge-moa-chat-highlight-mark-official
+  > [class*="_container_"]:has(> [class*="_chatting_message_"]) {
+  background: linear-gradient(
+    90deg,
+    rgba(37, 99, 235, 0.24),
+    rgba(37, 99, 235, 0.07)
+  );
+  border-color: rgba(59, 130, 246, 0.66);
+}

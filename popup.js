@@ -24,8 +24,18 @@
   const CHZZK_API_BASE = "https://api.chzzk.naver.com";
   const SEARCH_CHANNEL_PAGE_SIZE = 33;
   const TRACKED_NICKNAME_ALLOWLIST = new Set(["익명의 후원자", "미션 결과"]);
+  const PARTNER_MARK_URL =
+    "https://ssl.pstatic.net/static/nng/glive/image/icon_partner_mark.png";
+  const CHALLENGER_MARK_URL =
+    "https://ssl.pstatic.net/static/nng/glive/image/icon_challenger_mark.png";
   const OFFICIAL_MARK_URL =
     "https://ssl.pstatic.net/static/nng/glive/image/icon_official_mark.png";
+  // 인증 마크 종류(verifiedMarkType)별 라벨/이미지
+  const VERIFIED_MARK_INFO = {
+    PARTNER: { label: "파트너", iconUrl: PARTNER_MARK_URL },
+    CHALLENGER: { label: "챌린저", iconUrl: CHALLENGER_MARK_URL },
+    OFFICIAL: { label: "오피셜", iconUrl: OFFICIAL_MARK_URL },
+  };
   const TRACKED_SCOPE_CHANNEL = "channel";
   const TRACKED_SCOPE_GLOBAL = "global";
   const MAX_TRACKED_NICKNAMES_PER_SCOPE = 200;
@@ -1718,6 +1728,31 @@
     el.hiddenChips.appendChild(fragment);
   }
 
+  function resolveVerifiedMarkInfo(source) {
+    const safe = source && typeof source === "object" ? source : {};
+    const type = String(safe.verifiedMarkType || "")
+      .trim()
+      .toUpperCase();
+    if (VERIFIED_MARK_INFO[type]) return VERIFIED_MARK_INFO[type];
+    if (safe.verifiedMark === true) return VERIFIED_MARK_INFO.PARTNER;
+    return null;
+  }
+
+  function getVerifiedMarkVariant(badge) {
+    const iconUrl = String(badge?.iconUrl || "");
+    const label = String(badge?.label || "").trim();
+    if (iconUrl.includes("icon_challenger_mark") || label === "챌린저") {
+      return "challenger";
+    }
+    if (
+      (iconUrl.includes("icon_official_mark") && label !== "파트너") ||
+      label === "오피셜"
+    ) {
+      return "official";
+    }
+    return "partner";
+  }
+
   function normalizeRoleBadgeList(raw) {
     if (!Array.isArray(raw)) return [];
     const allowedTypes = new Set([
@@ -1735,15 +1770,25 @@
         .trim()
         .toLowerCase();
       if (!allowedTypes.has(type)) return;
-      const iconUrl = String(item.iconUrl || "").trim();
+      let iconUrl = String(item.iconUrl || "").trim();
       if (!iconUrl) return;
+      let label = String(item.label || "배지");
+      // 예전 파트너 마크(icon_official_mark)로 저장된 배지는 파트너 이미지로 교체
+      if (
+        type === "partner" &&
+        getVerifiedMarkVariant({ iconUrl, label }) === "partner" &&
+        iconUrl !== PARTNER_MARK_URL
+      ) {
+        iconUrl = PARTNER_MARK_URL;
+        label = VERIFIED_MARK_INFO.PARTNER.label;
+      }
       const key = `${type}|${iconUrl}`;
       if (seen.has(key)) return;
       seen.add(key);
       list.push({
         type,
         iconUrl,
-        label: String(item.label || "배지"),
+        label,
       });
     });
 
@@ -1831,7 +1876,17 @@
     if (hasType("channel_owner")) return "#d9b04f";
     if (hasType("operator")) return "#00c79b";
     if (hasType("manager")) return "#749ffe";
-    if (hasType("partner")) return "#5ea6ff";
+    const partnerBadge = roleBadges.find(
+      (badge) =>
+        badge &&
+        typeof badge === "object" &&
+        String(badge.type || "").toLowerCase() === "partner",
+    );
+    if (partnerBadge) {
+      const variant = getVerifiedMarkVariant(partnerBadge);
+      if (variant === "challenger") return "#f0a830";
+      return "#5ea6ff";
+    }
     return "";
   }
 
@@ -1987,7 +2042,8 @@
     targetSet.add(nickname);
     rebuildEffectiveTrackedNicknames();
 
-    if (!isGlobal && verification.verifiedMark === true && OFFICIAL_MARK_URL) {
+    const verifiedMarkInfo = resolveVerifiedMarkInfo(verification);
+    if (!isGlobal && verifiedMarkInfo) {
       const existing = state.hiddenChipMetaByNickname.get(nickname);
       const existingBadges =
         existing && Array.isArray(existing.roleBadges)
@@ -1999,8 +2055,8 @@
       if (!hasPartner) {
         const partnerBadge = {
           type: "partner",
-          iconUrl: OFFICIAL_MARK_URL,
-          label: "파트너",
+          iconUrl: verifiedMarkInfo.iconUrl,
+          label: verifiedMarkInfo.label,
         };
         state.hiddenChipMetaByNickname.set(nickname, {
           roleBadges: normalizeRoleBadgeList([...existingBadges, partnerBadge]),
@@ -3153,7 +3209,11 @@
       };
     }
 
-    return { ok: true, verifiedMark: searchResult.verifiedMark === true };
+    return {
+      ok: true,
+      verifiedMark: searchResult.verifiedMark === true,
+      verifiedMarkType: String(searchResult.verifiedMarkType || ""),
+    };
   }
 
   async function fetchExactChannelIdByNickname(nickname) {
@@ -3202,7 +3262,11 @@
       }
       const verifiedMark =
         matched && matched.channel && matched.channel.verifiedMark === true;
-      return { ok: true, channelId, reason: "", verifiedMark };
+      const verifiedMarkType =
+        matched && matched.channel
+          ? String(matched.channel.verifiedMarkType || "").trim()
+          : "";
+      return { ok: true, channelId, reason: "", verifiedMark, verifiedMarkType };
     } catch (_error) {
       return { ok: false, channelId: "", reason: "API_ERROR" };
     }

@@ -21,8 +21,64 @@
   const STORAGE_SETTINGS_KEY = "chzzk_badge_moa_popup_settings";
   const STORAGE_CHANNEL_CACHE_PREFIX = "chzzk_badge_moa_tab_channel_cache_v1:";
   const STORAGE_SESSION_FALLBACK_PREFIX = "chzzk_badge_moa_session_fallback:";
+  // 인증 마크(닉네임 옆 마크). 2026-11 챌린저 도입으로 verifiedMark(true/false) 외에
+  // verifiedMarkType(PARTNER / CHALLENGER / OFFICIAL)이 추가됐다. 기존 파트너 이미지였던
+  // icon_official_mark.png 는 이제 오피셜 마크이고, 파트너는 icon_partner_mark.png 다.
+  const PARTNER_MARK_URL =
+    "https://ssl.pstatic.net/static/nng/glive/image/icon_partner_mark.png";
+  const CHALLENGER_MARK_URL =
+    "https://ssl.pstatic.net/static/nng/glive/image/icon_challenger_mark.png";
   const OFFICIAL_MARK_URL =
     "https://ssl.pstatic.net/static/nng/glive/image/icon_official_mark.png";
+  const VERIFIED_MARK_INFO = {
+    PARTNER: { variant: "partner", label: "파트너", iconUrl: PARTNER_MARK_URL },
+    CHALLENGER: {
+      variant: "challenger",
+      label: "챌린저",
+      iconUrl: CHALLENGER_MARK_URL,
+    },
+    OFFICIAL: { variant: "official", label: "오피셜", iconUrl: OFFICIAL_MARK_URL },
+  };
+
+  // 프로필에서 인증 마크 종류를 얻는다. 알려진 종류면 그 정보를, verifiedMark 만
+  // true 이고 종류를 모르면(구버전 데이터/새 종류) 파트너로 본다. 인증 마크가 없으면 null.
+  function resolveVerifiedMark(profile) {
+    const safe = profile && typeof profile === "object" ? profile : {};
+    const type = String(safe.verifiedMarkType || "")
+      .trim()
+      .toUpperCase();
+    if (VERIFIED_MARK_INFO[type]) return VERIFIED_MARK_INFO[type];
+    if (safe.verifiedMark === true) return VERIFIED_MARK_INFO.PARTNER;
+    return null;
+  }
+
+  // 인증 마크 배지({type:"partner", iconUrl, label})의 세부 종류(partner/challenger/
+  // official). 배지 type 은 역할 분류용으로 "partner" 로 유지하고 이미지로 종류를 구분한다.
+  function getVerifiedMarkVariant(badge) {
+    const iconUrl = String(badge?.iconUrl || "");
+    const label = String(badge?.label || "");
+    if (iconUrl.includes("icon_challenger_mark") || label === "챌린저") {
+      return "challenger";
+    }
+    if (
+      (iconUrl.includes("icon_official_mark") && label !== "파트너") ||
+      label === "오피셜"
+    ) {
+      return "official";
+    }
+    return "partner";
+  }
+
+  // 구버전 캐시·설정에 저장된 파트너 배지는 당시 파트너 이미지였던 icon_official_mark 를
+  // 가리킨다. 그대로 두면 이제 오피셜(파란색) 마크로 보이므로 파트너 이미지로 옮긴다.
+  function normalizeLegacyVerifiedMarkBadge(badge) {
+    if (!badge || typeof badge !== "object") return badge;
+    if (String(badge.type || "") !== "partner") return badge;
+    if (getVerifiedMarkVariant(badge) !== "partner") return badge;
+    if (String(badge.iconUrl || "") === PARTNER_MARK_URL) return badge;
+    return { ...badge, iconUrl: PARTNER_MARK_URL, label: "파트너" };
+  }
+
   const MANAGER_BADGE_FALLBACK_URL =
     "https://ssl.pstatic.net/static/nng/glive/icon/manager.png";
   const CHANNEL_OWNER_BADGE_FALLBACK_URL =
@@ -170,7 +226,13 @@
     STORAGE_SETTINGS_KEY,
     STORAGE_CHANNEL_CACHE_PREFIX,
     STORAGE_SESSION_FALLBACK_PREFIX,
+    PARTNER_MARK_URL,
+    CHALLENGER_MARK_URL,
     OFFICIAL_MARK_URL,
+    VERIFIED_MARK_INFO,
+    resolveVerifiedMark,
+    getVerifiedMarkVariant,
+    normalizeLegacyVerifiedMarkBadge,
     MANAGER_BADGE_FALLBACK_URL,
     CHANNEL_OWNER_BADGE_FALLBACK_URL,
     OWNER_BADGE_FALLBACK_URL,
