@@ -17,6 +17,7 @@
     "chzzk_badge_moa_popup_height_vod_wide",
     "chzzk_badge_moa_popup_height_chat_popup",
     "chzzk_badge_moa_popup_display_style",
+    "chzzk_badge_moa_toast_list_height",
   ];
   const STATUS_IDLE_CONNECTED = "현재 탭에 즉시 반영됩니다.";
   const STATUS_IDLE_DISCONNECTED =
@@ -24,6 +25,23 @@
   const CHZZK_API_BASE = "https://api.chzzk.naver.com";
   const SEARCH_CHANNEL_PAGE_SIZE = 33;
   const TRACKED_NICKNAME_ALLOWLIST = new Set(["익명의 후원자", "미션 결과"]);
+  // 모아보기 대상 칩에 쓰는 채널 정보(프로필 이미지·인증 마크) 캐시.
+  // 설정 내보내기/콘텐츠 스크립트와 무관한 표시용이라 설정과 따로 둔다.
+  const TRACKED_CHANNEL_META_KEY = "chzzk_badge_moa_tracked_channel_meta";
+  // 프로필 이미지가 바뀌어도 따라가도록, 설정창을 열 때 이 시간보다 오래된
+  // 항목만 다시 확인한다. 한 번에 확인하는 수도 제한한다.
+  const TRACKED_META_REFRESH_MS = 6 * 60 * 60 * 1000;
+  const TRACKED_META_REFRESH_LIMIT = 30;
+  const TRACKED_META_REFRESH_CONCURRENCY = 3;
+  const TRACKED_SUGGEST_LIMIT = 6;
+  const TRACKED_SUGGEST_FETCH_SIZE = 20;
+  const TRACKED_SUGGEST_DEBOUNCE_MS = 250;
+  const TRACKED_SUGGEST_CACHE_LIMIT = 30;
+  const DEFAULT_PROFILE_URLS = {
+    light:
+      "https://ssl.pstatic.net/static/nng/glive/image/default_profile_light.png",
+    dark: "https://ssl.pstatic.net/static/nng/glive/image/default_profile_dark.png",
+  };
   const PARTNER_MARK_URL =
     "https://ssl.pstatic.net/static/nng/glive/image/icon_partner_mark.png";
   const CHALLENGER_MARK_URL =
@@ -36,8 +54,35 @@
     CHALLENGER: { label: "챌린저", iconUrl: CHALLENGER_MARK_URL },
     OFFICIAL: { label: "오피셜", iconUrl: OFFICIAL_MARK_URL },
   };
+  // 토스트 알림 빈도별 모으는 시간/쉬는 시간(ms).
+  // badge-popup-toast.js 의 FREQUENCY_TIMING 과 같은 값이어야 한다.
+  // 표시 시간은 빈도와 관계없이 5초(커스텀에서만 바꿀 수 있다).
+  const CHAT_TOAST_PRESET_TIMING = {
+    high: { gatherMs: 600, visibleMs: 5000, cooldownMs: 0 },
+    normal: { gatherMs: 1500, visibleMs: 5000, cooldownMs: 5000 },
+    low: { gatherMs: 3000, visibleMs: 5000, cooldownMs: 10000 },
+  };
+  const CHAT_TOAST_GATHER_MAX_MS = 10000;
+  const CHAT_TOAST_COOLDOWN_MAX_MS = 60000;
+  const CHAT_TOAST_VISIBLE_MIN_MS = 2000;
+  const CHAT_TOAST_VISIBLE_MAX_MS = 30000;
+  // 새 채팅 토스트 알림 대상 배지 종류(설정 기본값: 전부)
+  const CHAT_TOAST_BADGE_TYPES = [
+    "channel_owner",
+    "manager",
+    "operator",
+    "partner",
+    "custom",
+  ];
   const TRACKED_SCOPE_CHANNEL = "channel";
   const TRACKED_SCOPE_GLOBAL = "global";
+  const NICKNAME_EXCLUDE_NONE = "none";
+  const NICKNAME_EXCLUDE_CHANNEL = "channel";
+  const NICKNAME_EXCLUDE_GLOBAL = "global";
+  const HIDE_HINT_DEFAULT =
+    "이 채널의 알림 버튼·토스트에서만 빠지고, 모아보기에는 계속 모입니다.";
+  const HIDE_HINT_EXCLUDED =
+    "모아보기에서 제외되어 알림이 뜨지 않습니다. 다시 모아보면 이 설정이 적용됩니다.";
   const MAX_TRACKED_NICKNAMES_PER_SCOPE = 200;
   const MAX_TRACKED_GLOBAL_NICKNAMES = 20;
   const CHIP_COLLAPSE_THRESHOLD = 4;
@@ -71,13 +116,11 @@
     excludedCollectNicknameSet: new Set(),
     excludedCollectScopedNicknameSet: new Set(),
     excludedCollectGlobalNicknameSet: new Set(),
-    hiddenAdvancedSelectedSet: new Set(),
     trackedNicknameSet: new Set(),
     trackedScopedNicknameSet: new Set(),
     trackedGlobalNicknameSet: new Set(),
     selectedTrackedNicknameSet: new Set(),
     trackedEditScope: TRACKED_SCOPE_CHANNEL,
-    hiddenExcludeEditScope: TRACKED_SCOPE_CHANNEL,
     hideChatBackground: false,
     hideChatBorder: false,
     hideExcludedHiddenChatBackground: false,
@@ -103,6 +146,8 @@
     showCaptureButton: false,
     enableCaptureDragSelection: false,
     showCapturePreview: false,
+    captureAction: "save",
+    captureFilenameFormat: "",
     popupFontScale: DEFAULT_POPUP_FONT_SCALE,
     chatFontScale: DEFAULT_CHAT_FONT_SCALE,
     placeChatOnLeft: false,
@@ -113,6 +158,16 @@
     hideEmptyPill: false,
     keepPopupOpen: false,
     pillGlowEnabled: true,
+    chatToastEnabled: false,
+    chatToastFrequency: "normal",
+    chatToastGatherMs: CHAT_TOAST_PRESET_TIMING.normal.gatherMs,
+    chatToastCooldownMs: CHAT_TOAST_PRESET_TIMING.normal.cooldownMs,
+    chatToastVisibleMs: CHAT_TOAST_PRESET_TIMING.normal.visibleMs,
+    chatToastKeepVisible: false,
+    chatToastClickAction: "popup",
+    chatToastListOrder: "newest",
+    chatToastBackdropBlur: true,
+    chatToastBadgeTypes: CHAT_TOAST_BADGE_TYPES.slice(),
     compactPill: false,
     enableSessionCache: false,
     detachedOriginView: "hide",
@@ -124,7 +179,27 @@
     statusTimer: null,
     pendingImportMode: "",
     trackedChipsCollapsed: true,
-    lastHiddenAdvancedSelectedSize: 0,
+    // 닉네임 칩을 눌러 연 설정 메뉴. { nickname }
+    nicknameMenu: null,
+    // 닉네임별 표시 관리 필터(all/hidden/channel/global). 저장하지 않는다.
+    hiddenFilter: "all",
+    // 지금 필터로 목록에 보이는 닉네임. 일괄 버튼이 이 목록에만 적용된다.
+    visibleHiddenChipNames: [],
+    // nickname -> { channelId, channelName, imageUrl, verifiedMarkType, checkedAt }
+    trackedChannelMeta: new Map(),
+    trackedMetaRefreshing: new Set(),
+    trackedMetaCheckedThisSession: new Set(),
+    trackedSuggest: {
+      open: false,
+      keyword: "",
+      status: "idle",
+      items: [],
+      activeIndex: -1,
+      timer: null,
+      controller: null,
+      seq: 0,
+      cache: new Map(),
+    },
     excludeConfirmDialog: {
       open: false,
       resolver: null,
@@ -147,15 +222,12 @@
     trackedChips: document.getElementById("tracked-chips"),
     trackedCountInfo: document.getElementById("tracked-count-info"),
     hiddenSection: document.getElementById("hidden-section"),
-    hiddenExcludeSelected: document.getElementById("hidden-exclude-selected"),
-    hiddenExcludeScopeTabs: document.getElementById(
-      "hidden-exclude-scope-tabs",
-    ),
-    hiddenExcludeScopeButtons: Array.from(
-      document.querySelectorAll("#hidden-exclude-scope-tabs [data-scope]"),
-    ),
     hiddenSelectAll: document.getElementById("hidden-select-all"),
     hiddenClearAll: document.getElementById("hidden-clear-all"),
+    hiddenIncludeAll: document.getElementById("hidden-include-all"),
+    hiddenFilterButtons: Array.from(
+      document.querySelectorAll("#hidden-filter [data-filter]"),
+    ),
     hiddenPruneEmpty: document.getElementById("hidden-prune-empty"),
     hiddenAutoPruneToggle: document.getElementById("hidden-auto-prune-toggle"),
     trackedCollapseToggle: document.getElementById("tracked-collapse-toggle"),
@@ -217,6 +289,14 @@
       "enable-capture-drag-selection",
     ),
     showCapturePreview: document.getElementById("show-capture-preview"),
+    captureAction: document.getElementById("capture-action"),
+    captureFilename: document.querySelector(".capture-filename"),
+    captureFilenameFormat: document.getElementById("capture-filename-format"),
+    captureFilenameReset: document.getElementById("capture-filename-reset"),
+    captureFilenameTokens: Array.from(
+      document.querySelectorAll("[data-capture-filename-token]"),
+    ),
+    captureFilenamePreview: document.getElementById("capture-filename-preview"),
     popupFontScale: document.getElementById("popup-font-scale"),
     chatFontScale: document.getElementById("chat-font-scale"),
     deleteWithoutConfirm: document.getElementById("delete-without-confirm"),
@@ -225,6 +305,29 @@
     keepPopupOpen: document.getElementById("keep-popup-open"),
     detachedOriginView: document.getElementById("detached-origin-view"),
     pillGlowEnabled: document.getElementById("pill-glow-enabled"),
+    chatToastEnabled: document.getElementById("chat-toast-enabled"),
+    chatToastFrequency: document.getElementById("chat-toast-frequency"),
+    chatToastFrequencyButtons: Array.from(
+      document.querySelectorAll("#chat-toast-frequency [data-value]"),
+    ),
+    chatToastClickAction: document.getElementById("chat-toast-click-action"),
+    chatToastListOrder: document.getElementById("chat-toast-list-order"),
+    chatToastListOrderButtons: Array.from(
+      document.querySelectorAll("#chat-toast-list-order [data-value]"),
+    ),
+    chatToastBackdropBlur: document.getElementById("chat-toast-backdrop-blur"),
+    chatToastClickActionButtons: Array.from(
+      document.querySelectorAll("#chat-toast-click-action [data-value]"),
+    ),
+    chatToastTiming: document.querySelector(".chat-toast-timing"),
+    chatToastGather: document.getElementById("chat-toast-gather"),
+    chatToastCooldown: document.getElementById("chat-toast-cooldown"),
+    chatToastVisible: document.getElementById("chat-toast-visible"),
+    chatToastKeepVisible: document.getElementById("chat-toast-keep-visible"),
+    chatToastTargets: document.querySelector(".chat-toast-targets"),
+    chatToastBadgeTypeInputs: Array.from(
+      document.querySelectorAll("[data-chat-toast-badge-type]"),
+    ),
     compactPill: document.getElementById("compact-pill"),
     enableSessionCache: document.getElementById("enable-session-cache"),
     clearCurrentChannelSession: document.getElementById(
@@ -258,6 +361,7 @@
     settingsTooltip: document.getElementById("settings-tooltip"),
   };
   let suppressCustomTooltips = () => {};
+  let dismissCustomTooltipFor = () => {};
 
   init().catch(() => {
     setStatus("설정을 불러오지 못했습니다.");
@@ -276,11 +380,13 @@
     state.scopeKey = getScopeKeyFromUrl(state.tabUrl);
     state.scopeLabel = formatScopeLabel(state.scopeKey);
 
-    const [raw, updateBannerEnabled] = await Promise.all([
+    const [raw, updateBannerEnabled, trackedMetaRaw] = await Promise.all([
       getStorageLocal(STORAGE_SETTINGS_KEY),
       getStorageLocal(UPDATE_BANNER_ENABLED_KEY),
+      getStorageLocal(TRACKED_CHANNEL_META_KEY),
     ]);
     state.updateBannerEnabled = updateBannerEnabled !== false;
+    state.trackedChannelMeta = parseTrackedChannelMeta(trackedMetaRaw);
     state.rawSettings = normalizeRawSettings(raw);
     applyStateFromRawForScope(state.scopeKey);
     applyPopupTheme();
@@ -321,6 +427,7 @@
     }
     render();
     setIdleStatus();
+    refreshVisibleTrackedChannelMeta();
   }
 
   function initializeCustomTooltips() {
@@ -332,6 +439,8 @@
     let describedElement = null;
     let previousDescribedBy = null;
     let suppressedUntil = 0;
+    // 선택 상자를 열면 그 항목의 툴팁을 닫고, 마우스가 항목을 벗어날 때까지 다시 띄우지 않는다.
+    let dismissedTarget = null;
 
     const migrateNativeTooltip = (element) => {
       if (!(element instanceof HTMLElement) || !element.hasAttribute("title")) {
@@ -386,9 +495,16 @@
       const left = Math.min(maxLeft, Math.max(viewportPadding, preferredLeft));
       const below = targetRect.bottom + gap;
       const above = targetRect.top - tooltipRect.height - gap;
-      const top =
-        below + tooltipRect.height <= window.innerHeight - viewportPadding ||
-        above < viewportPadding
+      const fitsBelow =
+        below + tooltipRect.height <= window.innerHeight - viewportPadding;
+      const fitsAbove = above >= viewportPadding;
+      // data-tooltip-placement="top": 아래로 펼쳐지는 선택 상자를 가리지 않도록 위쪽 우선.
+      const preferAbove = activeTarget.dataset.tooltipPlacement === "top";
+      const top = preferAbove
+        ? fitsAbove || !fitsBelow
+          ? above
+          : below
+        : fitsBelow || !fitsAbove
           ? below
           : above;
       el.settingsTooltip.style.left = `${Math.round(left)}px`;
@@ -399,6 +515,10 @@
 
     const showTooltip = (target) => {
       if (!(target instanceof HTMLElement)) return;
+      if (target === dismissedTarget) {
+        hideTooltip();
+        return;
+      }
       if (
         target.classList.contains("theme-toggle-option") &&
         Date.now() < suppressedUntil
@@ -414,7 +534,7 @@
 
       restoreDescription();
       activeTarget = target;
-      el.settingsTooltip.textContent = message;
+      renderTooltipContent(el.settingsTooltip, message);
       el.settingsTooltip.classList.toggle(
         "is-nowrap",
         target.dataset.tooltipNowrap === "true",
@@ -455,8 +575,25 @@
       hoverTarget = target;
       showTooltip(target);
     });
+    dismissCustomTooltipFor = (element) => {
+      const target = getTooltipTarget(element);
+      if (!(target instanceof HTMLElement)) return;
+      dismissedTarget = target;
+      if (hoverTarget === target) hoverTarget = null;
+      if (focusTarget === target) focusTarget = null;
+      if (activeTarget === target) hideTooltip();
+    };
+
     document.addEventListener("pointerout", (event) => {
       const target = getTooltipTarget(event.target);
+      if (
+        target instanceof HTMLElement &&
+        target === dismissedTarget &&
+        !(event.relatedTarget instanceof Node && target.contains(event.relatedTarget))
+      ) {
+        dismissedTarget = null;
+        return;
+      }
       if (!(target instanceof HTMLElement) || hoverTarget !== target) return;
       const related = event.relatedTarget;
       if (related instanceof Node && target.contains(related)) return;
@@ -470,11 +607,28 @@
     document.addEventListener("focusin", (event) => {
       const target = getTooltipTarget(event.target);
       if (!(target instanceof HTMLElement)) return;
+      // 마우스 클릭으로 생긴 포커스(체크박스 등)는 툴팁을 붙잡지 않는다.
+      // 그렇지 않으면 마우스가 떠난 뒤에도 포커스 때문에 툴팁이 남는다.
+      if (
+        event.target instanceof Element &&
+        !event.target.matches(":focus-visible")
+      ) {
+        return;
+      }
       focusTarget = target;
       showTooltip(target);
     });
     document.addEventListener("focusout", (event) => {
       const target = getTooltipTarget(event.target);
+      if (
+        target instanceof HTMLElement &&
+        target === dismissedTarget &&
+        event.relatedTarget instanceof Node &&
+        !target.contains(event.relatedTarget) &&
+        !target.matches(":hover")
+      ) {
+        dismissedTarget = null;
+      }
       if (!(target instanceof HTMLElement) || focusTarget !== target) return;
       const related = event.relatedTarget;
       if (related instanceof Node && target.contains(related)) return;
@@ -510,6 +664,21 @@
           migrateNativeTooltip(mutation.target);
           return;
         }
+        // 누른 버튼이 바로 비활성화되면(예: 미활동 닉네임 정리) 브라우저가
+        // pointerout/focusout 을 보내지 않아 툴팁이 남는다. 여기서 직접 닫는다.
+        if (
+          mutation.type === "attributes" &&
+          mutation.attributeName === "disabled" &&
+          activeTarget instanceof HTMLElement &&
+          mutation.target instanceof HTMLElement &&
+          activeTarget.contains(mutation.target) &&
+          mutation.target.matches(":disabled")
+        ) {
+          if (hoverTarget === activeTarget) hoverTarget = null;
+          if (focusTarget === activeTarget) focusTarget = null;
+          hideTooltip();
+          return;
+        }
         if (
           mutation.type === "attributes" &&
           mutation.attributeName === "data-tooltip" &&
@@ -521,9 +690,61 @@
     });
     tooltipObserver.observe(document.body, {
       attributes: true,
-      attributeFilter: ["title", "data-tooltip"],
+      attributeFilter: ["title", "data-tooltip", "disabled"],
       childList: true,
       subtree: true,
+    });
+  }
+
+  // 툴팁 문구의 간단한 서식: 줄바꿈(\n), "- " 로 시작하는 줄은 글머리 기호,
+  // **굵게**. HTML 로 해석하지 않고 DOM 으로 만든다.
+  function appendTooltipInline(parent, text) {
+    String(text)
+      .split(/(\*\*[^*]+\*\*)/)
+      .forEach((part) => {
+        if (!part) return;
+        const bold = /^\*\*([^*]+)\*\*$/.exec(part);
+        if (bold) {
+          const strong = document.createElement("strong");
+          strong.textContent = bold[1];
+          parent.appendChild(strong);
+        } else {
+          parent.appendChild(document.createTextNode(part));
+        }
+      });
+  }
+
+  function renderTooltipContent(container, message) {
+    container.textContent = "";
+    const text = String(message || "");
+    if (!text.includes("\n") && !text.includes("**")) {
+      container.textContent = text;
+      return;
+    }
+    let list = null;
+    text.split("\n").forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) {
+        list = null;
+        return;
+      }
+      const bullet = /^[-•]\s+(.*)$/.exec(line);
+      if (bullet) {
+        if (!list) {
+          list = document.createElement("ul");
+          list.className = "settings-tooltip-list";
+          container.appendChild(list);
+        }
+        const item = document.createElement("li");
+        appendTooltipInline(item, bullet[1]);
+        list.appendChild(item);
+        return;
+      }
+      list = null;
+      const paragraph = document.createElement("p");
+      paragraph.className = "settings-tooltip-line";
+      appendTooltipInline(paragraph, line);
+      container.appendChild(paragraph);
     });
   }
 
@@ -730,6 +951,7 @@
     if (!(root instanceof HTMLElement)) return;
     if (root.classList.contains("is-disabled")) return;
     closeCustomSelects(root);
+    dismissCustomTooltipFor(root);
     root.dataset.expanded = "true";
     const trigger = root.querySelector(".custom-select-trigger");
     if (trigger) trigger.setAttribute("aria-expanded", "true");
@@ -874,6 +1096,7 @@
       el.popupTimestampColorMode,
       el.chatTimestampFormat,
       el.chatTimestampColorMode,
+      el.captureAction,
     ]);
 
     (el.settingsTabButtons || []).forEach((button) => {
@@ -1081,7 +1304,59 @@
 
     el.showCaptureButton.addEventListener("change", async () => {
       state.showCaptureButton = el.showCaptureButton.checked;
+      syncCaptureOptionControls();
       await persistAndApply();
+    });
+
+    el.captureAction.addEventListener("change", async () => {
+      state.captureAction = normalizeCaptureAction(el.captureAction.value);
+      syncCustomSelect(el.captureAction);
+      await persistAndApply();
+    });
+
+    // 파일 이름 형식은 입력이 멈추면 저장한다.
+    let captureFilenameSaveTimer = 0;
+    const saveCaptureFilenameFormat = async () => {
+      clearTimeout(captureFilenameSaveTimer);
+      captureFilenameSaveTimer = 0;
+      const value = normalizeCaptureFilenameFormat(
+        el.captureFilenameFormat.value,
+      );
+      if (value === state.captureFilenameFormat) return;
+      state.captureFilenameFormat = value;
+      await persistAndApply();
+    };
+    el.captureFilenameFormat.addEventListener("input", () => {
+      renderCaptureFilenamePreview();
+      clearTimeout(captureFilenameSaveTimer);
+      captureFilenameSaveTimer = setTimeout(() => {
+        void saveCaptureFilenameFormat();
+      }, 400);
+    });
+    el.captureFilenameFormat.addEventListener("change", () => {
+      void saveCaptureFilenameFormat();
+    });
+    el.captureFilenameTokens.forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = el.captureFilenameFormat;
+        const token = `{${button.dataset.captureFilenameToken}}`;
+        const value = input.value;
+        const start = input.selectionStart ?? value.length;
+        const end = input.selectionEnd ?? start;
+        if (value.length - (end - start) + token.length > input.maxLength) {
+          return;
+        }
+        input.value = value.slice(0, start) + token + value.slice(end);
+        input.focus();
+        input.setSelectionRange(start + token.length, start + token.length);
+        renderCaptureFilenamePreview();
+        void saveCaptureFilenameFormat();
+      });
+    });
+    el.captureFilenameReset.addEventListener("click", () => {
+      el.captureFilenameFormat.value = getCaptureFilenameDefault();
+      renderCaptureFilenamePreview();
+      void saveCaptureFilenameFormat();
     });
 
     el.enableCaptureDragSelection.addEventListener("change", async () => {
@@ -1137,6 +1412,106 @@
       await persistAndApply();
     });
 
+    el.chatToastEnabled.addEventListener("change", async () => {
+      state.chatToastEnabled = el.chatToastEnabled.checked;
+      syncChatToastOptionControls();
+      syncCaptureOptionControls();
+      await persistAndApply();
+    });
+
+    const selectChatToastFrequency = async (value) => {
+      const next = normalizeChatToastFrequency(value);
+      if (next === state.chatToastFrequency) return;
+      state.chatToastFrequency = next;
+      syncChatToastOptionControls();
+      await persistAndApply();
+    };
+    const selectChatToastClickAction = async (value) => {
+      const next = normalizeChatToastClickAction(value);
+      if (next === state.chatToastClickAction) return;
+      state.chatToastClickAction = next;
+      syncChatToastOptionControls();
+      syncCaptureOptionControls();
+      await persistAndApply();
+    };
+    bindSegmentedRadioGroup(
+      el.chatToastClickActionButtons,
+      selectChatToastClickAction,
+    );
+    bindSegmentedRadioGroup(el.chatToastListOrderButtons, async (value) => {
+      const next = normalizeChatToastListOrder(value);
+      if (next === state.chatToastListOrder) return;
+      state.chatToastListOrder = next;
+      syncChatToastOptionControls();
+      await persistAndApply();
+    });
+    if (el.chatToastBackdropBlur) {
+      el.chatToastBackdropBlur.addEventListener("change", async () => {
+        state.chatToastBackdropBlur = el.chatToastBackdropBlur.checked;
+        await persistAndApply();
+      });
+    }
+    el.chatToastFrequencyButtons.forEach((button, index, buttons) => {
+      button.addEventListener("click", () => {
+        selectChatToastFrequency(button.dataset.value);
+      });
+      // 라디오 그룹 키보드 조작: 방향키로 옆 항목을 바로 고른다.
+      button.addEventListener("keydown", (event) => {
+        const step =
+          event.key === "ArrowRight" || event.key === "ArrowDown"
+            ? 1
+            : event.key === "ArrowLeft" || event.key === "ArrowUp"
+              ? -1
+              : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = buttons[(index + step + buttons.length) % buttons.length];
+        next.focus();
+        selectChatToastFrequency(next.dataset.value);
+      });
+    });
+
+    bindNumberSteppers();
+
+    if (el.chatToastKeepVisible) {
+      el.chatToastKeepVisible.addEventListener("change", async () => {
+        state.chatToastKeepVisible = el.chatToastKeepVisible.checked;
+        syncChatToastTimingInputs();
+        await persistAndApply();
+      });
+    }
+
+    [
+      [el.chatToastGather, "chatToastGatherMs", CHAT_TOAST_GATHER_MAX_MS],
+      [el.chatToastCooldown, "chatToastCooldownMs", CHAT_TOAST_COOLDOWN_MAX_MS],
+      [el.chatToastVisible, "chatToastVisibleMs", CHAT_TOAST_VISIBLE_MAX_MS],
+    ].forEach(([input, key, maxMs]) => {
+      if (!input) return;
+      input.addEventListener("change", async () => {
+        const raw = String(input.value || "").trim();
+        const minMs =
+          key === "chatToastVisibleMs" ? CHAT_TOAST_VISIBLE_MIN_MS : 0;
+        state[key] =
+          raw === ""
+            ? state[key]
+            : Math.max(
+                minMs,
+                normalizeChatToastDurationMs(Number(raw) * 1000, state[key], maxMs),
+              );
+        syncChatToastTimingInputs();
+        await persistAndApply();
+      });
+    });
+
+    el.chatToastBadgeTypeInputs.forEach((input) => {
+      input.addEventListener("change", async () => {
+        state.chatToastBadgeTypes = el.chatToastBadgeTypeInputs
+          .filter((item) => item.checked)
+          .map((item) => item.dataset.chatToastBadgeType);
+        await persistAndApply();
+      });
+    });
+
     el.compactPill.addEventListener("change", async () => {
       state.compactPill = el.compactPill.checked;
       await persistAndApply();
@@ -1156,7 +1531,7 @@
       if (nextChecked) {
         const confirmed = await askGenericConfirm(
           "채팅창 알림 버튼 숨김",
-          "채팅창 알림 버튼을 숨기면 배지 채팅 모아보기 팝업창을 열 수 없습니다.\n계속 진행하시겠습니까?",
+          "채팅창 알림 버튼을 숨기면 배지 채팅 모아보기 팝업창을 열 수 없습니다.\n(새 채팅 토스트 알림을 켜 두면 알림을 눌러 열 수 있습니다.)\n계속 진행하시겠습니까?",
           { okLabel: "숨기기", cancelLabel: "취소", danger: true },
         );
         if (!confirmed) {
@@ -1279,15 +1654,24 @@
     });
 
     el.trackedInput.addEventListener("keydown", async (event) => {
+      if (handleTrackedSuggestKeydown(event)) return;
       if (event.key !== "Enter") return;
       if (event.isComposing || event.keyCode === 229) return;
       event.preventDefault();
       const raw = String(el.trackedInput.value || "").trim();
       if (!raw) return;
+      closeTrackedSuggest();
       await addTracked(raw);
     });
     el.trackedInput.addEventListener("input", () => {
       clearTrackedInputInvalid();
+      scheduleTrackedSuggest();
+    });
+    el.trackedInput.addEventListener("focus", () => {
+      if (String(el.trackedInput.value || "").trim()) scheduleTrackedSuggest();
+    });
+    el.trackedInput.addEventListener("blur", () => {
+      closeTrackedSuggest();
     });
 
     el.trackedScopeButtons.forEach((button) => {
@@ -1298,10 +1682,12 @@
         state.selectedTrackedNicknameSet.clear();
         state.trackedChipsCollapsed = true;
         clearTrackedInputInvalid();
+        closeTrackedSuggest();
         syncScopeSegmentedControls();
         updateTrackedAddAvailability();
         renderTrackedChips();
         updateActionButtonsState();
+        refreshVisibleTrackedChannelMeta();
       });
     });
 
@@ -1309,25 +1695,25 @@
       await selectAllHiddenNicknames();
     });
 
-    el.hiddenExcludeScopeButtons.forEach((button) => {
+    el.hiddenClearAll.addEventListener("click", async () => {
+      await clearAllHiddenNicknames();
+    });
+
+    if (el.hiddenIncludeAll) {
+      el.hiddenIncludeAll.addEventListener("click", async () => {
+        await includeAllVisibleNicknames();
+      });
+    }
+
+    el.hiddenFilterButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        const nextScope = normalizeTrackedScope(button.dataset.scope);
-        if (nextScope === state.hiddenExcludeEditScope) return;
-        state.hiddenExcludeEditScope = nextScope;
-        state.hiddenAdvancedSelectedSet.clear();
-        clearHintPulse(el.hiddenExcludeSelected);
-        syncScopeSegmentedControls();
+        const next = normalizeHiddenFilter(button.dataset.filter);
+        if (next === state.hiddenFilter) return;
+        state.hiddenFilter = next;
+        closeNicknameMenu();
         renderHiddenChips();
         updateActionButtonsState();
       });
-    });
-
-    el.hiddenExcludeSelected.addEventListener("click", async () => {
-      await excludeSelectedFromTrackedTargets();
-    });
-
-    el.hiddenClearAll.addEventListener("click", async () => {
-      await clearAllHiddenNicknames();
     });
 
     if (el.hiddenPruneEmpty) {
@@ -1462,6 +1848,14 @@
     el.enableCaptureDragSelection.checked =
       state.enableCaptureDragSelection === true;
     el.showCapturePreview.checked = state.showCapturePreview === true;
+    el.captureAction.value = normalizeCaptureAction(state.captureAction);
+    syncCustomSelect(el.captureAction);
+    if (document.activeElement !== el.captureFilenameFormat) {
+      el.captureFilenameFormat.value =
+        state.captureFilenameFormat || getCaptureFilenameDefault();
+    }
+    renderCaptureFilenamePreview();
+    syncCaptureOptionControls();
     el.popupFontScale.value = String(
       normalizePopupFontScale(state.popupFontScale),
     );
@@ -1484,6 +1878,14 @@
     el.keepPopupOpen.checked =
       state.hidePillButton !== true && state.keepPopupOpen === true;
     el.pillGlowEnabled.checked = state.pillGlowEnabled === true;
+    el.chatToastEnabled.checked = state.chatToastEnabled === true;
+    const chatToastBadgeTypes = new Set(
+      normalizeChatToastBadgeTypes(state.chatToastBadgeTypes),
+    );
+    el.chatToastBadgeTypeInputs.forEach((input) => {
+      input.checked = chatToastBadgeTypes.has(input.dataset.chatToastBadgeType);
+    });
+    syncChatToastOptionControls();
     el.compactPill.checked = state.compactPill === true;
     el.enableSessionCache.checked = state.enableSessionCache === true;
     if (el.clearCurrentChannelSession) {
@@ -1508,6 +1910,197 @@
     renderHiddenChips();
     renderTrackedChips();
     updateActionButtonsState();
+  }
+
+  function getCaptureFilenameDefault() {
+    return window.__chzzkBadgeMoa?.captureName?.DEFAULT_FORMAT || "";
+  }
+
+  function renderCaptureFilenamePreview() {
+    const names = window.__chzzkBadgeMoa?.captureName;
+    if (!names || !el.captureFilenamePreview) return;
+    const sample = names.buildFilename(el.captureFilenameFormat.value, {
+      channel: "치지직",
+      title: "오늘의 방송",
+      category: "종합 게임",
+      at: Date.now(),
+    });
+    el.captureFilenamePreview.textContent = `예: ${sample}`;
+  }
+
+  // 숫자 칸 오른쪽의 증감 버튼. 누르고 있으면 반복해서 바뀌고, 손을 떼면
+  // change 를 한 번만 보내 저장한다.
+  function syncNumberStepper(input) {
+    const stepper = input && input.closest(".number-stepper");
+    if (!stepper) return;
+    const value = Number(input.value);
+    const min = input.min === "" ? -Infinity : Number(input.min);
+    const max = input.max === "" ? Infinity : Number(input.max);
+    stepper.classList.toggle("is-disabled", input.disabled);
+    stepper.querySelectorAll("[data-step]").forEach((button) => {
+      const atLimit =
+        button.dataset.step === "up" ? value >= max : value <= min;
+      button.disabled = input.disabled || atLimit;
+    });
+  }
+
+  function bindNumberSteppers() {
+    document.querySelectorAll(".number-stepper").forEach((stepper) => {
+      const input = stepper.querySelector('input[type="number"]');
+      if (!input) return;
+      let repeatTimer = 0;
+      let changed = false;
+      const stepOnce = (direction) => {
+        const before = input.value;
+        try {
+          if (direction === "up") input.stepUp();
+          else input.stepDown();
+        } catch (_error) {
+          return false;
+        }
+        // 부동소수 오차(0.30000000000000004 등)를 정리한다.
+        input.value = String(Math.round(Number(input.value) * 10) / 10);
+        syncNumberStepper(input);
+        return input.value !== before;
+      };
+      const stop = () => {
+        if (repeatTimer) clearTimeout(repeatTimer);
+        repeatTimer = 0;
+        if (changed) {
+          changed = false;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+      stepper.querySelectorAll("[data-step]").forEach((button) => {
+        button.addEventListener("pointerdown", (event) => {
+          if (button.disabled || event.button !== 0) return;
+          event.preventDefault();
+          const direction = button.dataset.step;
+          changed = stepOnce(direction) || changed;
+          const repeat = (delay) => {
+            repeatTimer = setTimeout(() => {
+              if (button.disabled) return;
+              changed = stepOnce(direction) || changed;
+              repeat(70);
+            }, delay);
+          };
+          repeat(400);
+        });
+        ["pointerup", "pointerleave", "pointercancel"].forEach((type) => {
+          button.addEventListener(type, stop);
+        });
+      });
+      input.addEventListener("input", () => syncNumberStepper(input));
+    });
+  }
+
+  // 초 단위로 보여 준다(0.1초 단위, 끝의 0 은 생략).
+  function formatChatToastSeconds(ms) {
+    return String(Math.round((Number(ms) || 0) / 100) / 10);
+  }
+
+  // 커스텀이 아니면 고른 빈도의 시간을 보여 주기만 하고 바꿀 수 없게 한다.
+  function syncChatToastTimingInputs() {
+    if (!el.chatToastGather || !el.chatToastCooldown || !el.chatToastVisible) {
+      return;
+    }
+    const frequency = normalizeChatToastFrequency(state.chatToastFrequency);
+    const isCustom = frequency === "custom";
+    const timing = isCustom
+      ? {
+          gatherMs: state.chatToastGatherMs,
+          visibleMs: state.chatToastVisibleMs,
+          cooldownMs: state.chatToastCooldownMs,
+          keepVisible: state.chatToastKeepVisible === true,
+        }
+      : { ...CHAT_TOAST_PRESET_TIMING[frequency], keepVisible: false };
+    el.chatToastGather.value = formatChatToastSeconds(timing.gatherMs);
+    el.chatToastVisible.value = formatChatToastSeconds(timing.visibleMs);
+    el.chatToastCooldown.value = formatChatToastSeconds(timing.cooldownMs);
+    const disabled = state.chatToastEnabled !== true || !isCustom;
+    el.chatToastGather.disabled = disabled;
+    el.chatToastCooldown.disabled = disabled;
+    // 계속 표시면 표시 시간은 쓰이지 않는다.
+    el.chatToastVisible.disabled = disabled || timing.keepVisible;
+    el.chatToastKeepVisible.checked = timing.keepVisible;
+    el.chatToastKeepVisible.disabled = disabled;
+    [el.chatToastGather, el.chatToastVisible, el.chatToastCooldown].forEach(
+      (input) => {
+        syncNumberStepper(input);
+        input
+          .closest(".timing-field-main")
+          ?.classList.toggle("is-disabled", input.disabled);
+      },
+    );
+    el.chatToastTiming?.classList.toggle("is-disabled", disabled);
+  }
+
+  function syncChatToastOptionControls() {
+    const disabled = state.chatToastEnabled !== true;
+    const clickAction = normalizeChatToastClickAction(
+      state.chatToastClickAction,
+    );
+    el.chatToastClickActionButtons.forEach((button) => {
+      const checked = button.dataset.value === clickAction;
+      button.setAttribute("aria-checked", String(checked));
+      button.tabIndex = checked ? 0 : -1;
+      button.disabled = disabled;
+    });
+    el.chatToastClickAction?.classList.toggle("is-disabled", disabled);
+    // 목록 순서는 알림 목록 펼치기에서만 쓰인다.
+    const listOrder = normalizeChatToastListOrder(state.chatToastListOrder);
+    const listOrderDisabled = disabled || clickAction !== "list";
+    el.chatToastListOrderButtons.forEach((button) => {
+      const checked = button.dataset.value === listOrder;
+      button.setAttribute("aria-checked", String(checked));
+      button.tabIndex = checked ? 0 : -1;
+      button.disabled = listOrderDisabled;
+    });
+    el.chatToastListOrder?.classList.toggle("is-disabled", listOrderDisabled);
+    if (el.chatToastBackdropBlur) {
+      el.chatToastBackdropBlur.checked = state.chatToastBackdropBlur !== false;
+      // 알림 목록 펼치기에서만 쓰이는 옵션
+      const blurDisabled = disabled || clickAction !== "list";
+      el.chatToastBackdropBlur.disabled = blurDisabled;
+      el.chatToastBackdropBlur
+        .closest(".toggle-row")
+        ?.classList.toggle("is-disabled", blurDisabled);
+    }
+    const frequency = normalizeChatToastFrequency(state.chatToastFrequency);
+    el.chatToastFrequencyButtons.forEach((button) => {
+      const checked = button.dataset.value === frequency;
+      button.setAttribute("aria-checked", String(checked));
+      button.tabIndex = checked ? 0 : -1;
+      button.disabled = disabled;
+    });
+    el.chatToastFrequency.classList.toggle("is-disabled", disabled);
+    syncChatToastTimingInputs();
+    el.chatToastBadgeTypeInputs.forEach((input) => {
+      input.disabled = disabled;
+    });
+    el.chatToastTargets?.classList.toggle("is-disabled", disabled);
+  }
+
+  // 버튼 동작·파일 이름 형식은 모아보기 캡처와 토스트 알림 목록의 카드 캡처가
+  // 함께 쓴다. 둘 중 하나라도 쓰고 있으면 고를 수 있게 한다.
+  function isToastCardCaptureAvailable() {
+    return (
+      state.chatToastEnabled === true &&
+      normalizeChatToastClickAction(state.chatToastClickAction) === "list"
+    );
+  }
+
+  function syncCaptureOptionControls() {
+    const disabled =
+      state.showCaptureButton !== true && !isToastCardCaptureAvailable();
+    el.captureAction.disabled = disabled;
+    syncCustomSelect(el.captureAction);
+    el.captureFilenameFormat.disabled = disabled;
+    el.captureFilenameReset.disabled = disabled;
+    el.captureFilenameTokens.forEach((button) => {
+      button.disabled = disabled;
+    });
+    el.captureFilename?.classList.toggle("is-disabled", disabled);
   }
 
   function syncChatTimestampOptionControls() {
@@ -1566,63 +2159,66 @@
       ...trackedNamesForHidden,
     ]);
     const sorted = Array.from(names).sort((a, b) => a.localeCompare(b, "ko"));
-    const validNameSet = new Set(sorted);
-    Array.from(state.hiddenAdvancedSelectedSet).forEach((nickname) => {
-      if (!validNameSet.has(nickname)) {
-        state.hiddenAdvancedSelectedSet.delete(nickname);
-      }
-    });
     const hiddenCount = Array.from(state.hiddenSet).reduce((acc, nickname) => {
       if (names.has(nickname)) return acc + 1;
       return acc;
     }, 0);
     updateHiddenCountInfo(hiddenCount, sorted.length);
 
-    if (sorted.length === 0) {
+    const filterCounts = { all: sorted.length, hidden: 0, channel: 0, global: 0 };
+    sorted.forEach((nickname) => {
+      if (state.hiddenSet.has(nickname)) filterCounts.hidden += 1;
+      const mode = getNicknameExcludeMode(nickname);
+      if (mode === NICKNAME_EXCLUDE_CHANNEL) filterCounts.channel += 1;
+      if (mode === NICKNAME_EXCLUDE_GLOBAL) filterCounts.global += 1;
+    });
+    syncHiddenFilterControls(filterCounts);
+    // 메뉴를 연 칩은 상태가 바뀌어 필터에서 벗어나도 메뉴를 닫을 때까지 남긴다.
+    const menuNickname = state.nicknameMenu ? state.nicknameMenu.nickname : "";
+    const visible = sorted.filter(
+      (nickname) =>
+        nickname === menuNickname || matchesHiddenFilter(nickname),
+    );
+    state.visibleHiddenChipNames = visible;
+
+    if (visible.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty";
-      empty.textContent = state.connected
-        ? "현재 채널에서 배지 채팅 닉네임이 없습니다."
-        : "치지직 라이브/다시보기 탭에서 열면 닉네임 목록을 볼 수 있습니다.";
+      empty.textContent =
+        sorted.length > 0
+          ? "이 필터에 해당하는 닉네임이 없습니다."
+          : state.connected
+            ? "현재 채널에서 배지 채팅 닉네임이 없습니다."
+            : "치지직 라이브/다시보기 탭에서 열면 닉네임 목록을 볼 수 있습니다.";
       el.hiddenChips.appendChild(empty);
+      syncNicknameMenu();
       return;
     }
 
     const fragment = document.createDocumentFragment();
-    sorted.forEach((nickname) => {
+    visible.forEach((nickname) => {
       const chip = document.createElement("div");
       chip.className = "chip toggle";
-      if (state.hiddenSet.has(nickname)) {
+      chip.dataset.nickname = nickname;
+      const isHidden = state.hiddenSet.has(nickname);
+      const excludeMode = getNicknameExcludeMode(nickname);
+      if (isHidden) {
         chip.classList.add("active");
       }
-      if (state.excludedCollectNicknameSet.has(nickname)) {
+      if (excludeMode !== NICKNAME_EXCLUDE_NONE) {
         chip.classList.add("is-excluded");
       }
-      if (state.hiddenAdvancedSelectedSet.has(nickname)) {
-        chip.classList.add("is-selected");
+      if (state.nicknameMenu && state.nicknameMenu.nickname === nickname) {
+        chip.classList.add("is-menu-open");
       }
-      const excludeCheckbox = document.createElement("input");
-      excludeCheckbox.type = "checkbox";
-      excludeCheckbox.className = "chip-exclude-checkbox";
-      excludeCheckbox.checked = state.hiddenAdvancedSelectedSet.has(nickname);
-      excludeCheckbox.setAttribute(
-        "aria-label",
-        `${nickname} 모아보기 제외 대상으로 선택`,
-      );
-      setCustomTooltip(excludeCheckbox, "모아보기 제외 대상 선택");
-      excludeCheckbox.addEventListener("change", () => {
-        if (excludeCheckbox.checked) {
-          state.hiddenAdvancedSelectedSet.add(nickname);
-          chip.classList.add("is-selected");
-        } else {
-          state.hiddenAdvancedSelectedSet.delete(nickname);
-          chip.classList.remove("is-selected");
-        }
-        updateActionButtonsState();
-      });
       const toggleButton = document.createElement("button");
       toggleButton.type = "button";
       toggleButton.className = "chip-toggle-btn";
+      toggleButton.setAttribute("aria-haspopup", "dialog");
+      toggleButton.setAttribute(
+        "aria-expanded",
+        String(!!state.nicknameMenu && state.nicknameMenu.nickname === nickname),
+      );
       const fallbackMeta = state.hiddenChipMetaByNickname.get(nickname);
       const meta = nicknameMetaMap.get(nickname) || {
         count: 0,
@@ -1702,30 +2298,46 @@
         countText.textContent = count;
         toggleButton.appendChild(countText);
       }
-      setCustomTooltip(
-        toggleButton,
-        state.hiddenSet.has(nickname)
-          ? "현재 채팅창 알림 숨김 상태 - 클릭하면 해제"
-          : "클릭하면 채팅창 알림 숨김",
-      );
-
-      toggleButton.addEventListener("click", async () => {
-        if (state.hiddenSet.has(nickname)) {
-          state.hiddenSet.delete(nickname);
-        } else {
-          state.hiddenSet.add(nickname);
-          state.managedHiddenNicknameSet.add(nickname);
+      if (excludeMode !== NICKNAME_EXCLUDE_NONE) {
+        const tag = document.createElement("span");
+        tag.className = "chip-state-tag";
+        if (excludeMode === NICKNAME_EXCLUDE_GLOBAL) {
+          tag.classList.add("is-global");
         }
-        await persistAndApply();
-        renderHiddenChips();
-        updateActionButtonsState();
+        tag.textContent =
+          excludeMode === NICKNAME_EXCLUDE_GLOBAL ? "전체 제외" : "제외";
+        toggleButton.appendChild(tag);
+      }
+      const stateTexts = [];
+      if (isHidden) stateTexts.push("채팅창 알림 숨김");
+      if (excludeMode === NICKNAME_EXCLUDE_CHANNEL) {
+        stateTexts.push("이 채널 모아보기 제외");
+      } else if (excludeMode === NICKNAME_EXCLUDE_GLOBAL) {
+        stateTexts.push("모든 채널 모아보기 제외");
+      }
+      const stateSummary = stateTexts.length
+        ? stateTexts.join(" · ")
+        : "알림 표시 · 모아보기 포함";
+      toggleButton.setAttribute(
+        "aria-label",
+        `${nickname} - ${stateSummary}. 눌러서 설정`,
+      );
+      setCustomTooltip(toggleButton, `${stateSummary} - 클릭하여 설정 변경`);
+
+      toggleButton.addEventListener("click", () => {
+        if (state.nicknameMenu && state.nicknameMenu.nickname === nickname) {
+          closeNicknameMenu();
+          return;
+        }
+        openNicknameMenu(nickname, toggleButton);
       });
-      chip.append(excludeCheckbox, toggleButton);
+      chip.append(toggleButton);
 
       fragment.appendChild(chip);
     });
 
     el.hiddenChips.appendChild(fragment);
+    syncNicknameMenu();
   }
 
   function resolveVerifiedMarkInfo(source) {
@@ -1941,9 +2553,34 @@
         updateActionButtonsState();
       });
 
+      const meta = state.trackedChannelMeta.get(item.value);
+      if (!TRACKED_NICKNAME_ALLOWLIST.has(item.value)) {
+        toggleButton.appendChild(createTrackedAvatar(item.value, meta));
+      }
       const text = document.createElement("span");
+      text.className = "chip-name";
       text.textContent = item.value;
       toggleButton.appendChild(text);
+      const markInfo = meta ? VERIFIED_MARK_INFO[meta.verifiedMarkType] : null;
+      if (markInfo) {
+        const mark = document.createElement("img");
+        mark.className = "chip-badge-icon tracked-chip-mark";
+        mark.src = markInfo.iconUrl;
+        mark.alt = markInfo.label;
+        mark.decoding = "async";
+        toggleButton.appendChild(mark);
+      }
+      if (
+        meta &&
+        meta.channelName &&
+        normalizeNickname(meta.channelName) !== item.value
+      ) {
+        chip.classList.add("is-renamed");
+        setCustomTooltip(
+          toggleButton,
+          `채널명이 '${meta.channelName}'(으)로 바뀌었습니다. 채팅 닉네임이 다르면 모이지 않습니다.`,
+        );
+      }
 
       const removeButton = document.createElement("button");
       removeButton.type = "button";
@@ -1977,7 +2614,7 @@
     updateTrackedChipCollapseUi(items.length);
   }
 
-  async function addTracked(rawValue = "") {
+  async function addTracked(rawValue = "", options = {}) {
     if (!canUseTrackedAdd()) {
       markTrackedInputInvalid();
       setStatus("닉네임 추가는 치지직 라이브/다시보기 탭에서만 가능합니다.", {
@@ -2027,8 +2664,24 @@
       return;
     }
 
-    setStatus("스트리머인지 확인 중...");
-    const verification = await verifyLiveStreamerByNickname(nickname);
+    // 검색 목록에서 고른 채널은 이미 받은 정보(첫 방송일)로 확인한다.
+    const pickedChannel =
+      options.channel &&
+      normalizeNickname(options.channel.channelName) === nickname &&
+      options.channel.isStreamer
+        ? options.channel
+        : null;
+    if (!pickedChannel) setStatus("스트리머인지 확인 중...");
+    const verification = pickedChannel
+      ? {
+          ok: true,
+          channelId: pickedChannel.channelId,
+          channelName: pickedChannel.channelName,
+          imageUrl: pickedChannel.imageUrl,
+          verifiedMark: pickedChannel.verifiedMarkType !== "",
+          verifiedMarkType: pickedChannel.verifiedMarkType,
+        }
+      : await verifyLiveStreamerByNickname(nickname);
     if (!verification.ok) {
       markTrackedInputInvalid();
       setStatus(verification.message, {
@@ -2041,6 +2694,14 @@
     clearTrackedInputInvalid();
     targetSet.add(nickname);
     rebuildEffectiveTrackedNicknames();
+    if (verification.channelId) {
+      setTrackedChannelMeta(nickname, {
+        channelId: verification.channelId,
+        channelName: verification.channelName || nickname,
+        imageUrl: verification.imageUrl,
+        verifiedMarkType: verification.verifiedMarkType,
+      });
+    }
 
     const verifiedMarkInfo = resolveVerifiedMarkInfo(verification);
     if (!isGlobal && verifiedMarkInfo) {
@@ -2069,9 +2730,596 @@
     await persistAndApply({
       forceTrackedNicknames,
     });
+    await saveTrackedChannelMeta();
     renderHiddenChips();
     renderTrackedChips();
     updateActionButtonsState();
+    setStatus(`${nickname} 님을 모아보기 대상에 추가했습니다.`, {
+      autoResetMs: 1800,
+    });
+  }
+
+  // ── 모아보기 대상: 채널 검색 목록 / 칩용 채널 정보 ─────────────────────
+
+  function getDefaultProfileUrl() {
+    return document.documentElement.dataset.theme === "light"
+      ? DEFAULT_PROFILE_URLS.light
+      : DEFAULT_PROFILE_URLS.dark;
+  }
+
+  // 작은 썸네일 크기로 받아 트래픽을 줄인다.
+  function getProfileThumbUrl(imageUrl) {
+    const raw = String(imageUrl || "").trim();
+    if (!raw) return "";
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:") return "";
+      url.searchParams.set("type", "f60_60_na");
+      return url.toString();
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function normalizeVerifiedMarkType(channel) {
+    const type = String(channel?.verifiedMarkType || "")
+      .trim()
+      .toUpperCase();
+    if (VERIFIED_MARK_INFO[type]) return type;
+    return channel?.verifiedMark === true ? "PARTNER" : "";
+  }
+
+  function parseTrackedChannelMeta(raw) {
+    const map = new Map();
+    if (!raw || typeof raw !== "object") return map;
+    Object.entries(raw).forEach(([key, value]) => {
+      const nickname = normalizeNickname(key);
+      if (!nickname || !value || typeof value !== "object") return;
+      map.set(nickname, {
+        channelId: String(value.channelId || ""),
+        channelName: String(value.channelName || ""),
+        imageUrl: String(value.imageUrl || ""),
+        verifiedMarkType: VERIFIED_MARK_INFO[value.verifiedMarkType]
+          ? value.verifiedMarkType
+          : "",
+        checkedAt: Number(value.checkedAt) || 0,
+      });
+    });
+    return map;
+  }
+
+  function setTrackedChannelMeta(nickname, info) {
+    const normalized = normalizeNickname(nickname);
+    if (!normalized) return false;
+    const previous = state.trackedChannelMeta.get(normalized);
+    const next = {
+      channelId: String(info.channelId || previous?.channelId || ""),
+      channelName: String(info.channelName || previous?.channelName || ""),
+      imageUrl: String(info.imageUrl || ""),
+      verifiedMarkType: VERIFIED_MARK_INFO[info.verifiedMarkType]
+        ? info.verifiedMarkType
+        : "",
+      checkedAt: Date.now(),
+    };
+    state.trackedChannelMeta.set(normalized, next);
+    return (
+      !previous ||
+      previous.channelId !== next.channelId ||
+      previous.channelName !== next.channelName ||
+      previous.imageUrl !== next.imageUrl ||
+      previous.verifiedMarkType !== next.verifiedMarkType
+    );
+  }
+
+  // 어느 범위에도 등록되어 있지 않은 닉네임의 정보는 지운다.
+  function collectAllTrackedNicknames() {
+    const names = new Set();
+    const raw = state.rawSettings || {};
+    const byChannel =
+      raw.trackedTargetsByChannel &&
+      typeof raw.trackedTargetsByChannel === "object"
+        ? raw.trackedTargetsByChannel
+        : {};
+    Object.values(byChannel).forEach((entry) => {
+      const list = Array.isArray(entry?.nicknames) ? entry.nicknames : [];
+      list.forEach((value) => {
+        const nickname = normalizeNickname(value);
+        if (nickname) names.add(nickname);
+      });
+    });
+    (Array.isArray(raw.trackedGlobalNicknames)
+      ? raw.trackedGlobalNicknames
+      : []
+    ).forEach((value) => {
+      const nickname = normalizeNickname(value);
+      if (nickname) names.add(nickname);
+    });
+    state.trackedScopedNicknameSet.forEach((nickname) => names.add(nickname));
+    state.trackedGlobalNicknameSet.forEach((nickname) => names.add(nickname));
+    return names;
+  }
+
+  async function saveTrackedChannelMeta() {
+    const tracked = collectAllTrackedNicknames();
+    const data = {};
+    state.trackedChannelMeta.forEach((meta, nickname) => {
+      if (!tracked.has(nickname)) {
+        state.trackedChannelMeta.delete(nickname);
+        return;
+      }
+      data[nickname] = meta;
+    });
+    await setStorageLocal(TRACKED_CHANNEL_META_KEY, data);
+  }
+
+  function createTrackedAvatar(nickname, meta) {
+    const img = document.createElement("img");
+    img.className = "tracked-chip-avatar";
+    img.alt = "";
+    img.decoding = "async";
+    img.loading = "lazy";
+    const thumb = getProfileThumbUrl(meta && meta.imageUrl);
+    img.src = thumb || getDefaultProfileUrl();
+    if (thumb) {
+      img.addEventListener(
+        "error",
+        () => {
+          img.src = getDefaultProfileUrl();
+          // 이미지 주소가 더 이상 유효하지 않으면 채널 정보를 다시 받는다.
+          refreshTrackedChannelMeta([nickname], { force: true });
+        },
+        { once: true },
+      );
+    }
+    return img;
+  }
+
+  async function fetchChzzkContent(url, signal) {
+    const response = await fetch(url, signal ? { signal } : undefined);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const json = await response.json();
+    if (!json || Number(json.code) !== 200) throw new Error("API_ERROR");
+    return json.content;
+  }
+
+  async function fetchTrackedChannelInfo(nickname, meta) {
+    if (meta && meta.channelId) {
+      const content = await fetchChzzkContent(
+        `${CHZZK_API_BASE}/service/v1/channels/${encodeURIComponent(meta.channelId)}`,
+      );
+      if (!content || !content.channelId) return null;
+      return {
+        channelId: String(content.channelId),
+        channelName: String(content.channelName || ""),
+        imageUrl: String(content.channelImageUrl || ""),
+        verifiedMarkType: normalizeVerifiedMarkType(content),
+      };
+    }
+    // 예전에 추가해 채널 ID 를 모르는 항목은 이름으로 한 번 찾는다.
+    const result = await fetchExactChannelIdByNickname(nickname);
+    if (!result.ok) {
+      if (result.reason === "API_ERROR") throw new Error("API_ERROR");
+      return null;
+    }
+    return {
+      channelId: result.channelId,
+      channelName: result.channelName,
+      imageUrl: result.imageUrl,
+      verifiedMarkType: normalizeVerifiedMarkType(result),
+    };
+  }
+
+  async function refreshTrackedChannelMeta(nicknames, options = {}) {
+    const force = options.force === true;
+    const now = Date.now();
+    const queue = [];
+    nicknames.forEach((value) => {
+      const nickname = normalizeNickname(value);
+      if (!nickname || TRACKED_NICKNAME_ALLOWLIST.has(nickname)) return;
+      if (state.trackedMetaRefreshing.has(nickname)) return;
+      if (state.trackedMetaCheckedThisSession.has(nickname)) return;
+      const meta = state.trackedChannelMeta.get(nickname);
+      if (!force && meta && now - meta.checkedAt < TRACKED_META_REFRESH_MS) {
+        return;
+      }
+      queue.push(nickname);
+    });
+    const targets = queue.slice(0, TRACKED_META_REFRESH_LIMIT);
+    if (targets.length === 0) return;
+    targets.forEach((nickname) => {
+      state.trackedMetaRefreshing.add(nickname);
+      state.trackedMetaCheckedThisSession.add(nickname);
+    });
+
+    let changed = false;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < targets.length) {
+        const nickname = targets[cursor];
+        cursor += 1;
+        const meta = state.trackedChannelMeta.get(nickname);
+        try {
+          const info = await fetchTrackedChannelInfo(nickname, meta);
+          if (info) {
+            if (setTrackedChannelMeta(nickname, info)) changed = true;
+          } else if (meta) {
+            // 채널을 못 찾으면 이전 정보를 두고 확인 시각만 갱신한다.
+            meta.checkedAt = Date.now();
+          } else {
+            state.trackedChannelMeta.set(nickname, {
+              channelId: "",
+              channelName: "",
+              imageUrl: "",
+              verifiedMarkType: "",
+              checkedAt: Date.now(),
+            });
+          }
+        } catch (_error) {
+          // 네트워크 오류는 다음에 설정창을 열 때 다시 시도한다.
+        } finally {
+          state.trackedMetaRefreshing.delete(nickname);
+        }
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(TRACKED_META_REFRESH_CONCURRENCY, targets.length) },
+        worker,
+      ),
+    );
+    await saveTrackedChannelMeta();
+    if (changed) renderTrackedChips();
+  }
+
+  function refreshVisibleTrackedChannelMeta() {
+    const nicknames = getVisibleTrackedNicknameItems().map((item) => item.value);
+    refreshTrackedChannelMeta(nicknames);
+  }
+
+  function formatFollowerCount(value) {
+    const count = Number(value) || 0;
+    if (count >= 10000) {
+      const man = count / 10000;
+      return `${man >= 100 ? Math.round(man) : man.toFixed(1).replace(/\.0$/, "")}만`;
+    }
+    return count.toLocaleString("ko-KR");
+  }
+
+  async function searchChannelsForSuggest(keyword, signal) {
+    const url =
+      `${CHZZK_API_BASE}/service/v1/search/channels` +
+      `?keyword=${encodeURIComponent(keyword)}&offset=0&size=${TRACKED_SUGGEST_FETCH_SIZE}`;
+    const content = await fetchChzzkContent(url, signal);
+    const data = Array.isArray(content?.data) ? content.data : [];
+    const target = normalizeChannelName(keyword);
+    const items = data
+      .map((entry) => entry?.channel || entry)
+      .filter((channel) => channel && channel.channelId && channel.channelName)
+      .map((channel) => ({
+        channelId: String(channel.channelId),
+        channelName: String(channel.channelName).trim(),
+        imageUrl: String(channel.channelImageUrl || ""),
+        verifiedMarkType: normalizeVerifiedMarkType(channel),
+        followerCount: Number(channel.followerCount) || 0,
+        openLive: channel.openLive === true,
+        // 첫 방송일이 없으면 방송 기록이 없는 채널(시청자)이다.
+        isStreamer: Boolean(channel.firstBroadcastDate),
+      }))
+      .filter((item) => item.isStreamer);
+    // 입력과 이름이 같은 채널을 맨 위로.
+    items.sort((a, b) => {
+      const aExact = normalizeChannelName(a.channelName) === target ? 1 : 0;
+      const bExact = normalizeChannelName(b.channelName) === target ? 1 : 0;
+      return bExact - aExact;
+    });
+    return items.slice(0, TRACKED_SUGGEST_LIMIT);
+  }
+
+  function scheduleTrackedSuggest() {
+    const suggest = state.trackedSuggest;
+    if (suggest.timer) {
+      clearTimeout(suggest.timer);
+      suggest.timer = null;
+    }
+    const keyword = String(el.trackedInput.value || "").trim();
+    if (
+      !keyword ||
+      !canUseTrackedAdd() ||
+      TRACKED_NICKNAME_ALLOWLIST.has(normalizeNickname(keyword))
+    ) {
+      closeTrackedSuggest();
+      return;
+    }
+    const cached = suggest.cache.get(keyword);
+    if (cached) {
+      showTrackedSuggest(keyword, "done", cached);
+      return;
+    }
+    if (!suggest.open || suggest.status !== "done") {
+      showTrackedSuggest(keyword, "loading", []);
+    }
+    suggest.timer = setTimeout(() => {
+      suggest.timer = null;
+      runTrackedSuggest(keyword);
+    }, TRACKED_SUGGEST_DEBOUNCE_MS);
+  }
+
+  async function runTrackedSuggest(keyword) {
+    const suggest = state.trackedSuggest;
+    if (suggest.controller) suggest.controller.abort();
+    const controller = new AbortController();
+    suggest.controller = controller;
+    const seq = (suggest.seq += 1);
+    let items = null;
+    let failed = false;
+    try {
+      items = await searchChannelsForSuggest(keyword, controller.signal);
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      failed = true;
+    }
+    if (seq !== suggest.seq) return;
+    suggest.controller = null;
+    if (String(el.trackedInput.value || "").trim() !== keyword) return;
+    if (document.activeElement !== el.trackedInput) return;
+    if (failed) {
+      showTrackedSuggest(keyword, "error", []);
+      return;
+    }
+    suggest.cache.set(keyword, items);
+    if (suggest.cache.size > TRACKED_SUGGEST_CACHE_LIMIT) {
+      suggest.cache.delete(suggest.cache.keys().next().value);
+    }
+    showTrackedSuggest(keyword, "done", items);
+  }
+
+  function ensureTrackedSuggest() {
+    if (el.trackedSuggest instanceof HTMLElement) return el.trackedSuggest;
+    const list = document.createElement("div");
+    list.id = "tracked-suggest";
+    list.className = "tracked-suggest";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", "채널 검색 결과");
+    list.hidden = true;
+    // 목록을 눌러도 입력창 포커스를 잃지 않게 한다(blur 로 닫히는 것 방지).
+    list.addEventListener("mousedown", (event) => event.preventDefault());
+    document.body.appendChild(list);
+    window.addEventListener("resize", positionTrackedSuggest);
+    document.addEventListener(
+      "scroll",
+      (event) => {
+        if (event.target instanceof Node && list.contains(event.target)) return;
+        positionTrackedSuggest();
+      },
+      true,
+    );
+    el.trackedSuggest = list;
+    return list;
+  }
+
+  function isTrackedSuggestItemAdded(item) {
+    return getTrackedEditSet().has(normalizeNickname(item.channelName));
+  }
+
+  function showTrackedSuggest(keyword, status, items) {
+    const suggest = state.trackedSuggest;
+    const list = ensureTrackedSuggest();
+    const keepActive =
+      suggest.keyword === keyword && suggest.items === items
+        ? suggest.activeIndex
+        : -1;
+    suggest.open = true;
+    suggest.keyword = keyword;
+    suggest.status = status;
+    suggest.items = items;
+    suggest.activeIndex =
+      keepActive >= 0
+        ? keepActive
+        : items.findIndex((item) => !isTrackedSuggestItemAdded(item));
+    dismissCustomTooltipFor(el.trackedInput);
+    renderTrackedSuggest();
+    list.hidden = false;
+    el.trackedInput.setAttribute("aria-expanded", "true");
+    positionTrackedSuggest();
+  }
+
+  function closeTrackedSuggest() {
+    const suggest = state.trackedSuggest;
+    if (suggest.timer) {
+      clearTimeout(suggest.timer);
+      suggest.timer = null;
+    }
+    if (suggest.controller) {
+      suggest.controller.abort();
+      suggest.controller = null;
+    }
+    suggest.seq += 1;
+    suggest.open = false;
+    suggest.activeIndex = -1;
+    if (el.trackedSuggest) el.trackedSuggest.hidden = true;
+    if (el.trackedInput) {
+      el.trackedInput.setAttribute("aria-expanded", "false");
+      el.trackedInput.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function renderTrackedSuggest() {
+    const suggest = state.trackedSuggest;
+    const list = ensureTrackedSuggest();
+    list.innerHTML = "";
+    if (suggest.status !== "done" || suggest.items.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "tracked-suggest-empty";
+      empty.textContent =
+        suggest.status === "loading"
+          ? "채널 검색 중..."
+          : suggest.status === "error"
+            ? "채널 검색에 실패했습니다. Enter 로 직접 추가할 수 있습니다."
+            : "일치하는 스트리머가 없습니다.";
+      list.appendChild(empty);
+      el.trackedInput.removeAttribute("aria-activedescendant");
+      return;
+    }
+    suggest.items.forEach((item, index) => {
+      const added = isTrackedSuggestItemAdded(item);
+      const option = document.createElement("div");
+      option.className = "tracked-suggest-option";
+      option.id = `tracked-suggest-option-${index}`;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(index === suggest.activeIndex));
+      if (added) option.setAttribute("aria-disabled", "true");
+
+      const avatar = document.createElement("img");
+      avatar.className = "tracked-suggest-avatar";
+      avatar.alt = "";
+      avatar.decoding = "async";
+      avatar.src = getProfileThumbUrl(item.imageUrl) || getDefaultProfileUrl();
+      avatar.addEventListener(
+        "error",
+        () => {
+          avatar.src = getDefaultProfileUrl();
+        },
+        { once: true },
+      );
+
+      const main = document.createElement("span");
+      main.className = "tracked-suggest-main";
+      const nameRow = document.createElement("span");
+      nameRow.className = "tracked-suggest-name";
+      const nameText = document.createElement("span");
+      nameText.className = "tracked-suggest-name-text";
+      nameText.textContent = item.channelName;
+      nameRow.appendChild(nameText);
+      const markInfo = VERIFIED_MARK_INFO[item.verifiedMarkType];
+      if (markInfo) {
+        const mark = document.createElement("img");
+        mark.className = "tracked-suggest-mark";
+        mark.src = markInfo.iconUrl;
+        mark.alt = markInfo.label;
+        mark.title = "";
+        nameRow.appendChild(mark);
+      }
+      const sub = document.createElement("span");
+      sub.className = "tracked-suggest-sub";
+      sub.textContent = `팔로워 ${formatFollowerCount(item.followerCount)}`;
+      if (item.openLive) {
+        const live = document.createElement("span");
+        live.className = "tracked-suggest-live";
+        live.textContent = "LIVE";
+        sub.appendChild(live);
+      }
+      main.append(nameRow, sub);
+      option.append(avatar, main);
+
+      if (added) {
+        const stateText = document.createElement("span");
+        stateText.className = "tracked-suggest-state";
+        stateText.textContent = "추가됨";
+        option.appendChild(stateText);
+      }
+
+      option.addEventListener("pointermove", () => {
+        if (added || suggest.activeIndex === index) return;
+        suggest.activeIndex = index;
+        syncTrackedSuggestActive();
+      });
+      option.addEventListener("click", () => {
+        if (added) return;
+        selectTrackedSuggestItem(item);
+      });
+      list.appendChild(option);
+    });
+    syncTrackedSuggestActive();
+  }
+
+  function syncTrackedSuggestActive() {
+    const suggest = state.trackedSuggest;
+    if (!el.trackedSuggest) return;
+    let activeId = "";
+    el.trackedSuggest
+      .querySelectorAll(".tracked-suggest-option")
+      .forEach((option, index) => {
+        const active = index === suggest.activeIndex;
+        option.setAttribute("aria-selected", String(active));
+        if (active) {
+          activeId = option.id;
+          option.scrollIntoView({ block: "nearest" });
+        }
+      });
+    if (activeId) {
+      el.trackedInput.setAttribute("aria-activedescendant", activeId);
+    } else {
+      el.trackedInput.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  // 처리했으면 true. Enter 는 고른 항목이 있을 때만 가로챈다.
+  function handleTrackedSuggestKeydown(event) {
+    const suggest = state.trackedSuggest;
+    if (!suggest.open) return false;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTrackedSuggest();
+      return true;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const items = suggest.items;
+      if (suggest.status !== "done" || items.length === 0) return true;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      let index = suggest.activeIndex;
+      for (let i = 0; i < items.length; i += 1) {
+        index = (index + step + items.length) % items.length;
+        if (!isTrackedSuggestItemAdded(items[index])) break;
+      }
+      if (!isTrackedSuggestItemAdded(items[index])) {
+        suggest.activeIndex = index;
+        syncTrackedSuggestActive();
+      }
+      return true;
+    }
+    if (event.key === "Enter") {
+      if (event.isComposing || event.keyCode === 229) return true;
+      const item =
+        suggest.status === "done" ? suggest.items[suggest.activeIndex] : null;
+      if (!item || isTrackedSuggestItemAdded(item)) return false;
+      event.preventDefault();
+      selectTrackedSuggestItem(item);
+      return true;
+    }
+    return false;
+  }
+
+  async function selectTrackedSuggestItem(item) {
+    closeTrackedSuggest();
+    el.trackedInput.value = item.channelName;
+    await addTracked(item.channelName, { channel: item });
+  }
+
+  function positionTrackedSuggest() {
+    const list = el.trackedSuggest;
+    if (!list || list.hidden || !el.trackedInput) return;
+    const rect = el.trackedInput.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      closeTrackedSuggest();
+      return;
+    }
+    const margin = 8;
+    const gap = 4;
+    const viewportHeight = window.innerHeight;
+    list.style.left = `${Math.round(rect.left)}px`;
+    list.style.width = `${Math.round(rect.width)}px`;
+    const spaceBelow = viewportHeight - rect.bottom - gap - margin;
+    const spaceAbove = rect.top - gap - margin;
+    const placeAbove = spaceBelow < 160 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(80, placeAbove ? spaceAbove : spaceBelow);
+    list.style.maxHeight = `${Math.round(maxHeight)}px`;
+    list.classList.toggle("is-above", placeAbove);
+    const height = Math.min(list.scrollHeight, maxHeight);
+    list.style.top = `${Math.round(
+      placeAbove ? rect.top - gap - height : rect.bottom + gap,
+    )}px`;
   }
 
   function getCurrentChannelNicknames() {
@@ -2086,22 +3334,93 @@
     return names;
   }
 
+  function normalizeHiddenFilter(value) {
+    return ["hidden", "channel", "global"].includes(value) ? value : "all";
+  }
+
+  function matchesHiddenFilter(nickname) {
+    switch (state.hiddenFilter) {
+      case "hidden":
+        return state.hiddenSet.has(nickname);
+      case "channel":
+        return getNicknameExcludeMode(nickname) === NICKNAME_EXCLUDE_CHANNEL;
+      case "global":
+        return getNicknameExcludeMode(nickname) === NICKNAME_EXCLUDE_GLOBAL;
+      default:
+        return true;
+    }
+  }
+
+  function syncHiddenFilterControls(counts) {
+    el.hiddenFilterButtons.forEach((button) => {
+      const filter = normalizeHiddenFilter(button.dataset.filter);
+      button.setAttribute("aria-pressed", String(filter === state.hiddenFilter));
+      const countEl = button.querySelector(".nickname-filter-count");
+      if (countEl) countEl.textContent = String(counts[filter] || 0);
+    });
+  }
+
+  // 일괄 버튼 대상: 지금 목록에 보이는 닉네임
+  function getBulkHiddenTargets() {
+    const visible = state.visibleHiddenChipNames || [];
+    return {
+      // 제외된 닉네임은 채팅이 모이지 않아 알림도 없으므로 숨길 필요가 없다.
+      toHide: visible.filter(
+        (nickname) =>
+          !state.hiddenSet.has(nickname) &&
+          getNicknameExcludeMode(nickname) === NICKNAME_EXCLUDE_NONE,
+      ),
+      toUnhide: visible.filter((nickname) => state.hiddenSet.has(nickname)),
+      toInclude: visible.filter(
+        (nickname) =>
+          getNicknameExcludeMode(nickname) !== NICKNAME_EXCLUDE_NONE,
+      ),
+    };
+  }
+
   async function selectAllHiddenNicknames() {
-    const names = getCurrentChannelNicknames();
-    if (names.size === 0) return;
-    state.hiddenSet = new Set([...state.hiddenSet, ...names]);
-    names.forEach((nickname) => state.managedHiddenNicknameSet.add(nickname));
+    const names = getBulkHiddenTargets().toHide;
+    if (names.length === 0) return;
+    closeNicknameMenu();
+    names.forEach((nickname) => {
+      state.hiddenSet.add(nickname);
+      state.managedHiddenNicknameSet.add(nickname);
+    });
     await persistAndApply();
     renderHiddenChips();
     updateActionButtonsState();
+    setStatus(`닉네임 ${names.length}개의 채팅창 알림을 숨겼습니다.`, {
+      autoResetMs: 1800,
+    });
   }
 
   async function clearAllHiddenNicknames() {
-    if (state.hiddenSet.size === 0) return;
-    state.hiddenSet.clear();
+    const names = getBulkHiddenTargets().toUnhide;
+    if (names.length === 0) return;
+    closeNicknameMenu();
+    names.forEach((nickname) => state.hiddenSet.delete(nickname));
     await persistAndApply();
     renderHiddenChips();
     updateActionButtonsState();
+    setStatus(`닉네임 ${names.length}개의 채팅창 알림 숨김을 해제했습니다.`, {
+      autoResetMs: 1800,
+    });
+  }
+
+  async function includeAllVisibleNicknames() {
+    const names = getBulkHiddenTargets().toInclude;
+    if (names.length === 0) return;
+    closeNicknameMenu();
+    names.forEach((nickname) => {
+      state.excludedCollectScopedNicknameSet.delete(nickname);
+      state.excludedCollectGlobalNicknameSet.delete(nickname);
+    });
+    rebuildEffectiveExcludedCollectNicknames();
+    await persistAndApply();
+    render();
+    setStatus(`닉네임 ${names.length}개의 채팅을 다시 모아봅니다.`, {
+      autoResetMs: 1800,
+    });
   }
 
   async function pruneEmptyHiddenNicknames() {
@@ -2128,82 +3447,324 @@
     });
   }
 
-  async function excludeSelectedFromTrackedTargets() {
-    if (state.hiddenAdvancedSelectedSet.size === 0) return;
-    const selectedNicknames = Array.from(state.hiddenAdvancedSelectedSet);
-    const isGlobal = state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL;
-    const nextExcluded = new Set(getExcludedEditSet());
-    let changed = false;
-    let addedCount = 0;
-    let removedCount = 0;
-
-    selectedNicknames.forEach((nickname) => {
-      const normalized = normalizeNickname(nickname);
-      if (!normalized) return;
-      if (nextExcluded.has(normalized)) {
-        nextExcluded.delete(normalized);
-        removedCount += 1;
-        changed = true;
-        return;
-      }
-      nextExcluded.add(normalized);
-      addedCount += 1;
-      changed = true;
-    });
-
-    if (!changed) {
-      await persistAndApply();
-      render();
-      return;
+  function getNicknameExcludeMode(nickname) {
+    const normalized = normalizeNickname(nickname);
+    if (!normalized) return NICKNAME_EXCLUDE_NONE;
+    if (state.excludedCollectGlobalNicknameSet.has(normalized)) {
+      return NICKNAME_EXCLUDE_GLOBAL;
     }
+    if (state.excludedCollectScopedNicknameSet.has(normalized)) {
+      return NICKNAME_EXCLUDE_CHANNEL;
+    }
+    return NICKNAME_EXCLUDE_NONE;
+  }
+
+  async function setNicknameHidden(nickname, hidden) {
+    const normalized = normalizeNickname(nickname);
+    if (!normalized) return;
+    if (state.hiddenSet.has(normalized) === hidden) return;
+    if (hidden) {
+      state.hiddenSet.add(normalized);
+      state.managedHiddenNicknameSet.add(normalized);
+    } else {
+      state.hiddenSet.delete(normalized);
+    }
+    await persistAndApply();
+    renderHiddenChips();
+    updateActionButtonsState();
+  }
+
+  // 모아보기 제외 범위를 바꾼다. 한 닉네임은 "포함 / 이 채널 제외 / 모든 채널 제외"
+  // 중 하나의 상태만 가진다.
+  async function setNicknameExcludeMode(nickname, nextMode) {
+    const normalized = normalizeNickname(nickname);
+    if (!normalized) return;
+    const currentMode = getNicknameExcludeMode(normalized);
+    if (currentMode === nextMode) return;
 
     let pruneExcludedEntries = false;
-    if (addedCount > 0) {
+    if (currentMode === NICKNAME_EXCLUDE_NONE) {
       const action = await askExcludeConfirmAction();
       if (action === "cancel") {
+        syncNicknameMenu();
         return;
       }
       pruneExcludedEntries = action === "prune";
     }
 
-    if (isGlobal) {
-      state.excludedCollectGlobalNicknameSet = nextExcluded;
-    } else {
-      state.excludedCollectScopedNicknameSet = nextExcluded;
+    state.excludedCollectScopedNicknameSet.delete(normalized);
+    state.excludedCollectGlobalNicknameSet.delete(normalized);
+    if (nextMode === NICKNAME_EXCLUDE_CHANNEL) {
+      state.excludedCollectScopedNicknameSet.add(normalized);
+    } else if (nextMode === NICKNAME_EXCLUDE_GLOBAL) {
+      state.excludedCollectGlobalNicknameSet.add(normalized);
     }
     rebuildEffectiveExcludedCollectNicknames();
-    state.hiddenAdvancedSelectedSet.clear();
 
     await persistAndApply({ pruneExcludedEntries });
     render();
-    if (addedCount > 0 && removedCount > 0) {
-      setStatus(
-        isGlobal
-          ? `모든 방문 채널 제외 ${addedCount}개, 제외 해제 ${removedCount}개 적용됨`
-          : `현재 채널 제외 ${addedCount}개, 제외 해제 ${removedCount}개 적용됨`,
-        { autoResetMs: 1800 },
-      );
-      return;
-    }
-    if (addedCount > 0) {
-      setStatus(
-        isGlobal
-          ? `선택한 닉네임 ${addedCount}개를 모든 방문 채널에서 제외했습니다.`
-          : `선택한 닉네임 ${addedCount}개를 현재 채널 모아보기에서 제외했습니다.`,
-        {
-          autoResetMs: 1800,
-        },
-      );
-      return;
-    }
-    setStatus(
-      isGlobal
-        ? `선택한 닉네임 ${removedCount}개의 모든 방문 채널 제외를 해제했습니다.`
-        : `선택한 닉네임 ${removedCount}개의 현재 채널 제외를 해제했습니다.`,
-      {
-        autoResetMs: 1800,
+    const message =
+      nextMode === NICKNAME_EXCLUDE_GLOBAL
+        ? `${normalized} 님을 모든 채널의 모아보기에서 제외했습니다.`
+        : nextMode === NICKNAME_EXCLUDE_CHANNEL
+          ? `${normalized} 님을 이 채널의 모아보기에서 제외했습니다.`
+          : `${normalized} 님의 채팅을 다시 모아봅니다.`;
+    setStatus(message, { autoResetMs: 1800 });
+  }
+
+  function ensureNicknameMenu() {
+    if (el.nicknameMenu instanceof HTMLElement) return el.nicknameMenu;
+    const menu = document.createElement("div");
+    menu.className = "nickname-menu";
+    menu.setAttribute("role", "dialog");
+    menu.tabIndex = -1;
+    menu.hidden = true;
+
+    const title = document.createElement("div");
+    title.className = "nickname-menu-title";
+    menu.appendChild(title);
+
+    const hideRow = document.createElement("label");
+    hideRow.className = "toggle-row nickname-menu-hide";
+    const hideInput = document.createElement("input");
+    hideInput.type = "checkbox";
+    const hideText = document.createElement("span");
+    hideText.textContent = "채팅창 알림 숨김";
+    hideRow.append(hideInput, hideText);
+    menu.appendChild(hideRow);
+
+    const hideHint = document.createElement("p");
+    hideHint.className = "nickname-menu-hint";
+    hideHint.id = "nickname-menu-hide-hint";
+    hideHint.textContent = HIDE_HINT_DEFAULT;
+    hideInput.setAttribute("aria-describedby", hideHint.id);
+    menu.appendChild(hideHint);
+
+    const groupLabel = document.createElement("div");
+    groupLabel.className = "nickname-menu-group-label";
+    groupLabel.id = "nickname-menu-collect-label";
+    groupLabel.textContent = "모아보기";
+    menu.appendChild(groupLabel);
+
+    const group = document.createElement("div");
+    group.className = "nickname-menu-options";
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute("aria-labelledby", groupLabel.id);
+    const options = [
+      [NICKNAME_EXCLUDE_NONE, "모아보기에 포함"],
+      [NICKNAME_EXCLUDE_CHANNEL, "이 채널에서만 제외"],
+      [NICKNAME_EXCLUDE_GLOBAL, "모든 채널에서 제외"],
+    ];
+    const optionButtons = options.map(([mode, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "nickname-menu-option";
+      button.dataset.mode = mode;
+      button.setAttribute("role", "radio");
+      const mark = document.createElement("span");
+      mark.className = "nickname-menu-radio";
+      mark.setAttribute("aria-hidden", "true");
+      const text = document.createElement("span");
+      text.textContent = label;
+      button.append(mark, text);
+      button.addEventListener("click", async () => {
+        const target = state.nicknameMenu && state.nicknameMenu.nickname;
+        if (!target) return;
+        await setNicknameExcludeMode(target, mode);
+      });
+      group.appendChild(button);
+      return button;
+    });
+    group.addEventListener("keydown", (event) => {
+      if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+        return;
+      }
+      event.preventDefault();
+      const index = optionButtons.indexOf(document.activeElement);
+      const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+      const next =
+        optionButtons[(Math.max(0, index) + step + optionButtons.length) % optionButtons.length];
+      next.focus();
+    });
+    menu.appendChild(group);
+
+    hideInput.addEventListener("change", async () => {
+      const target = state.nicknameMenu && state.nicknameMenu.nickname;
+      if (!target) return;
+      await setNicknameHidden(target, hideInput.checked);
+    });
+
+    menu.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeNicknameMenu({ restoreFocus: true });
+    });
+
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (!state.nicknameMenu) return;
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (menu.contains(target)) return;
+        if (el.excludeConfirmModal && el.excludeConfirmModal.contains(target)) {
+          return;
+        }
+        const chip =
+          target instanceof Element ? target.closest(".chip[data-nickname]") : null;
+        if (chip && chip.dataset.nickname === state.nicknameMenu.nickname) {
+          return;
+        }
+        closeNicknameMenu();
       },
+      true,
     );
+    // 확장 팝업 창은 내용에 맞춰 크기가 바뀌므로 닫지 않고 위치만 다시 잡는다.
+    window.addEventListener("resize", () => positionNicknameMenu());
+    document.addEventListener(
+      "scroll",
+      (event) => {
+        if (!state.nicknameMenu) return;
+        if (event.target instanceof Node && menu.contains(event.target)) return;
+        positionNicknameMenu();
+      },
+      true,
+    );
+
+    document.body.appendChild(menu);
+    el.nicknameMenu = menu;
+    el.nicknameMenuTitle = title;
+    el.nicknameMenuHideInput = hideInput;
+    el.nicknameMenuHideRow = hideRow;
+    el.nicknameMenuHideHint = hideHint;
+    el.nicknameMenuOptions = optionButtons;
+    return menu;
+  }
+
+  function findNicknameChipButton(nickname) {
+    if (!el.hiddenChips) return null;
+    const chip = Array.from(
+      el.hiddenChips.querySelectorAll(".chip[data-nickname]"),
+    ).find((node) => node.dataset.nickname === nickname);
+    return chip ? chip.querySelector(".chip-toggle-btn") : null;
+  }
+
+  function openNicknameMenu(nickname, anchor) {
+    const menu = ensureNicknameMenu();
+    state.nicknameMenu = { nickname };
+    dismissCustomTooltipFor(anchor);
+    menu.hidden = false;
+    menu.setAttribute("aria-label", `${nickname} 설정`);
+    renderHiddenChips();
+    try {
+      menu.focus({ preventScroll: true });
+    } catch (_error) {
+      menu.focus();
+    }
+  }
+
+  function closeNicknameMenu(options = {}) {
+    if (!state.nicknameMenu) return;
+    const nickname = state.nicknameMenu.nickname;
+    state.nicknameMenu = null;
+    const hadFocus =
+      el.nicknameMenu instanceof HTMLElement &&
+      el.nicknameMenu.contains(document.activeElement);
+    if (el.nicknameMenu) el.nicknameMenu.hidden = true;
+    // 필터에서 벗어난 칩을 메뉴가 열린 동안 남겨 두었으면 이제 정리한다.
+    if (
+      state.hiddenFilter !== "all" &&
+      el.hiddenChips &&
+      !matchesHiddenFilter(nickname)
+    ) {
+      renderHiddenChips();
+      updateActionButtonsState();
+      return;
+    }
+    if (el.hiddenChips) {
+      el.hiddenChips.querySelectorAll(".chip.is-menu-open").forEach((chip) => {
+        chip.classList.remove("is-menu-open");
+        const button = chip.querySelector(".chip-toggle-btn");
+        if (button) button.setAttribute("aria-expanded", "false");
+      });
+    }
+    if (options.restoreFocus || hadFocus) {
+      const button = findNicknameChipButton(nickname);
+      if (button) {
+        try {
+          button.focus({ preventScroll: true });
+        } catch (_error) {
+          button.focus();
+        }
+      }
+    }
+  }
+
+  // 메뉴 내용을 현재 상태에 맞추고 칩 아래(공간이 없으면 위)에 붙인다.
+  function syncNicknameMenu() {
+    if (!state.nicknameMenu || !(el.nicknameMenu instanceof HTMLElement)) {
+      return;
+    }
+    const nickname = state.nicknameMenu.nickname;
+    if (!findNicknameChipButton(nickname)) {
+      closeNicknameMenu();
+      return;
+    }
+    el.nicknameMenuTitle.textContent = nickname;
+    el.nicknameMenuHideInput.checked = state.hiddenSet.has(nickname);
+    const mode = getNicknameExcludeMode(nickname);
+    // 제외 중에는 채팅이 모이지 않아 알림도 뜨지 않는다. 숨김 상태는 다시
+    // 모아볼 때를 위해 그대로 두고 바꾸지만 못하게 한다.
+    const excluded = mode !== NICKNAME_EXCLUDE_NONE;
+    el.nicknameMenuHideInput.disabled = excluded;
+    el.nicknameMenuHideRow.classList.toggle("is-disabled", excluded);
+    el.nicknameMenuHideHint.textContent = excluded
+      ? HIDE_HINT_EXCLUDED
+      : HIDE_HINT_DEFAULT;
+    el.nicknameMenuOptions.forEach((button) => {
+      const checked = button.dataset.mode === mode;
+      button.setAttribute("aria-checked", String(checked));
+      button.tabIndex = checked ? 0 : -1;
+    });
+    positionNicknameMenu();
+  }
+
+  function positionNicknameMenu() {
+    if (!state.nicknameMenu || !(el.nicknameMenu instanceof HTMLElement)) {
+      return;
+    }
+    const anchor = findNicknameChipButton(state.nicknameMenu.nickname);
+    const chip = anchor ? anchor.closest(".chip") : null;
+    if (!chip) return;
+    const menu = el.nicknameMenu;
+    const rect = chip.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      closeNicknameMenu();
+      return;
+    }
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight;
+    if (rect.bottom < 0 || rect.top > viewportHeight) {
+      closeNicknameMenu();
+      return;
+    }
+    const gap = 4;
+    const margin = 8;
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    const left = Math.min(
+      Math.max(margin, rect.left),
+      Math.max(margin, viewportWidth - menuWidth - margin),
+    );
+    const spaceBelow = viewportHeight - rect.bottom - gap - margin;
+    const placeAbove = spaceBelow < menuHeight && rect.top - gap - margin > spaceBelow;
+    const top = placeAbove
+      ? Math.max(margin, rect.top - gap - menuHeight)
+      : Math.min(rect.bottom + gap, Math.max(margin, viewportHeight - menuHeight - margin));
+    menu.classList.toggle("is-above", placeAbove);
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
   }
 
   async function deleteAllTrackedTargets() {
@@ -2289,28 +3850,36 @@
     state.hiddenSet.delete(normalized);
     state.excludedCollectScopedNicknameSet.delete(normalized);
     rebuildEffectiveExcludedCollectNicknames();
-    state.hiddenAdvancedSelectedSet.delete(normalized);
     state.managedHiddenNicknameSet.delete(normalized);
     state.hiddenChipMetaByNickname.delete(normalized);
   }
 
   function updateActionButtonsState() {
     const currentNicknames = getCurrentChannelNicknames();
-    const hasNicknames = currentNicknames.size > 0;
-
-    let hasUnhidden = false;
-    let hasHidden = state.hiddenSet.size > 0;
-    currentNicknames.forEach((nickname) => {
-      if (!state.hiddenSet.has(nickname)) {
-        hasUnhidden = true;
-      }
-    });
-
+    const bulk = getBulkHiddenTargets();
+    const isExcludeFilter =
+      state.hiddenFilter === "channel" || state.hiddenFilter === "global";
+    // 제외 필터에서는 알림 숨김이 의미가 없으므로 다시 모아보기만 보인다.
+    if (el.hiddenSelectAll) el.hiddenSelectAll.hidden = isExcludeFilter;
+    if (el.hiddenClearAll) el.hiddenClearAll.hidden = isExcludeFilter;
     if (el.hiddenSelectAll) {
-      el.hiddenSelectAll.disabled = !hasNicknames || !hasUnhidden;
+      el.hiddenSelectAll.disabled = bulk.toHide.length === 0;
+      el.hiddenSelectAll.textContent = bulk.toHide.length
+        ? `모두 숨김 (${bulk.toHide.length})`
+        : "모두 숨김";
     }
     if (el.hiddenClearAll) {
-      el.hiddenClearAll.disabled = !hasHidden;
+      el.hiddenClearAll.disabled = bulk.toUnhide.length === 0;
+      el.hiddenClearAll.textContent = bulk.toUnhide.length
+        ? `모두 해제 (${bulk.toUnhide.length})`
+        : "모두 해제";
+    }
+    if (el.hiddenIncludeAll) {
+      el.hiddenIncludeAll.hidden = !isExcludeFilter;
+      el.hiddenIncludeAll.disabled = bulk.toInclude.length === 0;
+      el.hiddenIncludeAll.textContent = bulk.toInclude.length
+        ? `모두 다시 모아보기 (${bulk.toInclude.length})`
+        : "모두 다시 모아보기";
     }
     if (el.hiddenPruneEmpty) {
       let hasPrunable = false;
@@ -2324,20 +3893,6 @@
       });
       el.hiddenPruneEmpty.disabled = !hasPrunable;
     }
-    if (el.hiddenExcludeSelected) {
-      el.hiddenExcludeSelected.disabled =
-        state.hiddenAdvancedSelectedSet.size === 0;
-    }
-    const prevSize = state.lastHiddenAdvancedSelectedSize || 0;
-    const currSize = state.hiddenAdvancedSelectedSet.size;
-    if (prevSize === 0 && currSize > 0) {
-      clearHintPulse(el.hiddenChips);
-      triggerHintPulse(el.hiddenExcludeSelected);
-    } else if (currSize === 0 && prevSize > 0) {
-      clearHintPulse(el.hiddenExcludeSelected);
-    }
-    state.lastHiddenAdvancedSelectedSize = currSize;
-    updateHiddenExcludeActionButtonLabel();
     const visibleTrackedCount = getVisibleTrackedNicknameItems().length;
     if (el.trackedDeleteAll) {
       el.trackedDeleteAll.disabled = visibleTrackedCount === 0;
@@ -2395,38 +3950,6 @@
     state.trackedScopedNicknameSet.delete(normalized);
   }
 
-  function updateHiddenExcludeActionButtonLabel() {
-    if (!el.hiddenExcludeSelected) return;
-    const excludedEditSet = getExcludedEditSet();
-
-    if (state.hiddenAdvancedSelectedSet.size === 0) {
-      el.hiddenExcludeSelected.textContent = "모아보기 제외";
-      return;
-    }
-
-    let selectedExcludedCount = 0;
-    let selectedNormalCount = 0;
-    state.hiddenAdvancedSelectedSet.forEach((nickname) => {
-      const normalized = normalizeNickname(nickname);
-      if (!normalized) return;
-      if (excludedEditSet.has(normalized)) {
-        selectedExcludedCount += 1;
-      } else {
-        selectedNormalCount += 1;
-      }
-    });
-
-    if (selectedExcludedCount > 0 && selectedNormalCount === 0) {
-      el.hiddenExcludeSelected.textContent = "다시 모아보기";
-      return;
-    }
-    if (selectedNormalCount > 0 && selectedExcludedCount === 0) {
-      el.hiddenExcludeSelected.textContent = "모아보기 제외";
-      return;
-    }
-    el.hiddenExcludeSelected.textContent = "모아보기 제외/해제";
-  }
-
   async function persistAndApply(options = {}) {
     updateRawSettingsFromState();
     await setStorageLocal(STORAGE_SETTINGS_KEY, state.rawSettings);
@@ -2481,6 +4004,10 @@
       showCaptureButton: state.showCaptureButton === true,
       enableCaptureDragSelection: state.enableCaptureDragSelection === true,
       showCapturePreview: state.showCapturePreview === true,
+      captureAction: normalizeCaptureAction(state.captureAction),
+      captureFilenameFormat: normalizeCaptureFilenameFormat(
+        state.captureFilenameFormat,
+      ),
       popupFontScale: normalizePopupFontScale(state.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.chatFontScale),
       deleteWithoutConfirm: state.deleteWithoutConfirm === true,
@@ -2489,6 +4016,22 @@
       keepPopupOpen:
         state.hidePillButton === true ? false : state.keepPopupOpen === true,
       pillGlowEnabled: state.pillGlowEnabled,
+      chatToastEnabled: state.chatToastEnabled === true,
+      chatToastFrequency: normalizeChatToastFrequency(state.chatToastFrequency),
+      chatToastGatherMs: normalizeChatToastGatherMs(state.chatToastGatherMs),
+      chatToastCooldownMs: normalizeChatToastCooldownMs(
+        state.chatToastCooldownMs,
+      ),
+      chatToastVisibleMs: normalizeChatToastVisibleMs(state.chatToastVisibleMs),
+      chatToastKeepVisible: state.chatToastKeepVisible === true,
+      chatToastClickAction: normalizeChatToastClickAction(
+        state.chatToastClickAction,
+      ),
+      chatToastListOrder: normalizeChatToastListOrder(state.chatToastListOrder),
+      chatToastBackdropBlur: state.chatToastBackdropBlur !== false,
+      chatToastBadgeTypes: normalizeChatToastBadgeTypes(
+        state.chatToastBadgeTypes,
+      ),
       compactPill: state.compactPill === true,
       enableSessionCache: state.enableSessionCache,
       detachedOriginView: normalizeDetachedOriginView(state.detachedOriginView),
@@ -2615,6 +4158,10 @@
     state.enableCaptureDragSelection =
       settings.enableCaptureDragSelection === true;
     state.showCapturePreview = settings.showCapturePreview === true;
+    state.captureAction = normalizeCaptureAction(settings.captureAction);
+    state.captureFilenameFormat = normalizeCaptureFilenameFormat(
+      settings.captureFilenameFormat,
+    );
     state.popupFontScale = normalizePopupFontScale(settings.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(settings.chatFontScale);
     state.deleteWithoutConfirm = settings.deleteWithoutConfirm === true;
@@ -2625,6 +4172,30 @@
     state.keepPopupOpen =
       state.hidePillButton !== true && settings.keepPopupOpen === true;
     state.pillGlowEnabled = settings.pillGlowEnabled !== false;
+    state.chatToastEnabled = settings.chatToastEnabled === true;
+    state.chatToastFrequency = normalizeChatToastFrequency(
+      settings.chatToastFrequency,
+    );
+    state.chatToastGatherMs = normalizeChatToastGatherMs(
+      settings.chatToastGatherMs,
+    );
+    state.chatToastCooldownMs = normalizeChatToastCooldownMs(
+      settings.chatToastCooldownMs,
+    );
+    state.chatToastVisibleMs = normalizeChatToastVisibleMs(
+      settings.chatToastVisibleMs,
+    );
+    state.chatToastKeepVisible = settings.chatToastKeepVisible === true;
+    state.chatToastClickAction = normalizeChatToastClickAction(
+      settings.chatToastClickAction,
+    );
+    state.chatToastListOrder = normalizeChatToastListOrder(
+      settings.chatToastListOrder,
+    );
+    state.chatToastBackdropBlur = settings.chatToastBackdropBlur !== false;
+    state.chatToastBadgeTypes = normalizeChatToastBadgeTypes(
+      settings.chatToastBadgeTypes,
+    );
     if (Object.prototype.hasOwnProperty.call(settings, "compactPill")) {
       state.compactPill = settings.compactPill === true;
     }
@@ -2814,6 +4385,10 @@
     state.showCaptureButton = raw.showCaptureButton === true;
     state.enableCaptureDragSelection = raw.enableCaptureDragSelection === true;
     state.showCapturePreview = raw.showCapturePreview === true;
+    state.captureAction = normalizeCaptureAction(raw.captureAction);
+    state.captureFilenameFormat = normalizeCaptureFilenameFormat(
+      raw.captureFilenameFormat,
+    );
     state.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     state.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     if (typeof raw.deleteWithoutConfirm === "boolean") {
@@ -2829,6 +4404,28 @@
       state.hidePillButton !== true &&
       (raw.keepPopupOpen === true || raw.keepPillExpanded === true);
     state.pillGlowEnabled = raw.pillGlowEnabled !== false;
+    state.chatToastEnabled = raw.chatToastEnabled === true;
+    state.chatToastFrequency = normalizeChatToastFrequency(
+      raw.chatToastFrequency,
+    );
+    state.chatToastGatherMs = normalizeChatToastGatherMs(raw.chatToastGatherMs);
+    state.chatToastCooldownMs = normalizeChatToastCooldownMs(
+      raw.chatToastCooldownMs,
+    );
+    state.chatToastVisibleMs = normalizeChatToastVisibleMs(
+      raw.chatToastVisibleMs,
+    );
+    state.chatToastKeepVisible = raw.chatToastKeepVisible === true;
+    state.chatToastClickAction = normalizeChatToastClickAction(
+      raw.chatToastClickAction,
+    );
+    state.chatToastListOrder = normalizeChatToastListOrder(
+      raw.chatToastListOrder,
+    );
+    state.chatToastBackdropBlur = raw.chatToastBackdropBlur !== false;
+    state.chatToastBadgeTypes = normalizeChatToastBadgeTypes(
+      raw.chatToastBadgeTypes,
+    );
     state.compactPill = raw.compactPill === true;
     state.enableSessionCache = raw.enableSessionCache === true;
     state.detachedOriginView = normalizeDetachedOriginView(
@@ -2956,6 +4553,10 @@
     raw.showCaptureButton = state.showCaptureButton === true;
     raw.enableCaptureDragSelection = state.enableCaptureDragSelection === true;
     raw.showCapturePreview = state.showCapturePreview === true;
+    raw.captureAction = normalizeCaptureAction(state.captureAction);
+    raw.captureFilenameFormat = normalizeCaptureFilenameFormat(
+      state.captureFilenameFormat,
+    );
     raw.popupFontScale = normalizePopupFontScale(state.popupFontScale);
     raw.chatFontScale = normalizeChatFontScale(state.chatFontScale);
     raw.deleteWithoutConfirm = state.deleteWithoutConfirm === true;
@@ -2966,6 +4567,28 @@
       state.hidePillButton === true ? false : state.keepPopupOpen === true;
     delete raw.keepPillExpanded;
     raw.pillGlowEnabled = state.pillGlowEnabled !== false;
+    raw.chatToastEnabled = state.chatToastEnabled === true;
+    raw.chatToastFrequency = normalizeChatToastFrequency(
+      state.chatToastFrequency,
+    );
+    raw.chatToastGatherMs = normalizeChatToastGatherMs(state.chatToastGatherMs);
+    raw.chatToastCooldownMs = normalizeChatToastCooldownMs(
+      state.chatToastCooldownMs,
+    );
+    raw.chatToastVisibleMs = normalizeChatToastVisibleMs(
+      state.chatToastVisibleMs,
+    );
+    raw.chatToastKeepVisible = state.chatToastKeepVisible === true;
+    raw.chatToastClickAction = normalizeChatToastClickAction(
+      state.chatToastClickAction,
+    );
+    raw.chatToastListOrder = normalizeChatToastListOrder(
+      state.chatToastListOrder,
+    );
+    raw.chatToastBackdropBlur = state.chatToastBackdropBlur !== false;
+    raw.chatToastBadgeTypes = normalizeChatToastBadgeTypes(
+      state.chatToastBadgeTypes,
+    );
     raw.compactPill = state.compactPill === true;
     raw.enableSessionCache = state.enableSessionCache === true;
     raw.detachedOriginView = normalizeDetachedOriginView(
@@ -3027,12 +4650,6 @@
       : state.trackedScopedNicknameSet;
   }
 
-  function getExcludedEditSet() {
-    return state.hiddenExcludeEditScope === TRACKED_SCOPE_GLOBAL
-      ? state.excludedCollectGlobalNicknameSet
-      : state.excludedCollectScopedNicknameSet;
-  }
-
   function rebuildEffectiveExcludedCollectNicknames() {
     state.excludedCollectNicknameSet = new Set([
       ...state.excludedCollectScopedNicknameSet,
@@ -3044,15 +4661,6 @@
     el.trackedScopeButtons.forEach((button) => {
       const active =
         normalizeTrackedScope(button.dataset.scope) === state.trackedEditScope;
-      button.setAttribute("aria-pressed", String(active));
-    });
-    if (el.hiddenExcludeScopeTabs) {
-      el.hiddenExcludeScopeTabs.hidden = false;
-    }
-    el.hiddenExcludeScopeButtons.forEach((button) => {
-      const active =
-        normalizeTrackedScope(button.dataset.scope) ===
-        state.hiddenExcludeEditScope;
       button.setAttribute("aria-pressed", String(active));
     });
   }
@@ -3177,6 +4785,18 @@
       };
     }
 
+    const channelInfo = {
+      channelId: searchResult.channelId,
+      channelName: searchResult.channelName,
+      imageUrl: searchResult.imageUrl,
+      verifiedMark: searchResult.verifiedMark === true,
+      verifiedMarkType: String(searchResult.verifiedMarkType || ""),
+    };
+    // 검색 결과의 첫 방송일이 있으면 방송 기록 조회를 건너뛴다.
+    if (searchResult.firstBroadcastDate) {
+      return { ok: true, ...channelInfo };
+    }
+
     const liveStatus = await fetchLiveStatusByChannelId(searchResult.channelId);
     if (!liveStatus.ok) {
       return {
@@ -3209,11 +4829,7 @@
       };
     }
 
-    return {
-      ok: true,
-      verifiedMark: searchResult.verifiedMark === true,
-      verifiedMarkType: String(searchResult.verifiedMarkType || ""),
-    };
+    return { ok: true, ...channelInfo };
   }
 
   async function fetchExactChannelIdByNickname(nickname) {
@@ -3266,7 +4882,18 @@
         matched && matched.channel
           ? String(matched.channel.verifiedMarkType || "").trim()
           : "";
-      return { ok: true, channelId, reason: "", verifiedMark, verifiedMarkType };
+      return {
+        ok: true,
+        channelId,
+        reason: "",
+        verifiedMark,
+        verifiedMarkType,
+        channelName: String(matched.channel.channelName || "").trim(),
+        imageUrl: String(matched.channel.channelImageUrl || "").trim(),
+        firstBroadcastDate: String(
+          matched.channel.firstBroadcastDate || "",
+        ).trim(),
+      };
     } catch (_error) {
       return { ok: false, channelId: "", reason: "API_ERROR" };
     }
@@ -3325,6 +4952,7 @@
 
   function applySettingsTab(tab) {
     const next = normalizeSettingsTab(tab);
+    if (next !== state.settingsTab) closeNicknameMenu();
     state.settingsTab = next;
     (el.settingsTabButtons || []).forEach((button) => {
       const active = button.dataset.tab === next;
@@ -3389,6 +5017,94 @@
 
   function normalizeChatTimestampFormat(value) {
     return value === "12h-en" || value === "12h-ko" ? value : "24h";
+  }
+
+  // 새 채팅 토스트 알림 빈도: 자주(high) | 보통(normal, 기본) | 낮음(low) | 커스텀(custom)
+  function normalizeChatToastFrequency(value) {
+    return value === "high" || value === "low" || value === "custom"
+      ? value
+      : "normal";
+  }
+
+  // 커스텀 빈도 시간(ms). 0.1초 단위로 맞추고 범위를 벗어나면 끝값으로.
+  function normalizeChatToastDurationMs(value, fallback, maxMs) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(maxMs, Math.max(0, Math.round(num / 100) * 100));
+  }
+
+  function normalizeChatToastGatherMs(value) {
+    return normalizeChatToastDurationMs(
+      value,
+      CHAT_TOAST_PRESET_TIMING.normal.gatherMs,
+      CHAT_TOAST_GATHER_MAX_MS,
+    );
+  }
+
+  function normalizeChatToastCooldownMs(value) {
+    return normalizeChatToastDurationMs(
+      value,
+      CHAT_TOAST_PRESET_TIMING.normal.cooldownMs,
+      CHAT_TOAST_COOLDOWN_MAX_MS,
+    );
+  }
+
+  function normalizeChatToastClickAction(value) {
+    return value === "list" ? "list" : "popup";
+  }
+
+  function normalizeChatToastListOrder(value) {
+    return value === "oldest" ? "oldest" : "newest";
+  }
+
+  // 분할 버튼(라디오 그룹): 클릭하거나 방향키로 옆 항목을 바로 고른다.
+  function bindSegmentedRadioGroup(buttons, onSelect) {
+    buttons.forEach((button, index) => {
+      button.addEventListener("click", () => onSelect(button.dataset.value));
+      button.addEventListener("keydown", (event) => {
+        const step =
+          event.key === "ArrowRight" || event.key === "ArrowDown"
+            ? 1
+            : event.key === "ArrowLeft" || event.key === "ArrowUp"
+              ? -1
+              : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = buttons[(index + step + buttons.length) % buttons.length];
+        next.focus();
+        onSelect(next.dataset.value);
+      });
+    });
+  }
+
+  function normalizeChatToastVisibleMs(value) {
+    return Math.max(
+      CHAT_TOAST_VISIBLE_MIN_MS,
+      normalizeChatToastDurationMs(
+        value,
+        CHAT_TOAST_PRESET_TIMING.normal.visibleMs,
+        CHAT_TOAST_VISIBLE_MAX_MS,
+      ),
+    );
+  }
+
+  function normalizeChatToastBadgeTypes(value) {
+    if (!Array.isArray(value)) return CHAT_TOAST_BADGE_TYPES.slice();
+    return CHAT_TOAST_BADGE_TYPES.filter((type) => value.includes(type));
+  }
+
+  // 캡처 버튼 동작: 파일 저장(기본) | 클립보드 복사
+  function normalizeCaptureAction(value) {
+    return value === "copy" ? "copy" : "save";
+  }
+
+  // 캡처 파일 이름 형식. 기본 형식과 같거나 비어 있으면 ""(기본 형식)으로 저장한다.
+  function normalizeCaptureFilenameFormat(value) {
+    const text =
+      typeof value === "string"
+        ? value.replace(/[\r\n]+/g, " ").trim().slice(0, 200)
+        : "";
+    return text === getCaptureFilenameDefault() ? "" : text;
   }
 
   function normalizeChatTimestampColorMode(value) {

@@ -160,7 +160,27 @@
     });
   }
 
+  const DIALOG_SELECTOR = "[role='dialog'], [role='alertdialog']";
+
+  // 후원 팝업(role=dialog/alertdialog) 안에도 '진행 중인 미션' 버튼(_mission_button_)
+  // 등이 있고, 팝업 상자 자체가 _container_ 클래스를 가진다. 그 안의 요소에서
+  // 컨테이너를 찾으면 후원 팝업 전체가 숨겨지므로 팝업 내부 요소는 제외한다.
+  function isInsideDialog(element) {
+    return !!safeClosest(element, DIALOG_SELECTOR);
+  }
+
+  // 예전 판정으로 팝업 안에 붙은 숨김 클래스가 남아 있으면 걷어낸다.
+  function removeHiddenClassesInDialogs(scope) {
+    const selector = `.${HIDDEN_CHAT_ELEMENT_CLASSES.join(", .")}`;
+    queryAllWithSelf(scope, selector).forEach((element) => {
+      if (element instanceof HTMLElement && isInsideDialog(element)) {
+        element.classList.remove(...HIDDEN_CHAT_ELEMENT_CLASSES);
+      }
+    });
+  }
+
   function findClosestContainer(element) {
+    if (isInsideDialog(element)) return null;
     return safeClosest(element, "[class*='_container_']");
   }
 
@@ -208,6 +228,7 @@
     const outsideOriginalSnapshot = (element) =>
       element instanceof Element &&
       !element.closest(".chzzk-badge-moa-original-chat");
+    removeHiddenClassesInDialogs(scope);
 
     if (settings.hideChatRanking === true) {
       queryAllWithSelf(scope, "button[class*='_ranking_button_']").forEach(

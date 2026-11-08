@@ -14,6 +14,15 @@
   const TRANSPARENT_PNG =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
   const URL_PATTERN = /url\((['"]?)([^'")]+?)\1\)/g;
+  const CHZZK_API_BASE = "https://api.chzzk.naver.com";
+  const STREAM_INFO_TIMEOUT_MS = 2000;
+  const STREAM_INFO_CACHE_MS = 60000;
+  // 클립보드에는 이미지 한 장만 들어가므로 여러 장을 세로로 이어 붙인다.
+  // 캔버스 한계(브라우저마다 다름)를 넘지 않도록 넉넉히 낮춰 잡는다.
+  const CLIPBOARD_MAX_HEIGHT = 32000;
+  const CLIPBOARD_MAX_AREA = 120000000;
+  const TOAST_DURATION_MS = 2200;
+  let streamInfoCache = null;
 
   function yieldCaptureMainThread() {
     if (typeof globalThis.scheduler?.yield === "function") {
@@ -116,6 +125,19 @@
     }
   }
 
+  function getCaptureAction(state) {
+    return state?.settings?.captureAction === "copy" ? "copy" : "save";
+  }
+
+  // 아이콘이 바뀔 때만 SVG를 다시 그린다(syncCaptureUi는 자주 불린다).
+  function setCaptureButtonIcon(button, iconType) {
+    if (button.dataset.iconType === iconType) return;
+    const setIcon = ns.uiCoreApi?.setPopupActionButtonContent;
+    if (typeof setIcon !== "function") return;
+    setIcon(button, iconType);
+    button.dataset.iconType = iconType;
+  }
+
   function syncCaptureUi(state) {
     const capture = ensureCaptureState(state);
     const captureEnabled = state?.settings?.showCaptureButton === true;
@@ -178,6 +200,11 @@
           : "이미지 준비 중";
     }
     if (selectButton instanceof HTMLButtonElement) {
+      // 선택 중에는 '선택 종료'(log-out), 평소에는 '캡처'(camera) 아이콘을 쓴다.
+      setCaptureButtonIcon(
+        selectButton,
+        capture.active ? "capture-exit" : "capture-select",
+      );
       selectButton.hidden = !captureEnabled;
       selectButton.disabled = capture.busy || itemCount === 0;
       selectButton.setAttribute("aria-pressed", String(capture.active));
@@ -190,6 +217,11 @@
         : "캡처할 채팅 선택";
     }
     if (downloadButton instanceof HTMLButtonElement) {
+      const copyAction = getCaptureAction(state) === "copy";
+      setCaptureButtonIcon(
+        downloadButton,
+        copyAction ? "capture-copy" : "capture-download",
+      );
       downloadButton.hidden = !captureEnabled || !capture.active;
       downloadButton.disabled = capture.busy || selectedCount === 0;
       downloadButton.classList.toggle("is-busy", capture.busy);
@@ -197,13 +229,19 @@
         "aria-label",
         capture.busy
           ? "선택한 채팅 이미지 생성 중"
-          : `선택한 채팅 ${selectedCount}개 PNG로 저장`,
+          : copyAction
+            ? `선택한 채팅 ${selectedCount}개 클립보드에 복사`
+            : `선택한 채팅 ${selectedCount}개 PNG로 저장`,
       );
       downloadButton.title = capture.busy
         ? "PNG 생성 중"
-        : selectedCount > 0
-          ? `${selectedCount}개 채팅 PNG 저장`
-          : "저장할 채팅을 선택하세요";
+        : selectedCount === 0
+          ? copyAction
+            ? "복사할 채팅을 선택하세요"
+            : "저장할 채팅을 선택하세요"
+          : copyAction
+            ? `${selectedCount}개 채팅 클립보드에 복사`
+            : `${selectedCount}개 채팅 PNG 저장`;
     }
     if (toggleAllButton instanceof HTMLButtonElement) {
       toggleAllButton.hidden = !captureEnabled || !capture.active;
@@ -751,17 +789,283 @@
     overlay.style.height = `${Math.max(0, listRect.height)}px`;
   }
 
-  function createCaptureStamp() {
-    const now = new Date();
+  function createCaptureStamp(at = Date.now()) {
+    const now = new Date(at);
     const pad = (value) => String(value).padStart(2, "0");
     return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(
       now.getDate(),
     )}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   }
 
-  function createCaptureFilename(index, total, stamp) {
+  function getCaptureFilenameFormat(state) {
+    return String(state?.settings?.captureFilenameFormat || "");
+  }
+
+  function getCaptureChannelName(state) {
+    const resolve = ns.channel?.resolveChannelDisplayName;
+    if (typeof resolve !== "function") return "";
+    try {
+      const name = String(resolve(state) || "").trim();
+      return name === "-" ? "" : name;
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function getVideoNoFromLocation() {
+    const match = String(window.location.pathname || "").match(
+      /^\/video\/(\d+)/,
+    );
+    return match ? match[1] : "";
+  }
+
+  async function fetchChzzkJson(url) {
+    const controller =
+      typeof AbortController === "function" ? new AbortController() : null;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), STREAM_INFO_TIMEOUT_MS)
+      : 0;
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: controller?.signal,
+      });
+      if (!response.ok) return null;
+      const json = await response.json();
+      return json && Number(json.code) === 200 ? json.content || null : null;
+    } catch (_error) {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  // 파일 이름의 {제목}·{카테고리}에 쓸 방송(다시보기) 정보. 형식에 들어 있을 때만 부른다.
+  async function resolveCaptureStreamInfo(state) {
+    const empty = { title: "", category: "", channel: "" };
+    const videoNo = getVideoNoFromLocation();
+    const normalizeChannelId = ns.channel?.normalizeChannelId;
+    const channelId =
+      typeof normalizeChannelId === "function"
+        ? normalizeChannelId(state?.resolvedChannelId || "")
+        : String(state?.resolvedChannelId || "").trim();
+    const isStableChannelId = ns.channel?.isStableChannelId;
+    const hasChannelId =
+      typeof isStableChannelId === "function"
+        ? isStableChannelId(channelId)
+        : /^[a-f0-9]{32}$/i.test(channelId);
+    const key = videoNo
+      ? `video:${videoNo}`
+      : hasChannelId
+        ? `live:${channelId}`
+        : "";
+    if (!key) return empty;
+    if (
+      streamInfoCache &&
+      streamInfoCache.key === key &&
+      Date.now() - streamInfoCache.at < STREAM_INFO_CACHE_MS
+    ) {
+      return streamInfoCache.value;
+    }
+    const content = videoNo
+      ? await fetchChzzkJson(
+          `${CHZZK_API_BASE}/service/v3/videos/${encodeURIComponent(videoNo)}`,
+        )
+      : await fetchChzzkJson(
+          `${CHZZK_API_BASE}/polling/v3.1/channels/${encodeURIComponent(
+            channelId,
+          )}/live-status`,
+        );
+    if (!content) return empty;
+    const value = {
+      title: String(
+        (videoNo ? content.videoTitle : content.liveTitle) || "",
+      ).trim(),
+      category: String(
+        (videoNo ? content.videoCategoryValue : content.liveCategoryValue) ||
+          "",
+      ).trim(),
+      channel: String(content.channel?.channelName || "").trim(),
+    };
+    streamInfoCache = { key, at: Date.now(), value };
+    return value;
+  }
+
+  async function createCaptureNameValues(state) {
+    const values = {
+      at: Date.now(),
+      channel: getCaptureChannelName(state),
+      title: "",
+      category: "",
+    };
+    const names = ns.captureName;
+    if (!names) return values;
+    const formatText = getCaptureFilenameFormat(state);
+    const needsStreamInfo =
+      names.usesToken(formatText, "제목") ||
+      names.usesToken(formatText, "카테고리") ||
+      (!values.channel && names.usesToken(formatText, "채널"));
+    if (needsStreamInfo) {
+      const info = await resolveCaptureStreamInfo(state);
+      values.title = info.title;
+      values.category = info.category;
+      if (!values.channel) values.channel = info.channel;
+    }
+    return values;
+  }
+
+  function createCaptureFilename(state, index, total, nameValues) {
+    const names = ns.captureName;
+    if (names && typeof names.buildFilename === "function") {
+      return names.buildFilename(
+        getCaptureFilenameFormat(state),
+        nameValues || { at: Date.now() },
+        index,
+        total,
+      );
+    }
     const suffix = total > 1 ? `-${index + 1}` : "";
-    return `badge-moa-chat-${stamp || createCaptureStamp()}${suffix}.png`;
+    return `badge-moa-chat-${createCaptureStamp(nameValues?.at)}${suffix}.png`;
+  }
+
+  function showCaptureToast(state, message, variant = "info") {
+    const host = state?.ui?.popup;
+    if (!(host instanceof HTMLElement) || !message) return;
+    let toast = host.querySelector(".chzzk-badge-moa-capture-toast");
+    if (!(toast instanceof HTMLElement)) {
+      toast = document.createElement("div");
+      toast.className = "chzzk-badge-moa-capture-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      host.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.toggle("is-error", variant === "error");
+    toast.classList.add("is-visible");
+    clearTimeout(Number(toast.dataset.hideTimer || 0));
+    toast.dataset.hideTimer = String(
+      setTimeout(() => {
+        toast.classList.remove("is-visible");
+      }, TOAST_DURATION_MS),
+    );
+  }
+
+  // 클립보드 쓰기는 클릭 직후(사용자 조작 판정이 살아 있을 때)에만 허용된다.
+  // 이미지가 준비되기 전에 Promise 를 담은 ClipboardItem 으로 쓰기를 먼저 시작해 두면,
+  // 이미지를 만드는 동안에도 그 판정이 유지된다.
+  function startClipboardImageWrite() {
+    if (
+      !navigator.clipboard ||
+      typeof navigator.clipboard.write !== "function" ||
+      typeof ClipboardItem !== "function"
+    ) {
+      return null;
+    }
+    let resolveBlob = () => {};
+    let rejectBlob = () => {};
+    const blobPromise = new Promise((resolve, reject) => {
+      resolveBlob = resolve;
+      rejectBlob = reject;
+    });
+    blobPromise.catch(() => {});
+    let done;
+    try {
+      done = navigator.clipboard
+        .write([new ClipboardItem({ "image/png": blobPromise })])
+        .then(
+          () => true,
+          () => false,
+        );
+    } catch (_error) {
+      done = Promise.resolve(false);
+    }
+    return { resolveBlob, rejectBlob, done };
+  }
+
+  // Promise 를 받지 못하는 브라우저는 완성된 Blob 으로 다시 쓴다.
+  async function writeClipboardBlob(blob) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async function mergeCaptureBlobs(state, results) {
+    if (results.length === 1) return results[0].blob;
+    const bitmaps = [];
+    const canvas = document.createElement("canvas");
+    try {
+      for (const result of results) {
+        bitmaps.push(await createImageBitmap(result.blob));
+      }
+      const width = Math.max(...bitmaps.map((bitmap) => bitmap.width));
+      const height = bitmaps.reduce((sum, bitmap) => sum + bitmap.height, 0);
+      if (height > CLIPBOARD_MAX_HEIGHT || width * height > CLIPBOARD_MAX_AREA) {
+        const error = new Error("capture too large for clipboard");
+        error.code = "too-large";
+        throw error;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("canvas unavailable");
+      context.fillStyle = getCaptureBackground(state);
+      context.fillRect(0, 0, width, height);
+      let offsetY = 0;
+      bitmaps.forEach((bitmap) => {
+        context.drawImage(bitmap, 0, offsetY);
+        offsetY += bitmap.height;
+      });
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) =>
+            blob instanceof Blob
+              ? resolve(blob)
+              : reject(new Error("merge blob unavailable")),
+          "image/png",
+        );
+      });
+    } finally {
+      bitmaps.forEach((bitmap) => bitmap.close?.());
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  }
+
+  async function copyCaptureResults(state, results, job = null) {
+    const activeJob = job || startClipboardImageWrite();
+    if (!activeJob) {
+      showCaptureToast(
+        state,
+        "이 브라우저는 이미지 복사를 지원하지 않습니다.",
+        "error",
+      );
+      return false;
+    }
+    let blob = null;
+    try {
+      blob = await mergeCaptureBlobs(state, results);
+      activeJob.resolveBlob(blob);
+    } catch (error) {
+      activeJob.rejectBlob(error);
+      showCaptureToast(
+        state,
+        error?.code === "too-large"
+          ? "선택한 채팅이 너무 많아 한 장으로 복사할 수 없습니다."
+          : "클립보드에 복사하지 못했습니다.",
+        "error",
+      );
+      return false;
+    }
+    const copied = (await activeJob.done) || (await writeClipboardBlob(blob));
+    showCaptureToast(
+      state,
+      copied ? "클립보드에 복사했습니다." : "클립보드에 복사하지 못했습니다.",
+      copied ? "info" : "error",
+    );
+    return copied;
   }
 
   function downloadBlob(blob, filename) {
@@ -973,11 +1277,25 @@
       cancelButton.type = "button";
       cancelButton.className = "chzzk-badge-moa-capture-preview-cancel";
       cancelButton.textContent = "취소";
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.className = "chzzk-badge-moa-capture-preview-copy";
+      copyButton.textContent = results.length > 1 ? "전체 복사" : "복사";
+      copyButton.title =
+        results.length > 1
+          ? "모든 이미지를 한 장으로 이어 클립보드에 복사"
+          : "클립보드에 복사";
       const saveButton = document.createElement("button");
       saveButton.type = "button";
       saveButton.className = "chzzk-badge-moa-capture-preview-save";
       saveButton.textContent = results.length > 1 ? "전체 저장" : "저장";
-      actions.append(cancelButton, saveButton);
+      // 설정한 버튼 동작(저장/복사)을 기본 동작으로 강조한다.
+      const primaryButton =
+        getCaptureAction(state) === "copy" ? copyButton : saveButton;
+      const secondaryButton =
+        primaryButton === copyButton ? saveButton : copyButton;
+      secondaryButton.classList.add("is-secondary");
+      actions.append(cancelButton, secondaryButton, primaryButton);
       footer.append(fileInfo, actions);
 
       dialog.append(header, body, navigator, footer);
@@ -986,14 +1304,15 @@
       const urls = results.map((result) => URL.createObjectURL(result.blob));
       let index = 0;
       let settled = false;
-      const close = (shouldSave) => {
+      // 결과: "save"(저장) | "copied"(복사 완료) | ""(취소)
+      const close = (result) => {
         if (settled) return;
         settled = true;
         if (capture.previewClose === close) capture.previewClose = null;
         document.removeEventListener("keydown", handleKeydown, true);
         modal.remove();
         urls.forEach((url) => URL.revokeObjectURL(url));
-        resolve(shouldSave === true);
+        resolve(result === "save" || result === "copied" ? result : "");
       };
       const render = () => {
         const result = results[index];
@@ -1006,7 +1325,7 @@
       const handleKeydown = (event) => {
         if (event.key === "Escape") {
           event.preventDefault();
-          close(false);
+          close("");
         } else if (event.key === "ArrowLeft" && index > 0) {
           index -= 1;
           render();
@@ -1015,10 +1334,19 @@
           render();
         }
       };
-      backdrop.addEventListener("click", () => close(false));
-      closeButton.addEventListener("click", () => close(false));
-      cancelButton.addEventListener("click", () => close(false));
-      saveButton.addEventListener("click", () => close(true));
+      backdrop.addEventListener("click", () => close(""));
+      closeButton.addEventListener("click", () => close(""));
+      cancelButton.addEventListener("click", () => close(""));
+      saveButton.addEventListener("click", () => close("save"));
+      copyButton.addEventListener("click", () => {
+        if (copyButton.disabled) return;
+        copyButton.disabled = true;
+        // 클릭 직후에 쓰기를 시작해야 하므로 await 없이 바로 부른다.
+        void copyCaptureResults(state, results).then((copied) => {
+          if (copied) close("copied");
+          else copyButton.disabled = false;
+        });
+      });
       previousButton.addEventListener("click", () => {
         if (index <= 0) return;
         index -= 1;
@@ -1042,7 +1370,7 @@
     items,
     index,
     total,
-    stamp,
+    nameValues,
     resourceCache,
   ) {
     const renderer = globalThis.htmlToImage;
@@ -1071,7 +1399,7 @@
       if (!(blob instanceof Blob)) throw new Error("capture blob unavailable");
       return {
         blob,
-        filename: createCaptureFilename(index, total, stamp),
+        filename: createCaptureFilename(state, index, total, nameValues),
       };
     } finally {
       built.stage.remove();
@@ -1096,6 +1424,12 @@
     }
     capture.runToken += 1;
     const runToken = capture.runToken;
+    const usePreview = state?.settings?.showCapturePreview === true;
+    const copyAction = getCaptureAction(state) === "copy";
+    // 미리보기 없이 바로 복사할 때는 클릭 직후(첫 await 전)에 클립보드 쓰기를 시작한다.
+    const clipboardJob =
+      copyAction && !usePreview ? startClipboardImageWrite() : null;
+    let clipboardJobSettled = false;
     capture.busy = true;
     capture.progressCurrent = 1;
     capture.progressTotal = chunks.length;
@@ -1103,7 +1437,7 @@
     const resourceCache = new Map();
     try {
       const results = [];
-      const captureStamp = createCaptureStamp();
+      const nameValues = await createCaptureNameValues(state);
       if (document.fonts?.ready) await document.fonts.ready;
       for (let index = 0; index < chunks.length; index += 1) {
         if (capture.runToken !== runToken) return false;
@@ -1116,7 +1450,7 @@
             chunks[index],
             index,
             chunks.length,
-            captureStamp,
+            nameValues,
             resourceCache,
           ),
         );
@@ -1127,19 +1461,37 @@
       capture.progressCurrent = 0;
       capture.progressTotal = 0;
       syncCaptureUi(state);
-      const shouldSave =
-        state?.settings?.showCapturePreview === true
-          ? await createCapturePreviewModal(state, results)
-          : true;
-      if (!shouldSave || capture.runToken !== runToken) return false;
-      results.forEach((result) => downloadBlob(result.blob, result.filename));
+      if (copyAction && !usePreview) {
+        clipboardJobSettled = true;
+        const copied = await copyCaptureResults(state, results, clipboardJob);
+        if (copied && capture.runToken === runToken) {
+          resetCaptureSelection(state);
+        }
+        return copied;
+      }
+      const previewResult = usePreview
+        ? await createCapturePreviewModal(state, results)
+        : "save";
+      if (!previewResult || capture.runToken !== runToken) return false;
+      if (previewResult === "save") {
+        results.forEach((result) =>
+          downloadBlob(result.blob, result.filename),
+        );
+      }
       resetCaptureSelection(state);
       return true;
     } catch (error) {
       console.error("[badge-moa] PNG capture failed", error);
-      window.alert("선택한 채팅을 PNG로 저장하지 못했습니다.");
+      window.alert(
+        copyAction
+          ? "선택한 채팅을 이미지로 만들지 못했습니다."
+          : "선택한 채팅을 PNG로 저장하지 못했습니다.",
+      );
       return false;
     } finally {
+      if (clipboardJob && !clipboardJobSettled) {
+        clipboardJob.rejectBlob(new Error("capture cancelled"));
+      }
       resourceCache.clear();
       if (capture.runToken === runToken) {
         capture.busy = false;
@@ -1150,8 +1502,120 @@
     }
   }
 
+  // 토스트 알림 목록 → (가) 모아보기 캡처: 팝업을 연 뒤 캡처 선택 모드로 바꾸고
+  // 넘겨받은 채팅을 미리 선택해 둔다. 목록에 없는 채팅은 빠진다. 선택한 개수를 돌려준다.
+  function startCaptureWithKeys(state, keys) {
+    const capture = ensureCaptureState(state);
+    if (capture.busy || state?.settings?.showCaptureButton !== true) return 0;
+    finishCaptureDrag(state, null, false);
+    capture.active = true;
+    capture.lastKey = "";
+    capture.selectedKeys = new Set(
+      (Array.isArray(keys) ? keys : []).map(String).filter(Boolean),
+    );
+    syncCaptureUi(state);
+    return capture.selectedKeys.size;
+  }
+
+  // 토스트 알림 목록 → (나) 카드 이미지: 펼친 알림 카드를 그대로 PNG 로 만들어
+  // 설정의 "버튼 동작"(파일 저장 / 클립보드 복사)대로 처리한다.
+  // 클립보드 복사는 클릭 직후에 시작해야 하므로 이 함수는 클릭 핸들러에서 바로 부른다.
+  // 결과: "saved" | "copied" | "" (실패)
+  async function captureToastCards(state, cards, themeSource) {
+    const items = Array.from(cards || []).filter(
+      (card) => card instanceof HTMLElement,
+    );
+    if (items.length === 0) return "";
+    const copyAction = getCaptureAction(state) === "copy";
+    const clipboardJob = copyAction ? startClipboardImageWrite() : null;
+    let clipboardSettled = false;
+    const renderer = globalThis.htmlToImage;
+    // 무대(stage)는 화면 밖에 두고, 그 안의 surface 만 그린다.
+    // (무대의 화면 밖 좌표가 이미지에 옮겨 가면 내용이 빈 그림이 된다.)
+    const stage = document.createElement("div");
+    stage.className = "chzzk-badge-moa-toast-capture-stage";
+    stage.setAttribute("aria-hidden", "true");
+    const surface = document.createElement("div");
+    surface.className = "chzzk-badge-moa-toast-capture-surface";
+    stage.appendChild(surface);
+    // 토스트의 색 변수(테마별)를 그대로 옮겨 같은 모양으로 그린다.
+    if (themeSource instanceof HTMLElement) {
+      const computed = getComputedStyle(themeSource);
+      [
+        "--chzzk-badge-moa-toast-accent",
+        "--chzzk-badge-moa-toast-warn",
+        "--chzzk-badge-moa-toast-bg",
+        "--chzzk-badge-moa-toast-border",
+      ].forEach((name) => {
+        const value = computed.getPropertyValue(name);
+        if (value) surface.style.setProperty(name, value.trim());
+      });
+      surface.style.color = computed.color;
+      surface.style.fontFamily = computed.fontFamily;
+    }
+    // 폭은 카드 기준(함께 담는 날짜 머리글은 내용 폭만큼만 차지한다)
+    const widthSource =
+      items.find((item) =>
+        item.classList.contains("chzzk-badge-moa-toast-item"),
+      ) || items[0];
+    const width = Math.max(
+      200,
+      Math.round(widthSource.getBoundingClientRect().width) || 300,
+    );
+    surface.style.width = `${width + 24}px`;
+    surface.style.background = getCaptureBackground(state);
+    items.forEach((card) => {
+      const clone = card.cloneNode(true);
+      clone.removeAttribute("id");
+      clone.removeAttribute("title");
+      surface.appendChild(clone);
+    });
+    document.body.appendChild(stage);
+    const resourceCache = new Map();
+    try {
+      if (!renderer || typeof renderer.toBlob !== "function") {
+        throw new Error("html-to-image unavailable");
+      }
+      wrapCaptureUnicodeEmojis(surface);
+      await inlineCaptureImages(surface, resourceCache);
+      await waitForCaptureImages(surface);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const blob = await renderer.toBlob(surface, {
+        backgroundColor: getCaptureBackground(state),
+        pixelRatio: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
+        skipFonts: true,
+        cacheBust: false,
+        imagePlaceholder: TRANSPARENT_PNG,
+      });
+      if (!(blob instanceof Blob)) throw new Error("capture blob unavailable");
+      if (copyAction) {
+        clipboardSettled = true;
+        if (!clipboardJob) return (await writeClipboardBlob(blob)) ? "copied" : "";
+        clipboardJob.resolveBlob(blob);
+        const copied =
+          (await clipboardJob.done) || (await writeClipboardBlob(blob));
+        return copied ? "copied" : "";
+      }
+      const nameValues = await createCaptureNameValues(state);
+      downloadBlob(blob, createCaptureFilename(state, 0, 1, nameValues));
+      return "saved";
+    } catch (error) {
+      console.error("[badge-moa] toast capture failed", error);
+      return "";
+    } finally {
+      if (clipboardJob && !clipboardSettled) {
+        clipboardJob.rejectBlob(new Error("capture cancelled"));
+      }
+      resourceCache.clear();
+      stage.remove();
+    }
+  }
+
   ns.captureApi = {
     getEntryCaptureKey,
+    startCaptureWithKeys,
+    captureToastCards,
+    getCaptureAction,
     syncCaptureUi,
     resetCaptureSelection,
     toggleCaptureSelectionMode,

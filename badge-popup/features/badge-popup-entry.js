@@ -417,6 +417,7 @@
       tags: entryTypeMeta.tags,
       typeLabel: entryTypeMeta.pillLabel,
       typeTone: entryTypeMeta.pillTone,
+      gift: buildGiftView(payload.giftSubscription, nickname),
       authorUserIdHash,
       channelId: entryChannelId,
       originalChatHtml: pendingSnapshot?.html || "",
@@ -656,6 +657,40 @@
     return "neutral";
   }
 
+  // 구독권 선물을 부분별로 꾸며 그리기 위한 정보(모아보기 팝업·토스트 공용).
+  //  - random: 채널 무작위 선물 / direct: 특정 사람에게 선물(보낸 쪽)
+  //  - received: 받은 쪽 / plain: 받는 사람 정보 없음
+  function buildGiftView(gift, nickname) {
+    if (!gift || typeof gift !== "object") return null;
+    const receiverNickname = String(gift.receiverNickname || "").trim();
+    const identityNickname = String(nickname || "").trim();
+    const isRandom =
+      String(gift.selectionType || "").toUpperCase() === "RANDOM";
+    const mode =
+      receiverNickname && receiverNickname === identityNickname
+        ? "received"
+        : isRandom
+          ? "random"
+          : receiverNickname
+            ? "direct"
+            : "plain";
+    return {
+      mode,
+      tierName: String(gift.tierName || "").trim(),
+      quantity: Math.max(1, Number(gift.quantity || 0) || 1),
+      receiverNickname,
+      // 예전 형식은 일반 시청자 보낸 사람을 "???"로 넘겼다(이름 없음으로 본다).
+      senderNickname:
+        String(gift.senderNickname || "").trim() === "???"
+          ? ""
+          : String(gift.senderNickname || "").trim(),
+      senderKnown:
+        gift.senderKnown === true ||
+        String(gift.senderNickname || "").trim() === "익명의 후원자",
+      receiverVerifiedMark: gift.receiverVerifiedMark === true,
+    };
+  }
+
   function buildGiftMessage(gift, identity) {
     const giftInfo = gift && typeof gift === "object" ? gift : {};
     const tierName = String(giftInfo.tierName || "").trim();
@@ -667,14 +702,32 @@
       !!identityNickname &&
       receiverNickname === identityNickname;
     const giftLabel = tierName ? `${tierName} 구독권` : "구독권";
+    // 평문 문구(검색·예비용)에는 배지가 확인된 보낸 사람만 적는다.
+    const rawSender = String(giftInfo.senderNickname || "").trim();
+    const senderNickname =
+      rawSender && rawSender !== "???" &&
+      (giftInfo.senderKnown === true || rawSender === "익명의 후원자")
+        ? rawSender
+        : "";
+    const isRandom =
+      String(giftInfo.selectionType || "").toUpperCase() === "RANDOM";
 
+    // 치지직 채팅과 같이 받는 사람·채널을 함께 적는다.
     if (isReceiverPerspective) {
-      return `${giftLabel}을 선물받았습니다.`;
+      return senderNickname && senderNickname !== receiverNickname
+        ? `${senderNickname}님에게 ${giftLabel}을 선물받았습니다.`
+        : `${giftLabel}을 선물받았습니다.`;
+    }
+    if (isRandom) {
+      return `${giftLabel} ${Math.max(1, quantity)}개를 채널에 선물하였습니다.`;
+    }
+    if (receiverNickname) {
+      return `${receiverNickname}님에게 ${giftLabel}을 선물하였습니다.`;
     }
     if (quantity > 1) {
-      return `${giftLabel}을 ${quantity}장 선물했습니다.`;
+      return `${giftLabel}을 ${quantity}개 선물하였습니다.`;
     }
-    return `${giftLabel}을 선물했습니다.`;
+    return `${giftLabel}을 선물하였습니다.`;
   }
 
   function extractTitleColor(profile) {
@@ -874,6 +927,7 @@
     getPillTypeLabel,
     getPillTypeTone,
     buildGiftMessage,
+    buildGiftView,
     extractTitleColor,
     normalizeEmojiMap,
     extractRoleInfo,

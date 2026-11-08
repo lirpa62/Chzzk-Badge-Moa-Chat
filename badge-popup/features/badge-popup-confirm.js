@@ -91,6 +91,12 @@
     state.confirmDialog.lastFocused =
       doc.activeElement instanceof HTMLElement ? doc.activeElement : null;
 
+    // 채팅창이 왼쪽에 놓이면(이 확장의 왼쪽 배치나 다른 확장의 배치 변경) 대화상자도
+    // 왼쪽에 띄운다. 클래스 대신 실제 화면 위치로 판단해 어떤 배치 방식이든 따라간다.
+    confirmModal.classList.toggle(
+      "is-align-start",
+      isConfirmAnchorOnLeft(state, win, doc),
+    );
     confirmModal.classList.add("is-open");
     confirmModal.removeAttribute("inert");
     confirmModal.setAttribute("aria-hidden", "false");
@@ -121,6 +127,26 @@
     return new Promise((resolve) => {
       state.confirmDialog.resolver = resolve;
     });
+  }
+
+  // 대화상자를 붙일 기준(열린 모아보기 팝업 → 알림 버튼 → 채팅창)이 화면 왼쪽 절반에 있는지.
+  function isConfirmAnchorOnLeft(state, win, doc) {
+    const viewportWidth = Number(win.innerWidth) || 0;
+    if (viewportWidth <= 0) return false;
+    const ui = (state && state.ui) || {};
+    const candidates = [
+      ui.popup,
+      ui.root,
+      doc.querySelector("aside#aside-chatting"),
+      doc.querySelector("aside#vod-aside"),
+    ];
+    for (const element of candidates) {
+      if (!(element instanceof HTMLElement) || !element.isConnected) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      return rect.left + rect.width / 2 < viewportWidth / 2;
+    }
+    return false;
   }
 
   function resolveConfirmDialog(

@@ -323,6 +323,10 @@
     defaults.enableCaptureDragSelection =
       raw.enableCaptureDragSelection === true;
     defaults.showCapturePreview = raw.showCapturePreview === true;
+    defaults.captureAction = normalizeCaptureAction(raw.captureAction);
+    defaults.captureFilenameFormat = normalizeCaptureFilenameFormat(
+      raw.captureFilenameFormat,
+    );
     defaults.popupFontScale = normalizePopupFontScale(raw.popupFontScale);
     defaults.chatFontScale = normalizeChatFontScale(raw.chatFontScale);
     defaults.placeChatOnLeft = raw.placeChatOnLeft === true;
@@ -342,6 +346,30 @@
         ? false
         : raw.keepPopupOpen === true || raw.keepPillExpanded === true;
     defaults.pillGlowEnabled = raw.pillGlowEnabled !== false;
+    defaults.chatToastEnabled = raw.chatToastEnabled === true;
+    defaults.chatToastFrequency = normalizeChatToastFrequency(
+      raw.chatToastFrequency,
+    );
+    defaults.chatToastGatherMs = normalizeChatToastGatherMs(
+      raw.chatToastGatherMs,
+    );
+    defaults.chatToastCooldownMs = normalizeChatToastCooldownMs(
+      raw.chatToastCooldownMs,
+    );
+    defaults.chatToastVisibleMs = normalizeChatToastVisibleMs(
+      raw.chatToastVisibleMs,
+    );
+    defaults.chatToastKeepVisible = raw.chatToastKeepVisible === true;
+    defaults.chatToastClickAction = normalizeChatToastClickAction(
+      raw.chatToastClickAction,
+    );
+    defaults.chatToastListOrder = normalizeChatToastListOrder(
+      raw.chatToastListOrder,
+    );
+    defaults.chatToastBackdropBlur = raw.chatToastBackdropBlur !== false;
+    defaults.chatToastBadgeTypes = normalizeChatToastBadgeTypes(
+      raw.chatToastBadgeTypes,
+    );
     defaults.compactPill = raw.compactPill === true;
     defaults.enableSessionCache = raw.enableSessionCache === true;
     defaults.detachedOriginView = normalizeDetachedOriginView(
@@ -355,6 +383,66 @@
   function normalizeDetachedOriginView(value) {
     const v = String(value || "").trim();
     return v === "pill" || v === "keep" ? v : "hide";
+  }
+
+  // 새 채팅 토스트 알림 빈도: 자주(high) | 보통(normal, 기본) | 낮음(low) | 커스텀(custom)
+  function normalizeChatToastFrequency(value) {
+    return value === "high" || value === "low" || value === "custom"
+      ? value
+      : "normal";
+  }
+
+  // 커스텀 빈도의 모으는 시간(0~10초)/쉬는 시간(0~60초). 0.1초 단위.
+  function normalizeChatToastDurationMs(value, fallback, maxMs) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(maxMs, Math.max(0, Math.round(num / 100) * 100));
+  }
+
+  function normalizeChatToastGatherMs(value) {
+    return normalizeChatToastDurationMs(value, 1500, 10000);
+  }
+
+  function normalizeChatToastCooldownMs(value) {
+    return normalizeChatToastDurationMs(value, 5000, 60000);
+  }
+
+  function normalizeChatToastClickAction(value) {
+    return value === "list" ? "list" : "popup";
+  }
+
+  function normalizeChatToastListOrder(value) {
+    return value === "oldest" ? "oldest" : "newest";
+  }
+
+  // 커스텀 표시 시간: 2~30초
+  function normalizeChatToastVisibleMs(value) {
+    return Math.max(2000, normalizeChatToastDurationMs(value, 5000, 30000));
+  }
+
+  // 토스트 알림 대상 배지 종류. 저장된 값이 없으면 전부 대상.
+  const CHAT_TOAST_BADGE_TYPES = [
+    "channel_owner",
+    "manager",
+    "operator",
+    "partner",
+    "custom",
+  ];
+  function normalizeChatToastBadgeTypes(value) {
+    if (!Array.isArray(value)) return CHAT_TOAST_BADGE_TYPES.slice();
+    return CHAT_TOAST_BADGE_TYPES.filter((type) => value.includes(type));
+  }
+
+  // 캡처 버튼 동작: 파일 저장(기본) | 클립보드 복사
+  function normalizeCaptureAction(value) {
+    return value === "copy" ? "copy" : "save";
+  }
+
+  // 캡처 파일 이름 형식. 비어 있으면 기본 형식을 쓴다.
+  function normalizeCaptureFilenameFormat(value) {
+    return typeof value === "string"
+      ? value.replace(/[\r\n]+/g, " ").trim().slice(0, 200)
+      : "";
   }
 
   function normalizeChatTimestampFormat(value) {
@@ -561,6 +649,10 @@
       enableCaptureDragSelection:
         state.settings.enableCaptureDragSelection === true,
       showCapturePreview: state.settings.showCapturePreview === true,
+      captureAction: normalizeCaptureAction(state.settings.captureAction),
+      captureFilenameFormat: normalizeCaptureFilenameFormat(
+        state.settings.captureFilenameFormat,
+      ),
       popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
       chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
       placeChatOnLeft: state.settings.placeChatOnLeft === true,
@@ -574,6 +666,30 @@
           ? false
           : state.settings.keepPopupOpen === true,
       pillGlowEnabled: state.settings.pillGlowEnabled !== false,
+      chatToastEnabled: state.settings.chatToastEnabled === true,
+      chatToastFrequency: normalizeChatToastFrequency(
+        state.settings.chatToastFrequency,
+      ),
+      chatToastGatherMs: normalizeChatToastGatherMs(
+        state.settings.chatToastGatherMs,
+      ),
+      chatToastCooldownMs: normalizeChatToastCooldownMs(
+        state.settings.chatToastCooldownMs,
+      ),
+      chatToastVisibleMs: normalizeChatToastVisibleMs(
+        state.settings.chatToastVisibleMs,
+      ),
+      chatToastKeepVisible: state.settings.chatToastKeepVisible === true,
+      chatToastClickAction: normalizeChatToastClickAction(
+        state.settings.chatToastClickAction,
+      ),
+      chatToastListOrder: normalizeChatToastListOrder(
+        state.settings.chatToastListOrder,
+      ),
+      chatToastBackdropBlur: state.settings.chatToastBackdropBlur !== false,
+      chatToastBadgeTypes: normalizeChatToastBadgeTypes(
+        state.settings.chatToastBadgeTypes,
+      ),
       compactPill: state.settings.compactPill === true,
       enableSessionCache: state.settings.enableSessionCache === true,
       detachedOriginView: normalizeDetachedOriginView(
@@ -689,6 +805,10 @@
         enableCaptureDragSelection:
           state.settings.enableCaptureDragSelection === true,
         showCapturePreview: state.settings.showCapturePreview === true,
+        captureAction: normalizeCaptureAction(state.settings.captureAction),
+        captureFilenameFormat: normalizeCaptureFilenameFormat(
+          state.settings.captureFilenameFormat,
+        ),
         popupFontScale: normalizePopupFontScale(state.settings.popupFontScale),
         chatFontScale: normalizeChatFontScale(state.settings.chatFontScale),
         placeChatOnLeft: state.settings.placeChatOnLeft === true,
@@ -702,6 +822,30 @@
             ? false
             : state.settings.keepPopupOpen === true,
         pillGlowEnabled: state.settings.pillGlowEnabled !== false,
+        chatToastEnabled: state.settings.chatToastEnabled === true,
+        chatToastFrequency: normalizeChatToastFrequency(
+          state.settings.chatToastFrequency,
+        ),
+        chatToastGatherMs: normalizeChatToastGatherMs(
+          state.settings.chatToastGatherMs,
+        ),
+        chatToastCooldownMs: normalizeChatToastCooldownMs(
+          state.settings.chatToastCooldownMs,
+        ),
+        chatToastVisibleMs: normalizeChatToastVisibleMs(
+          state.settings.chatToastVisibleMs,
+        ),
+        chatToastKeepVisible: state.settings.chatToastKeepVisible === true,
+        chatToastClickAction: normalizeChatToastClickAction(
+          state.settings.chatToastClickAction,
+        ),
+        chatToastListOrder: normalizeChatToastListOrder(
+          state.settings.chatToastListOrder,
+        ),
+        chatToastBackdropBlur: state.settings.chatToastBackdropBlur !== false,
+        chatToastBadgeTypes: normalizeChatToastBadgeTypes(
+          state.settings.chatToastBadgeTypes,
+        ),
         compactPill: state.settings.compactPill === true,
         enableSessionCache: state.settings.enableSessionCache === true,
         detachedOriginView: normalizeDetachedOriginView(
@@ -852,6 +996,16 @@
     if (typeof source.showCapturePreview === "boolean") {
       state.settings.showCapturePreview = source.showCapturePreview;
     }
+    if (typeof source.captureAction === "string") {
+      state.settings.captureAction = normalizeCaptureAction(
+        source.captureAction,
+      );
+    }
+    if (typeof source.captureFilenameFormat === "string") {
+      state.settings.captureFilenameFormat = normalizeCaptureFilenameFormat(
+        source.captureFilenameFormat,
+      );
+    }
     if (typeof source.placeChatOnLeft === "boolean") {
       state.settings.placeChatOnLeft = source.placeChatOnLeft;
     }
@@ -911,6 +1065,63 @@
           state.ui.pill.classList.remove("is-attention");
         }
       }
+    }
+    if (typeof source.chatToastEnabled === "boolean") {
+      state.settings.chatToastEnabled = source.chatToastEnabled;
+      if (!source.chatToastEnabled) {
+        ns.toastApi?.dismiss?.(state);
+      }
+    }
+    if (typeof source.chatToastFrequency === "string") {
+      state.settings.chatToastFrequency = normalizeChatToastFrequency(
+        source.chatToastFrequency,
+      );
+    }
+    if (source.chatToastGatherMs !== undefined) {
+      state.settings.chatToastGatherMs = normalizeChatToastGatherMs(
+        source.chatToastGatherMs,
+      );
+    }
+    if (source.chatToastCooldownMs !== undefined) {
+      state.settings.chatToastCooldownMs = normalizeChatToastCooldownMs(
+        source.chatToastCooldownMs,
+      );
+    }
+    if (source.chatToastVisibleMs !== undefined) {
+      state.settings.chatToastVisibleMs = normalizeChatToastVisibleMs(
+        source.chatToastVisibleMs,
+      );
+    }
+    if (typeof source.chatToastKeepVisible === "boolean") {
+      state.settings.chatToastKeepVisible = source.chatToastKeepVisible;
+    }
+    if (typeof source.chatToastClickAction === "string") {
+      state.settings.chatToastClickAction = normalizeChatToastClickAction(
+        source.chatToastClickAction,
+      );
+    }
+    if (typeof source.chatToastBackdropBlur === "boolean") {
+      state.settings.chatToastBackdropBlur = source.chatToastBackdropBlur;
+    }
+    if (typeof source.chatToastListOrder === "string") {
+      state.settings.chatToastListOrder = normalizeChatToastListOrder(
+        source.chatToastListOrder,
+      );
+    }
+    if (
+      typeof source.chatToastBackdropBlur === "boolean" ||
+      typeof source.chatToastListOrder === "string" ||
+      typeof source.chatToastClickAction === "string" ||
+      typeof source.chatToastFrequency === "string" ||
+      source.chatToastVisibleMs !== undefined ||
+      typeof source.chatToastKeepVisible === "boolean"
+    ) {
+      ns.toastApi?.refreshTiming?.(state);
+    }
+    if (Array.isArray(source.chatToastBadgeTypes)) {
+      state.settings.chatToastBadgeTypes = normalizeChatToastBadgeTypes(
+        source.chatToastBadgeTypes,
+      );
     }
     if (typeof source.compactPill === "boolean") {
       state.settings.compactPill = source.compactPill;

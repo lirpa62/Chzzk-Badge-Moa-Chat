@@ -148,6 +148,7 @@
       if (state.unseenCount <= 0 && state.unseenActors.size === 0) return;
       state.unseenCount = 0;
       state.unseenActors.clear();
+      dismissChatToast();
       resetPillCycle(true);
       renderPill();
       renderList();
@@ -347,6 +348,7 @@
       applyPopupHeight,
       render,
     });
+    ns.toastApi?.onStorageChanged?.(state, changes, areaName);
   }
 
   function onDocumentMouseDown(event) {
@@ -403,6 +405,8 @@
   }
 
   function handleLocationChange(forceReset) {
+    const prevLocationKey = String(state.locationKey || "");
+    const prevChannelId = normalizeChannelId(state.resolvedChannelId);
     channelApi.handleLocationChange(state, forceReset, {
       clearPersistChannelCacheTimer,
       isSessionCacheEnabled,
@@ -417,6 +421,14 @@
       refreshChatHighlightObserver,
       scheduleChatHighlightScan,
     });
+    // SPA 로 다른 페이지·채널로 옮기면 모은 채팅이 비워지므로 토스트도 거둔다
+    // ("계속 표시"면 저절로 사라지지 않아 이전 페이지의 알림이 남는다).
+    if (
+      String(state.locationKey || "") !== prevLocationKey ||
+      normalizeChannelId(state.resolvedChannelId) !== prevChannelId
+    ) {
+      dismissChatToast();
+    }
   }
 
   async function reloadSettingsForScope(scopeKey) {
@@ -492,6 +504,7 @@
     state.dedupeKeys.clear();
     state.unseenCount = 0;
     state.unseenActors.clear();
+    dismissChatToast();
     if (state.nicknameRoleBadgesByNickname instanceof Map) {
       state.nicknameRoleBadgesByNickname.clear();
     }
@@ -592,6 +605,8 @@
       handleCaptureListKeydown,
       syncCaptureUi,
     });
+    // 헤더가 새로 만들어졌으면 떠 있는 토스트도 새 위치로 옮긴다.
+    ns.toastApi?.reposition?.(state);
   }
 
   function findLiveChatHeader() {
@@ -629,6 +644,7 @@
   }
 
   function openPopup() {
+    dismissChatToast();
     popupApi.openPopup(state, {
       resetPillCycle,
       schedulePersistChannelCache,
@@ -655,6 +671,9 @@
     });
     if (wasOpen && state.isOpen !== true) {
       captureApi.resetCaptureSelection(state);
+      // 눌러서 본 구독권 선물 닉네임은 팝업을 닫으면 다시 가린다
+      // (다음에 열 때 목록을 새로 그리므로 그때 가려진다).
+      state.revealedGiftKeys?.clear?.();
     }
   }
 
@@ -1684,6 +1703,41 @@
       getUnseenActorsForPill,
       PILL_ATTENTION_DURATION_MS,
     });
+    notifyChatToast(entry);
+  }
+
+  // 새 배지 채팅 토스트 알림(설정에서 켰을 때만 동작)
+  function notifyChatToast(entry) {
+    const toastApi = ns.toastApi;
+    if (!toastApi || typeof toastApi.notify !== "function") return;
+    toastApi.notify(state, entry, {
+      isPillNicknameHidden,
+      getUnseenActorsForPill,
+      openPopup,
+      markAllSeen: markAllUnseenAsRead,
+      saveSettings,
+    });
+  }
+
+  // 토스트 알림 목록의 "모두 지우기": 팝업을 열지 않고 읽지 않은 채팅을
+  // 모두 확인한 것으로 처리한다(팝업을 열 때와 같이 다른 탭에도 알린다).
+  function markAllUnseenAsRead() {
+    state.unseenCount = 0;
+    state.unseenActors.clear();
+    resetPillCycle(true);
+    clearAttentionIfNeeded();
+    renderPill();
+    schedulePersistChannelCache();
+    try {
+      ns.sync?.broadcastRead?.(state.resolvedChannelId);
+    } catch (_error) {}
+  }
+
+  function dismissChatToast() {
+    const toastApi = ns.toastApi;
+    if (toastApi && typeof toastApi.dismiss === "function") {
+      toastApi.dismiss(state);
+    }
   }
 
   function clearAttentionIfNeeded() {
@@ -2084,7 +2138,38 @@
       applyNicknameFilterStateFromSettings,
       resetPillCycle,
       render,
+      onRestored: restoreChatToast,
     }, channelIdCandidate);
+  }
+
+  // 세션 캐시에서 복원한 읽지 않은 채팅으로 토스트를 다시 띄운다(새로고침 뒤에도
+  // 알림 버튼처럼 남아 있게). 사람별 읽지 않은 개수만큼 최근 채팅을 고른다.
+  function restoreChatToast() {
+    const toastApi = ns.toastApi;
+    if (!toastApi || typeof toastApi.restore !== "function") return;
+    if (state.isOpen || !(state.unseenCount > 0)) return;
+    const remaining = new Map();
+    state.unseenActors.forEach((actor, nickname) => {
+      const count = Math.max(0, Number(actor?.count || 0) || 0);
+      if (count > 0) remaining.set(nickname, count);
+    });
+    if (remaining.size === 0) return;
+    const unseenEntries = [];
+    for (let i = state.entries.length - 1; i >= 0; i -= 1) {
+      const entry = state.entries[i];
+      const left = remaining.get(entry?.nickname) || 0;
+      if (left <= 0) continue;
+      unseenEntries.push(entry);
+      remaining.set(entry.nickname, left - 1);
+    }
+    if (unseenEntries.length === 0) return;
+    toastApi.restore(state, unseenEntries.reverse(), {
+      isPillNicknameHidden,
+      getUnseenActorsForPill,
+      openPopup,
+      markAllSeen: markAllUnseenAsRead,
+      saveSettings,
+    });
   }
 
   function serializeUnseenStateForCache() {
@@ -2107,6 +2192,8 @@
       normalizeBadgeArray,
       normalizeBadgeValue,
       normalizeTagArray,
+      isGiftNicknameKnown: (nickname, gift) =>
+        renderApi.isGiftNicknameKnown?.(state, nickname, gift) === true,
     });
   }
 

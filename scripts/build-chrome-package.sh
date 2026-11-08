@@ -42,6 +42,8 @@ copy_path "icon_64.png"
 copy_path "icon_48.png"
 copy_path "icon_32.png"
 copy_path "icon_16.png"
+copy_path "THIRD_PARTY_NOTICES.md"
+copy_path "LICENSES"
 
 find "$BUILD_DIR" \( -name ".DS_Store" -o -name "._*" \) -delete
 

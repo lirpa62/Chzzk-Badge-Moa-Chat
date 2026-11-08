@@ -55,6 +55,8 @@
       showCaptureButton: false,
       enableCaptureDragSelection: false,
       showCapturePreview: false,
+      captureAction: "save",
+      captureFilenameFormat: "",
       popupFontScale: DEFAULT_POPUP_FONT_SCALE,
       chatFontScale: DEFAULT_CHAT_FONT_SCALE,
       placeChatOnLeft: false,
@@ -65,6 +67,27 @@
       hideEmptyPill: false,
       keepPopupOpen: false,
       pillGlowEnabled: true,
+      chatToastEnabled: false,
+      chatToastFrequency: "normal",
+      // 알림 빈도 "custom" 일 때 쓰는 모으는 시간/쉬는 시간(ms)
+      chatToastGatherMs: 1500,
+      chatToastCooldownMs: 5000,
+      // 커스텀 표시 시간(ms)과 "계속 표시"(자동으로 사라지지 않음)
+      chatToastVisibleMs: 5000,
+      chatToastKeepVisible: false,
+      // 토스트를 누르면: "popup"(모아보기 팝업 열기) | "list"(알림 목록 펼치기)
+      chatToastClickAction: "popup",
+      // 펼친 알림 목록 순서: newest(최신순) | oldest(과거순)
+      chatToastListOrder: "newest",
+      // 알림 목록을 펼쳤을 때 뒤의 채팅창을 흐리게 덮을지
+      chatToastBackdropBlur: true,
+      chatToastBadgeTypes: [
+        "channel_owner",
+        "manager",
+        "operator",
+        "partner",
+        "custom",
+      ],
       compactPill: false,
       enableSessionCache: false,
       // 전용 창을 열 때 원래 탭 인라인 UI: "hide"(기본)/"pill"/"keep"

@@ -317,7 +317,11 @@
         </section>
 
         <section class="section">
-          <h2>모아보기 팝업</h2>
+          <h2
+            data-tooltip="배지 채팅 모아보기 팝업에는 채널마다 최근 **500개**까지 모아 둡니다. 넘으면 오래된 채팅부터 빠집니다."
+          >
+            모아보기 팝업
+          </h2>
           <div class="toggle-grid-2col">
             <label class="toggle-row">
               <input type="checkbox" id="hide-popup-bg" />
@@ -443,7 +447,7 @@
             </label>
             <label
               class="toggle-row"
-              data-tooltip="상태와 관계없이 상단 알림 버튼을 항상 숨깁니다. 모아보기 팝업을 열 수 없게 됩니다."
+              data-tooltip="상태와 관계없이 상단 알림 버튼을 항상 숨깁니다. 모아보기 팝업을 열 수 없게 되며, 새 채팅 토스트 알림을 켜 두면 알림을 눌러 열 수 있습니다."
             >
               <input type="checkbox" id="hide-pill-button" />
               <span>배지 알림 버튼 숨김</span>
@@ -475,6 +479,258 @@
                 <option value="contrast">테마 대비색</option>
               </select>
             </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2 id="chat-toast-title">새 채팅 토스트 알림</h2>
+            <label
+              class="switch"
+              data-tooltip-placement="top"
+              data-tooltip="모아보기 팝업이 닫혀 있을 때 새 배지 채팅이 오면 채팅창 위쪽에 알림을 잠시 띄웁니다."
+            >
+              <input
+                type="checkbox"
+                id="chat-toast-enabled"
+                role="switch"
+                aria-labelledby="chat-toast-title"
+              />
+              <span class="switch-track" aria-hidden="true">
+                <span class="switch-thumb"></span>
+              </span>
+            </label>
+          </div>
+          <div
+            class="field-row chat-toast-options"
+            data-tooltip-placement="top"
+            data-tooltip="토스트 알림을 눌렀을 때 동작&#10;- **모아보기 팝업 열기**: 모아보기 팝업을 엽니다. 여러 채팅이 쌓이면 요약 문장으로 보여 줍니다.&#10;- **알림 목록 펼치기**: 쌓인 채팅이 카드처럼 겹쳐 보이고, 누르면 채팅마다 하나씩 펼쳐집니다. 채팅을 누르면 모아보기 팝업에서 그 채팅으로 이동합니다.&#10;&#10;알림 목록에는 최대 **200개**까지 모아 둡니다. 넘으면 오래된 채팅부터 빠지며, 빠진 채팅도 모아보기 팝업에는 남아 있습니다."
+          >
+            <span id="chat-toast-click-action-label">알림을 누르면</span>
+            <div
+              id="chat-toast-click-action"
+              class="segmented-control"
+              role="radiogroup"
+              aria-labelledby="chat-toast-click-action-label"
+            >
+              <button type="button" role="radio" data-value="popup">
+                모아보기 팝업 열기
+              </button>
+              <button type="button" role="radio" data-value="list">
+                알림 목록 펼치기
+              </button>
+            </div>
+          </div>
+          <div
+            class="field-row chat-toast-options"
+            data-tooltip-placement="top"
+            data-tooltip="펼친 알림 목록의 순서입니다.&#10;- **최신순**: 새 채팅이 맨 위에 붙습니다.&#10;- **과거순**: 오래된 채팅이 맨 위에 있고, 새 채팅은 맨 아래에 붙습니다.&#10;&#10;접힌 알림에는 순서와 상관없이 가장 최근 채팅이 보입니다. 펼친 목록 머리줄의 시계 버튼으로도 바꿀 수 있습니다. (알림 목록 펼치기에서만 쓰입니다)"
+          >
+            <span id="chat-toast-list-order-label">목록 순서</span>
+            <div
+              id="chat-toast-list-order"
+              class="segmented-control"
+              role="radiogroup"
+              aria-labelledby="chat-toast-list-order-label"
+            >
+              <button type="button" role="radio" data-value="newest">
+                최신순
+              </button>
+              <button type="button" role="radio" data-value="oldest">
+                과거순
+              </button>
+            </div>
+          </div>
+          <div class="toggle-grid-2col chat-toast-list-options">
+            <label
+              class="toggle-row"
+              data-tooltip="알림 목록을 펼쳤을 때 뒤의 채팅창을 흐리게 덮어 알림 카드가 잘 보이게 합니다. 흐린 곳을 누르면 목록이 접힙니다. (알림 목록 펼치기에서만 쓰입니다)"
+            >
+              <input type="checkbox" id="chat-toast-backdrop-blur" />
+              <span>펼칠 때 배경 흐리게</span>
+            </label>
+          </div>
+          <div
+            class="field-row chat-toast-options"
+            data-tooltip-placement="top"
+            data-tooltip="- **자주**: 새 채팅이 오면 바로 알립니다.&#10;- **보통**: 잠시 모았다가 알리고, 알림이 사라진 뒤 5초 동안 쉽니다.&#10;- **낮음**: 더 오래 모았다가 알리고, 10초 동안 쉽니다.&#10;- **커스텀**: 모으는 시간·표시 시간·쉬는 시간을 직접 정합니다.&#10;&#10;쉬는 동안 온 채팅은 다음 알림에 합쳐집니다."
+          >
+            <span id="chat-toast-frequency-label">알림 빈도</span>
+            <div
+              id="chat-toast-frequency"
+              class="segmented-control"
+              role="radiogroup"
+              aria-labelledby="chat-toast-frequency-label"
+            >
+              <button type="button" role="radio" data-value="high">자주</button>
+              <button type="button" role="radio" data-value="normal">보통</button>
+              <button type="button" role="radio" data-value="low">낮음</button>
+              <button type="button" role="radio" data-value="custom">
+                커스텀
+              </button>
+            </div>
+          </div>
+          <div class="chat-toast-timing">
+            <div class="timing-field">
+              <div
+                class="timing-field-main"
+                data-tooltip="첫 채팅이 온 뒤 이 시간 동안 채팅을 모았다가 한 번에 알립니다. 0초면 바로 알립니다. (0~10초, 커스텀에서만 바꿀 수 있습니다)"
+              >
+              <span class="timing-field-label" id="chat-toast-gather-label">모으는 시간</span>
+              <span class="number-field">
+                <span class="number-stepper">
+                  <input
+                    type="number"
+                    id="chat-toast-gather"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    inputmode="decimal"
+                    aria-labelledby="chat-toast-gather-label"
+                  />
+                  <span class="number-stepper-buttons">
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="up"
+                      tabindex="-1"
+                      aria-label="모으는 시간 늘리기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="down"
+                      tabindex="-1"
+                      aria-label="모으는 시간 줄이기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+                    </button>
+                  </span>
+                </span>
+                <span class="number-field-unit">초</span>
+              </span>
+              </div>
+            </div>
+            <div class="timing-field">
+              <div
+                class="timing-field-main"
+                data-tooltip="토스트가 보이는 시간입니다. 떠 있는 동안 새 채팅이 오면 다시 이 시간만큼 보이며, 최대 이 시간 + 7초까지 보입니다. 마우스를 올려 두면 사라지지 않습니다. (2~30초, 커스텀에서만 바꿀 수 있습니다)"
+              >
+              <span class="timing-field-label" id="chat-toast-visible-label">표시 시간</span>
+              <span class="number-field">
+                <span class="number-stepper">
+                  <input
+                    type="number"
+                    id="chat-toast-visible"
+                    min="2"
+                    max="30"
+                    step="1"
+                    inputmode="decimal"
+                    aria-labelledby="chat-toast-visible-label"
+                  />
+                  <span class="number-stepper-buttons">
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="up"
+                      tabindex="-1"
+                      aria-label="표시 시간 늘리기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="down"
+                      tabindex="-1"
+                      aria-label="표시 시간 줄이기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+                    </button>
+                  </span>
+                </span>
+                <span class="number-field-unit">초</span>
+              </span>
+              </div>
+              <label
+                class="toggle-row timing-field-keep"
+                data-tooltip="직접 닫거나 알림을 눌러 모아보기 팝업을 열 때까지 토스트를 띄워 둡니다. 떠 있는 동안 온 채팅은 내용만 바뀝니다."
+              >
+                <input type="checkbox" id="chat-toast-keep-visible" />
+                <span>계속 표시</span>
+              </label>
+            </div>
+            <div class="timing-field">
+              <div
+                class="timing-field-main"
+                data-tooltip="알림이 사라진 뒤 이 시간 동안 새 알림을 띄우지 않습니다. 그동안 온 채팅은 다음 알림에 합쳐집니다. (0~60초, 커스텀에서만 바꿀 수 있습니다)"
+              >
+              <span class="timing-field-label" id="chat-toast-cooldown-label">쉬는 시간</span>
+              <span class="number-field">
+                <span class="number-stepper">
+                  <input
+                    type="number"
+                    id="chat-toast-cooldown"
+                    min="0"
+                    max="60"
+                    step="1"
+                    inputmode="decimal"
+                    aria-labelledby="chat-toast-cooldown-label"
+                  />
+                  <span class="number-stepper-buttons">
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="up"
+                      tabindex="-1"
+                      aria-label="쉬는 시간 늘리기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="number-stepper-btn"
+                      data-step="down"
+                      tabindex="-1"
+                      aria-label="쉬는 시간 줄이기"
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+                    </button>
+                  </span>
+                </span>
+                <span class="number-field-unit">초</span>
+              </span>
+              </div>
+            </div>
+          </div>
+          <div class="chat-toast-targets">
+            <span class="chat-toast-targets-label">알림 대상 배지</span>
+            <div class="toggle-grid-2col">
+            <label class="toggle-row">
+              <input type="checkbox" data-chat-toast-badge-type="channel_owner" />
+              <span>방장</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" data-chat-toast-badge-type="manager" />
+              <span>매니저</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" data-chat-toast-badge-type="operator" />
+              <span>치지직 운영자</span>
+            </label>
+            <label class="toggle-row"
+              data-tooltip="파트너·챌린저·오피셜 인증 마크가 있는 사용자">
+              <input type="checkbox" data-chat-toast-badge-type="partner" />
+              <span>인증 마크</span>
+            </label>
+            <label class="toggle-row"
+              data-tooltip="모아보기 대상으로 추가한 닉네임">
+              <input type="checkbox" data-chat-toast-badge-type="custom" />
+              <span>모아보기 대상</span>
+            </label>
+            </div>
           </div>
         </section>
 
@@ -523,37 +779,34 @@
               <span id="hidden-count-info" class="section-count">(0/0)</span>
             </h2>
             <div class="section-actions">
-              <button id="hidden-select-all" type="button">전체 숨김</button>
-              <button id="hidden-clear-all" type="button">숨김 해제</button>
+              <button
+                id="hidden-select-all"
+                type="button"
+                data-tooltip="지금 목록에 보이는 닉네임의 채팅창 알림을 모두 숨깁니다."
+              >
+                모두 숨김
+              </button>
+              <button
+                id="hidden-clear-all"
+                type="button"
+                data-tooltip="지금 목록에 보이는 닉네임의 채팅창 알림 숨김을 모두 해제합니다."
+              >
+                모두 해제
+              </button>
+              <button
+                id="hidden-include-all"
+                type="button"
+                data-tooltip="지금 목록에 보이는 닉네임의 모아보기 제외를 모두 해제합니다."
+                hidden
+              >
+                모두 다시 모아보기
+              </button>
             </div>
           </div>
           <p class="section-description">
-            닉네임을 누르면 채팅창 알림을 숨기고, 체크박스로 모아보기 제외
-            대상을 선택합니다.
+            닉네임을 누르면 채팅창 알림 숨김과 모아보기 제외를 설정할 수
+            있습니다.
           </p>
-          <div class="hidden-exclude-toolbar">
-            <div
-              id="hidden-exclude-scope-tabs"
-              class="scope-segmented"
-              role="group"
-              aria-label="모아보기 제외 적용 범위"
-            >
-              <button type="button" data-scope="channel" aria-pressed="true">
-                현재 채널
-              </button>
-              <button type="button" data-scope="global" aria-pressed="false">
-                모든 방문 채널
-              </button>
-            </div>
-            <button
-              id="hidden-exclude-selected"
-              type="button"
-              class="collapse-toggle-btn"
-              data-tooltip="선택한 닉네임을 팝업창 모아보기에서 제외"
-            >
-              모아보기 제외
-            </button>
-          </div>
           <div class="advanced-row hidden-prune-row">
             <label
               class="toggle-row hidden-auto-prune-toggle"
@@ -569,6 +822,43 @@
               data-tooltip="채팅 내역이 없고 숨김·제외·추가 대상이 아닌 닉네임을 목록에서 제거"
             >
               미활동 닉네임 정리
+            </button>
+          </div>
+          <div
+            id="hidden-filter"
+            class="nickname-filter"
+            role="group"
+            aria-label="닉네임 상태 필터"
+          >
+            <button type="button" data-filter="all" aria-pressed="true">
+              <span>전체</span><span class="nickname-filter-count"></span>
+            </button>
+            <button
+              type="button"
+              data-filter="hidden"
+              aria-pressed="false"
+              data-tooltip="채팅창 알림을 숨긴 닉네임"
+            >
+              <span class="nickname-state-swatch is-hidden"></span
+              ><span>알림 숨김</span><span class="nickname-filter-count"></span>
+            </button>
+            <button
+              type="button"
+              data-filter="channel"
+              aria-pressed="false"
+              data-tooltip="이 채널의 모아보기에서만 제외한 닉네임"
+            >
+              <span class="chip-state-tag">제외</span
+              ><span class="nickname-filter-count"></span>
+            </button>
+            <button
+              type="button"
+              data-filter="global"
+              aria-pressed="false"
+              data-tooltip="모든 채널의 모아보기에서 제외한 닉네임"
+            >
+              <span class="chip-state-tag is-global">전체 제외</span
+              ><span class="nickname-filter-count"></span>
             </button>
           </div>
           <div id="hidden-chips" class="chip-wrap"></div>
@@ -607,6 +897,12 @@
               type="text"
               placeholder="닉네임 입력 (스트리머만 추가 가능)"
               data-tooltip="'익명의 후원자', '미션 결과'는 예외적으로 추가 가능"
+              autocomplete="off"
+              spellcheck="false"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="tracked-suggest"
             />
             <button id="add-nickname" type="button">닉네임 추가</button>
           </div>
@@ -646,6 +942,83 @@
               <span>저장 전 미리보기</span>
             </label>
           </div>
+          <div class="field-grid-2col capture-options">
+            <label
+              class="field-row"
+              data-tooltip-placement="top"
+              data-tooltip="캡처 버튼을 눌렀을 때 PNG 파일로 저장할지 클립보드에 복사할지 고릅니다.&#10;- 저장 전 미리보기를 켜면 미리보기 창에서 저장과 복사를 모두 할 수 있습니다.&#10;- 여러 장으로 나뉘면 세로로 이어 붙여 한 장으로 복사합니다.&#10;- 토스트 알림 목록의 **카드 이미지** 캡처에도 쓰입니다. 그래서 캡처 버튼을 숨겨도 토스트 알림을 &#x27;알림 목록 펼치기&#x27;로 쓰면 고를 수 있습니다."
+            >
+              <span>버튼 동작</span>
+              <select id="capture-action">
+                <option value="save" selected>파일 저장</option>
+                <option value="copy">클립보드 복사</option>
+              </select>
+            </label>
+          </div>
+          <div class="capture-filename">
+            <span
+              class="capture-filename-label"
+              data-tooltip="항목을 누르면 커서 자리에 들어갑니다. 값이 없는 항목은 앞의 구분자와 함께 빠지고, 항목이 하나도 없으면 기본 형식을 씁니다. 여러 장으로 나뉘면 이름 뒤에 -1, -2가 붙습니다."
+              >파일 이름 형식</span
+            >
+            <div class="add-row capture-filename-row">
+              <input
+                id="capture-filename-format"
+                type="text"
+                maxlength="200"
+                spellcheck="false"
+                autocomplete="off"
+                aria-label="캡처 파일 이름 형식"
+              />
+              <button id="capture-filename-reset" type="button">기본값</button>
+            </div>
+            <div
+              class="capture-filename-tokens"
+              role="group"
+              aria-label="파일 이름에 넣을 항목"
+            >
+              <button
+                type="button"
+                data-capture-filename-token="채널"
+                title="채널 이름"
+              >
+                채널
+              </button>
+              <button
+                type="button"
+                data-capture-filename-token="제목"
+                title="방송·다시보기 제목"
+              >
+                제목
+              </button>
+              <button
+                type="button"
+                data-capture-filename-token="카테고리"
+                title="방송·다시보기 카테고리"
+              >
+                카테고리
+              </button>
+              <button
+                type="button"
+                data-capture-filename-token="날짜"
+                title="캡처한 날짜(예: 20261104)"
+              >
+                날짜
+              </button>
+              <button
+                type="button"
+                data-capture-filename-token="시각"
+                title="캡처한 시각(예: 213015)"
+              >
+                시각
+              </button>
+            </div>
+            <p
+              id="capture-filename-preview"
+              class="section-description capture-filename-preview"
+              aria-live="polite"
+            ></p>
+          </div>
         </section>
       </div>
 
@@ -658,7 +1031,10 @@
       >
         <section class="section">
           <h2>세션 캐시</h2>
-          <label class="toggle-row toggle-row-with-action">
+          <label
+            class="toggle-row toggle-row-with-action"
+            data-tooltip="새로고침하거나 채널을 다시 열어도 모아 둔 채팅을 유지합니다. 브라우저를 닫으면 지워집니다.&#10;- 채널마다 모아보기 팝업과 같이 최근 **500개**까지 저장합니다.&#10;- 구독권 선물에 나오는 **일반 시청자 닉네임**(배지·인증 마크·모아보기 대상이 아닌 사람)은 저장하지 않습니다. 화면에서 가려 두었다가 누르면 보여 줄 뿐이고, 캐시나 전체 백업에는 남지 않습니다."
+          >
             <input type="checkbox" id="enable-session-cache" />
             <span>채널 채팅 유지 (브라우저 종료 시 삭제)</span>
             <button
@@ -770,6 +1146,7 @@
       hidden
     ></div>
 
+    <script src="badge-popup/core/badge-popup-capture-name.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -615,6 +615,9 @@
       if (typeToneClass) {
         item.classList.add(typeToneClass);
       }
+      if (getGiftItemClass(entry)) {
+        item.classList.add("chzzk-badge-moa-item-gift-direct");
+      }
       const inlineMetaLabel = String(entry.typeLabel || "").trim();
       const keepInlineMetaOnOneLine = [
         "구독 선물",
@@ -774,11 +777,25 @@
       }
       const messageBody = document.createElement("span");
       messageBody.className = "chzzk-badge-moa-item-message-body";
-      const messageContent = buildMessageContentFn(entry.message, entry.emojis);
-      if (messageContent.childNodes.length > 0) {
+      const messageContent = entry.gift
+        ? buildGiftMessageContent(state, entry.gift, {
+            revealed:
+              state.revealedGiftKeys instanceof Set &&
+              state.revealedGiftKeys.has(entry.dedupeKey),
+            onReveal: () => {
+              if (!(state.revealedGiftKeys instanceof Set)) {
+                state.revealedGiftKeys = new Set();
+              }
+              state.revealedGiftKeys.add(entry.dedupeKey);
+            },
+          })
+        : buildMessageContentFn(entry.message, entry.emojis);
+      // 본문이 없으면(후원·구독만 한 경우 등) "(내용 없음)" 대신 본문 줄을 숨긴다.
+      const hasMessageBody = messageContent.childNodes.length > 0;
+      if (hasMessageBody) {
         messageBody.appendChild(messageContent);
       } else {
-        messageBody.textContent = "(내용 없음)";
+        messageBody.classList.add("is-empty");
       }
       message.appendChild(messageBody);
 
@@ -796,6 +813,9 @@
           cheeseRow.appendChild(cheese);
         });
         message.appendChild(cheeseRow);
+      }
+      if (!hasMessageBody && cheeseTags.length === 0) {
+        message.classList.add("is-empty");
       }
 
       item.append(head, message);
@@ -1755,7 +1775,142 @@
     return divider;
   }
 
+  // ── 구독권 선물 문구 ─────────────────────────────────────────────────
+  // 치지직 채팅처럼 부분별로 색을 다르게 그린다.
+  //  - 채널 무작위: "메리꺼 구독권 3개" 강조 + "를 채널에 선물하였습니다."
+  //  - 특정 사람: "ade1"·"베리 구독권" 강조. 받는 사람이 배지·모아보기 대상이
+  //    아닌 일반 시청자면 닉네임을 가려 두고(스포일러), 눌러야 보인다.
+  const ANONYMOUS_NICKNAME = "익명의 후원자";
+
+  function isGiftNicknameKnown(state, nickname, gift) {
+    const name = String(nickname || "").trim();
+    if (!name) return true;
+    if (name === ANONYMOUS_NICKNAME) return true;
+    if (gift?.receiverVerifiedMark === true && name === gift.receiverNickname) {
+      return true;
+    }
+    if (gift?.senderKnown === true && name === gift.senderNickname) return true;
+    const tracked = state?.settings?.trackedNicknames;
+    if (tracked instanceof Set && tracked.has(name)) return true;
+    const roleBadges = state?.nicknameRoleBadgesByNickname;
+    if (roleBadges instanceof Map) {
+      const badges = roleBadges.get(name);
+      if (Array.isArray(badges) && badges.length > 0) return true;
+    }
+    return false;
+  }
+
+  function createGiftHighlight(text, variant) {
+    const span = document.createElement("span");
+    span.className = `chzzk-badge-moa-gift-${variant}`;
+    span.textContent = text;
+    return span;
+  }
+
+  // revealed: 이미 눌러 본 상태인지 / onReveal(): 눌렀을 때 기억하기
+  function createGiftSpoiler(nickname, options = {}) {
+    const wrap = document.createElement("span");
+    wrap.className = "chzzk-badge-moa-gift-name chzzk-badge-moa-spoiler";
+    const text = document.createElement("span");
+    text.className = "chzzk-badge-moa-spoiler-text";
+    text.textContent = nickname;
+    wrap.appendChild(text);
+    if (options.revealed === true) {
+      wrap.classList.add("is-revealed");
+      return wrap;
+    }
+    // 토스트·목록 항목이 버튼이라 안에 버튼을 둘 수 없어 role="button" 으로 만든다.
+    wrap.setAttribute("role", "button");
+    wrap.setAttribute("tabindex", "0");
+    wrap.setAttribute("aria-label", "가려진 닉네임 보기");
+    wrap.title = "눌러서 닉네임 보기";
+    text.setAttribute("aria-hidden", "true");
+    const reveal = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (wrap.classList.contains("is-revealed")) return;
+      wrap.classList.add("is-revealed");
+      wrap.removeAttribute("role");
+      wrap.removeAttribute("tabindex");
+      wrap.removeAttribute("aria-label");
+      wrap.removeAttribute("title");
+      text.removeAttribute("aria-hidden");
+      if (typeof options.onReveal === "function") options.onReveal();
+    };
+    // 목록 항목의 클릭(캡처 선택·팝업 열기 등)으로 번지지 않게 누르는 순간부터 막는다.
+    ["pointerdown", "mousedown"].forEach((type) => {
+      wrap.addEventListener(type, (event) => event.stopPropagation());
+    });
+    wrap.addEventListener("click", reveal);
+    wrap.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") reveal(event);
+    });
+    return wrap;
+  }
+
+  function createGiftNickname(state, nickname, gift, options = {}) {
+    if (isGiftNicknameKnown(state, nickname, gift)) {
+      return createGiftHighlight(nickname, "name");
+    }
+    return createGiftSpoiler(nickname, options);
+  }
+
+  // options: { revealed: boolean, onReveal: fn }
+  function buildGiftMessageContent(state, gift, options = {}) {
+    const fragment = document.createDocumentFragment();
+    if (!gift || typeof gift !== "object") return fragment;
+    const label = gift.tierName ? `${gift.tierName} 구독권` : "구독권";
+    const text = (value) => fragment.appendChild(document.createTextNode(value));
+    switch (gift.mode) {
+      case "random":
+        fragment.appendChild(
+          createGiftHighlight(`${label} ${gift.quantity}개`, "amount"),
+        );
+        text("를 채널에 선물하였습니다.");
+        break;
+      case "direct":
+        // 캐시에서 복원한 항목은 일반 시청자 닉네임이 빠져 있을 수 있다.
+        if (gift.receiverNickname) {
+          fragment.appendChild(
+            createGiftNickname(state, gift.receiverNickname, gift, options),
+          );
+          text("님에게 ");
+        }
+        fragment.appendChild(createGiftHighlight(label, "tier"));
+        text("을 선물하였습니다.");
+        break;
+      case "received":
+        // 보낸 사람이 일반 시청자면 받는 사람과 같이 가려 둔다.
+        if (gift.senderNickname && gift.senderNickname !== gift.receiverNickname) {
+          fragment.appendChild(
+            createGiftNickname(state, gift.senderNickname, gift, options),
+          );
+          text("님에게 ");
+        }
+        fragment.appendChild(createGiftHighlight(label, "tier"));
+        text("을 선물받았습니다.");
+        break;
+      default:
+        fragment.appendChild(createGiftHighlight(label, "tier"));
+        text(
+          gift.quantity > 1
+            ? `을 ${gift.quantity}개 선물하였습니다.`
+            : "을 선물하였습니다.",
+        );
+    }
+    return fragment;
+  }
+
+  // 특정 사람에게 준 선물(보낸 쪽·받은 쪽)은 회색 바탕으로 따로 칠한다.
+  function getGiftItemClass(entry) {
+    const mode = entry?.gift?.mode;
+    return mode === "direct" || mode === "received" ? "is-gift-direct" : "";
+  }
+
   ns.renderApi = {
+    isGiftNicknameKnown,
+    buildGiftMessageContent,
+    getGiftItemClass,
     render,
     renderPill,
     renderPillIdentity,

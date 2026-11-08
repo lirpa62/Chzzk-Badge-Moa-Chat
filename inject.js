@@ -1451,12 +1451,16 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         safeItem.userNickname ||
         "",
     });
+    const isAnonymousSender =
+      safeItem.uid === "anonymous" ||
+      safeItem.userId === "anonymous" ||
+      safeItem.userIdHash === "anonymous" ||
+      extras.isAnonymous === true;
+    // 익명 선물은 보낸 사람 프로필이 없어 닉네임이 비므로 "익명의 후원자"로 둔다.
     const senderDisplayNickname = getGiftEventSenderDisplayNickname({
-      senderNickname: senderRawNickname,
-      isAnonymous:
-        safeItem.uid === "anonymous" ||
-        safeItem.userIdHash === "anonymous" ||
-        extras.isAnonymous === true,
+      senderNickname:
+        senderRawNickname || (isAnonymousSender ? "익명의 후원자" : ""),
+      isAnonymous: isAnonymousSender,
       senderUserRoleCode: senderProfile?.userRoleCode || "",
       senderVerifiedMark: hasVerifiedMark(senderProfile),
       senderBadge: senderProfile?.badge || null,
@@ -1489,7 +1493,11 @@ if (!window.__chzzkBadgeMoaMainInjected) {
       selectionType: extras.selectionType,
       quantity: extras.quantity || 1,
       receiverNickname,
-      senderNickname: senderDisplayNickname,
+      // 보낸 사람이 일반 시청자면 화면에서 가려 두고(눌러야 보임), 배지가 있으면 그대로 보인다.
+      senderNickname:
+        senderRawNickname ||
+        (isAnonymousSender ? "익명의 후원자" : senderDisplayNickname),
+      senderKnown: !!senderDisplayNickname && senderDisplayNickname !== "???",
     };
 
     return {
@@ -1531,6 +1539,17 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         safeBody.senderName ||
         "",
     );
+  }
+
+  // 구독권 선물의 보낸 사람: 실제 닉네임과 배지(역할·인증 마크) 여부.
+  // 화면에서는 배지가 없는 일반 시청자 닉네임을 가려 둔다.
+  function getGiftSenderFields(bdy) {
+    const display = getGiftEventSenderDisplayNickname(bdy);
+    const raw = getGiftEventSenderRawNickname(bdy);
+    return {
+      senderNickname: display === "???" ? raw : display || raw,
+      senderKnown: !!display && display !== "???",
+    };
   }
 
   function getGiftEventSenderDisplayNickname(bdy) {
@@ -2058,8 +2077,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     if (!safeItem) return;
 
     const adaptedItem = {
-      ...safeItem,
-      uid: safeItem.uid || safeItem.userIdHash || "",
+      ...adaptChatItemFields(safeItem),
       msgTypeCode: safeItem.msgTypeCode || safeItem.messageTypeCode || 0,
       msg: safeItem.msg || safeItem.content || "",
       msgTime: safeItem.msgTime || safeItem.messageTime || Date.now(),
@@ -2337,9 +2355,33 @@ if (!window.__chzzkBadgeMoaMainInjected) {
     }
   };
 
+  // 채팅 항목의 필드 이름 맞추기.
+  // - 실시간(93101/93102): uid, msg, msgTypeCode, msgTime (짧은 이름)
+  // - 최근 채팅 내역(15101 messageList): userId, content, messageTypeCode, messageTime
+  // - 다시보기 API: userIdHash, content, messageTypeCode, messageTime
+  // 파서는 짧은 이름을 기준으로 보므로 긴 이름만 있으면 채워 둔다.
+  // (특히 익명 후원은 userId: "anonymous" 로만 와서, 이걸 못 읽으면 닉네임이 비어 버려진다.)
+  function adaptChatItemFields(item) {
+    if (!item || typeof item !== "object") return item;
+    const adapted = { ...item };
+    if (!adapted.uid) adapted.uid = item.userId || item.userIdHash || "";
+    if (adapted.msg === undefined && item.content !== undefined) {
+      adapted.msg = item.content;
+    }
+    if (!adapted.msgTypeCode && item.messageTypeCode) {
+      adapted.msgTypeCode = item.messageTypeCode;
+    }
+    if (!adapted.msgTime && item.messageTime) {
+      adapted.msgTime = item.messageTime;
+    }
+    return adapted;
+  }
+
   // [공통] 메시지 파싱 및 전송
   function parseAndSend(list) {
-    list.forEach((item) => {
+    list.forEach((rawItem) => {
+      const item = adaptChatItemFields(rawItem);
+      if (!item || typeof item !== "object") return;
       let payload = null;
 
       // A. 시스템 메시지 (관리자 채팅 활성화, 운영자 임명 등)
@@ -2466,6 +2508,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         selectionType: extras.selectionType,
         quantity: extras.quantity || 1,
         receiverNickname: extras.receiverNickname,
+        receiverVerifiedMark: extras.receiverVerifiedMark === true,
         senderNickname: nickname,
       };
       isGift = true;
@@ -2609,7 +2652,7 @@ if (!window.__chzzkBadgeMoaMainInjected) {
         selectionType: bdy.selectionType,
         quantity: bdy.quantity || bdy.count || 1,
         receiverNickname: receiverNickname,
-        senderNickname: getGiftEventSenderDisplayNickname(bdy),
+        ...getGiftSenderFields(bdy),
       };
       const messageKey = String(
         bdy.msgTid ||

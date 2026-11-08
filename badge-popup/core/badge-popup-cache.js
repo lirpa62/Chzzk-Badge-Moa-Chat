@@ -16,6 +16,45 @@
     "purchase",
   ]);
 
+
+  // 닉네임을 뺀 구독권 선물의 평문 문구
+  function buildPlainGiftText(gift) {
+    const label = gift.tierName ? `${gift.tierName} 구독권` : "구독권";
+    switch (gift.mode) {
+      case "random":
+        return `${label} ${gift.quantity}개를 채널에 선물하였습니다.`;
+      case "direct":
+        return gift.receiverNickname
+          ? `${gift.receiverNickname}님에게 ${label}을 선물하였습니다.`
+          : `${label}을 선물하였습니다.`;
+      case "received":
+        return gift.senderNickname
+          ? `${gift.senderNickname}님에게 ${label}을 선물받았습니다.`
+          : `${label}을 선물받았습니다.`;
+      default:
+        return gift.quantity > 1
+          ? `${label}을 ${gift.quantity}개 선물하였습니다.`
+          : `${label}을 선물하였습니다.`;
+    }
+  }
+
+  // 구독권 선물 표시 정보(entry.gift) 캐시 정리
+  const GIFT_VIEW_MODES = new Set(["random", "direct", "received", "plain"]);
+  function normalizeCachedGiftView(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const mode = String(raw.mode || "");
+    if (!GIFT_VIEW_MODES.has(mode)) return null;
+    return {
+      mode,
+      tierName: String(raw.tierName || "").slice(0, 40),
+      quantity: Math.max(1, Math.min(9999, Number(raw.quantity || 0) || 1)),
+      receiverNickname: String(raw.receiverNickname || "").slice(0, 40),
+      senderNickname: String(raw.senderNickname || "").slice(0, 40),
+      senderKnown: raw.senderKnown === true,
+      receiverVerifiedMark: raw.receiverVerifiedMark === true,
+    };
+  }
+
   function isSessionCacheEnabled(state) {
     return state.settings.enableSessionCache === true;
   }
@@ -455,6 +494,10 @@
     if (typeof deps.render === "function") {
       deps.render();
     }
+    // 복원이 끝난 뒤(읽지 않은 채팅 토스트 다시 띄우기 등)
+    if (typeof deps.onRestored === "function") {
+      deps.onRestored();
+    }
   }
 
   function serializeUnseenStateForCache(state, deps = {}) {
@@ -580,6 +623,34 @@
       typeTone: String(entry.typeTone || "neutral"),
       sequence: Number(entry.sequence || 0) || 0,
     };
+    const gift = normalizeCachedGiftView(entry.gift);
+    if (gift) {
+      // 구독권 선물의 일반 시청자 닉네임(배지·인증 마크·모아보기 대상이 아닌 사람)은
+      // 화면에서만 가려 보여 주고 저장하지 않는다(세션 캐시·전체 백업에 남지 않게).
+      const isKnown =
+        typeof deps.isGiftNicknameKnown === "function"
+          ? deps.isGiftNicknameKnown
+          : () => false;
+      let stripped = false;
+      if (
+        gift.mode !== "received" &&
+        gift.receiverNickname &&
+        !isKnown(gift.receiverNickname, gift)
+      ) {
+        gift.receiverNickname = "";
+        stripped = true;
+      }
+      if (
+        gift.senderNickname &&
+        !gift.senderKnown &&
+        !isKnown(gift.senderNickname, gift)
+      ) {
+        gift.senderNickname = "";
+        stripped = true;
+      }
+      serialized.gift = gift;
+      if (stripped) serialized.message = buildPlainGiftText(gift);
+    }
 
     // 세션 캐시에는 프로필 카드 조회용 userIdHash만 (유효한 32자 hex일 때) 포함
     const authorUserIdHash = String(entry.authorUserIdHash || "").trim();
@@ -670,6 +741,7 @@
       typeLabel: String(rawEntry.typeLabel || "").trim(),
       typeTone: String(rawEntry.typeTone || "neutral").trim() || "neutral",
       sequence: Number(rawEntry.sequence || 0) || index,
+      gift: normalizeCachedGiftView(rawEntry.gift),
     };
 
     const rawHash = String(rawEntry.authorUserIdHash || "").trim();

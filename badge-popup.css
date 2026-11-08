@@ -48,6 +48,7 @@
   --chzzk-badge-moa-c-surface-function-subscribe-tier1: #3e34af;
   --chzzk-badge-moa-c-ref-color-brand-neon-65: #00b272;
   --chzzk-badge-moa-c-ref-color-red-60: #c00;
+  --chzzk-badge-moa-c-ref-color-violet-40: #7a7aff;
 }
 
 html.theme_dark,
@@ -584,6 +585,11 @@ html[style*="color-scheme: dark"]
   pointer-events: auto;
 }
 
+/* 채팅창이 왼쪽에 있으면 대화상자도 왼쪽에 띄운다(JS가 is-align-start를 붙임). */
+.chzzk-badge-moa-confirm-modal.is-open.is-align-start {
+  justify-content: flex-start;
+}
+
 .chzzk-badge-moa-confirm-backdrop {
   position: absolute;
   inset: 0;
@@ -734,6 +740,7 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
   min-height: 22px;
 }
 
@@ -838,8 +845,25 @@ html[style*="color-scheme: light"] .chzzk-badge-moa-confirm-btn.is-danger {
 
 .chzzk-badge-moa-popup-subactions {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+}
+
+/* 좁은 폭에서 버튼 글자가 줄바꿈되어 버튼 밖으로 넘치지 않게 한다. */
+.chzzk-badge-moa-view-mode-btn,
+.chzzk-badge-moa-popup-filter-toggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 자리가 모자라면(JS가 is-compact를 붙임) 보기 방식 버튼은 아이콘만 남긴다. */
+.chzzk-badge-moa-popup-head-bottom.is-compact .chzzk-badge-moa-view-mode-label {
+  display: none;
+}
+
+.chzzk-badge-moa-popup-head-bottom.is-compact .chzzk-badge-moa-view-mode-btn {
+  padding: 0 5px;
 }
 
 .chzzk-badge-moa-popup-view-modes {
@@ -2236,6 +2260,7 @@ html[style*="color-scheme: light"]
 }
 
 .chzzk-badge-moa-capture-preview-cancel,
+.chzzk-badge-moa-capture-preview-copy,
 .chzzk-badge-moa-capture-preview-save {
   min-width: 64px;
   height: 32px;
@@ -2255,9 +2280,61 @@ html[style*="color-scheme: light"]
   );
 }
 
+.chzzk-badge-moa-capture-preview-copy,
 .chzzk-badge-moa-capture-preview-save {
   color: #071a13;
   background: #00e6a7;
+}
+
+/* 설정한 버튼 동작이 아닌 쪽(저장/복사)은 보조 버튼으로 표시한다. */
+.chzzk-badge-moa-capture-preview-copy.is-secondary,
+.chzzk-badge-moa-capture-preview-save.is-secondary {
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  background: var(
+    --sem-color-surface-neutral-strong,
+    var(--chzzk-badge-moa-c-surface-neutral-strong)
+  );
+}
+
+.chzzk-badge-moa-capture-preview-copy:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* 클립보드 복사 결과 안내 */
+.chzzk-badge-moa-capture-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  z-index: 14;
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(20, 22, 27, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: none;
+}
+
+.chzzk-badge-moa-capture-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.chzzk-badge-moa-capture-toast.is-error {
+  background: rgba(190, 38, 64, 0.94);
 }
 
 .chzzk-badge-moa-item.chzzk-badge-moa-item-original-chat {
@@ -5231,4 +5308,1124 @@ html:not(.theme_dark):not([data-theme="dark"]):not(
     rgba(37, 99, 235, 0.07)
   );
   border-color: rgba(59, 130, 246, 0.66);
+}
+
+/* === 새 배지 채팅 토스트 알림 ===
+   채팅 헤더 바로 아래(JS가 fixed 좌표를 잡음)에서 위→아래로 내려온다. */
+.chzzk-badge-moa-toast {
+  --chzzk-badge-moa-toast-accent: #00a877;
+  --chzzk-badge-moa-toast-warn: #c2410c;
+  --chzzk-badge-moa-toast-bg: #fff;
+  --chzzk-badge-moa-toast-border: rgba(0, 168, 119, 0.38);
+  --chzzk-badge-moa-toast-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.26),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  position: fixed;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  font-family:
+    "Pretendard Variable",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Malgun Gothic",
+    맑은 고딕,
+    Helvetica,
+    Arial,
+    sans-serif;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0.22s;
+}
+
+html.theme_dark .chzzk-badge-moa-toast,
+html[data-theme="dark"] .chzzk-badge-moa-toast,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-toast {
+  --chzzk-badge-moa-toast-accent: #34e3a9;
+  --chzzk-badge-moa-toast-warn: #fbbf24;
+  /* 채팅창(#141517)·고정 메시지보다 한 단계 밝은 표면 */
+  --chzzk-badge-moa-toast-bg: #2a2d31;
+  --chzzk-badge-moa-toast-border: rgba(52, 227, 169, 0.34);
+  --chzzk-badge-moa-toast-stack-bg: #24272b;
+  --chzzk-badge-moa-toast-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+/* 카드: 배경·테두리·그림자. 겹친 카드 모양이 잘리지 않도록 토스트 바깥 틀과 나눈다. */
+.chzzk-badge-moa-toast-card {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-radius: 10px;
+  background: var(--chzzk-badge-moa-toast-bg);
+  box-shadow: var(--chzzk-badge-moa-toast-shadow);
+  overflow: hidden;
+}
+/* 알림 목록 모드: 여러 개가 쌓이면 카드 아래로 두 장이 겹쳐 보인다. */
+.chzzk-badge-moa-toast-stack {
+  display: none;
+}
+.chzzk-badge-moa-toast.is-stacked:not(.is-expanded) .chzzk-badge-moa-toast-stack {
+  display: block;
+}
+.chzzk-badge-moa-toast-stack > span {
+  position: absolute;
+  top: 100%;
+  box-sizing: border-box;
+  height: 6px;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--chzzk-badge-moa-toast-stack-bg, #f3f4f6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
+}
+.chzzk-badge-moa-toast-stack > span:first-child {
+  left: 8px;
+  right: 8px;
+}
+.chzzk-badge-moa-toast-stack > span:last-child {
+  top: calc(100% + 6px);
+  left: 16px;
+  right: 16px;
+  height: 5px;
+  opacity: 0.75;
+}
+/* 남은 개수(+N) */
+.chzzk-badge-moa-toast-more {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin: 1px 0 0 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--chzzk-badge-moa-toast-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+html.theme_dark .chzzk-badge-moa-toast-more,
+html[data-theme="dark"] .chzzk-badge-moa-toast-more,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-toast-more {
+  color: #111;
+}
+.chzzk-badge-moa-toast-more[hidden] {
+  display: none;
+}
+/* 펼친 알림 목록 */
+.chzzk-badge-moa-toast.is-expanded .chzzk-badge-moa-toast-body,
+.chzzk-badge-moa-toast.is-expanded .chzzk-badge-moa-toast-close {
+  display: none;
+}
+.chzzk-badge-moa-toast-panel {
+  flex: 1 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chzzk-badge-moa-toast-panel[hidden] {
+  display: none;
+}
+/* 펼치면 하나의 큰 카드가 아니라 아이폰 알림처럼 채팅마다 따로 떠 있는 카드로 보인다. */
+.chzzk-badge-moa-toast.is-expanded .chzzk-badge-moa-toast-card {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.chzzk-badge-moa-toast-panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 0 8px;
+}
+/* 머리줄의 개수·버튼은 각각 작은 알약 모양으로 띄운다. */
+.chzzk-badge-moa-toast-panel-title,
+.chzzk-badge-moa-toast-panel-btn,
+.chzzk-badge-moa-toast-panel-collapse,
+.chzzk-badge-moa-toast-panel-icon,
+.chzzk-badge-moa-toast-list-more {
+  box-sizing: border-box;
+  height: 26px;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-radius: 999px;
+  background: var(--chzzk-badge-moa-toast-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.chzzk-badge-moa-toast-panel-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+.chzzk-badge-moa-toast-new {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--chzzk-badge-moa-toast-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 17px;
+  letter-spacing: 0.02em;
+}
+html.theme_dark .chzzk-badge-moa-toast-new,
+html[data-theme="dark"] .chzzk-badge-moa-toast-new,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-toast-new {
+  color: #111;
+}
+/* 스크롤하면 제목 옆에 지금 보는 날짜(줄임) */
+.chzzk-badge-moa-toast-panel-date {
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* 개수와 날짜 사이 세로 구분선 */
+.chzzk-badge-moa-toast-panel-date {
+  display: inline-flex;
+  align-items: center;
+}
+.chzzk-badge-moa-toast-panel-date::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 1px;
+  height: 11px;
+  margin: 0 6px 0 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.chzzk-badge-moa-toast-panel-date[hidden] {
+  display: none;
+}
+.chzzk-badge-moa-toast-panel-btn-icon {
+  display: none;
+}
+/* 채팅창이 좁을 때: "New"·"개"를 빼고 숫자만 색 알약으로, "모두 지우기"는 아이콘만 */
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-new,
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-unit,
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-btn-label,
+/* 아주 좁으면 개수와 날짜 중 하나만: 스크롤해 날짜가 보이는 동안은 날짜, 아니면 개수 */
+.chzzk-badge-moa-toast-panel-head.is-tight.has-date .chzzk-badge-moa-toast-panel-count,
+.chzzk-badge-moa-toast-panel-head.is-tight .chzzk-badge-moa-toast-panel-date::before,
+.chzzk-badge-moa-toast-panel-head.is-tighter .chzzk-badge-moa-toast-order-btn {
+  display: none;
+}
+/* 줄인 모양: 제목 알약 전체를 접힌 알림의 "+N"(toast-more)처럼 초록 알약으로 */
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-title {
+  min-width: 26px;
+  justify-content: center;
+  padding: 0 9px;
+  border-color: var(--chzzk-badge-moa-toast-accent);
+  background: var(--chzzk-badge-moa-toast-accent);
+  color: #fff;
+}
+html.theme_dark .chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-title,
+html[data-theme="dark"] .chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-title,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-title {
+  color: #111;
+}
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-num {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-date {
+  color: inherit;
+  opacity: 0.8;
+}
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+}
+.chzzk-badge-moa-toast-panel-head.is-compact .chzzk-badge-moa-toast-panel-btn-icon {
+  display: block;
+}
+.chzzk-badge-moa-toast-panel-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.chzzk-badge-moa-toast-panel-btn {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chzzk-badge-moa-toast-panel-collapse,
+.chzzk-badge-moa-toast-panel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  margin: 0;
+  padding: 0;
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  cursor: pointer;
+}
+.chzzk-badge-moa-toast-panel-btn:hover,
+.chzzk-badge-moa-toast-panel-collapse:hover,
+.chzzk-badge-moa-toast-panel-icon:hover,
+.chzzk-badge-moa-toast-panel-icon[aria-expanded="true"],
+.chzzk-badge-moa-toast-list-more:hover {
+  border-color: var(--chzzk-badge-moa-toast-accent);
+}
+.chzzk-badge-moa-toast-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 높이 조절 값(max-height)에 여백까지 포함해 끌 때 튀지 않게 한다. */
+  box-sizing: border-box;
+  /* 카드 그림자가 스크롤 영역에 잘리지 않도록 여백을 둔다.
+     좌우 여백은 채팅창 안쪽(토스트 좌우 8px 여백 안)까지만: 스크롤바가 채팅창 밖으로 나가지 않게. */
+  margin: -6px -7px -22px;
+  padding: 6px 7px 22px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 127, 127, 0.45) transparent;
+}
+.chzzk-badge-moa-toast-item {
+  flex: 0 0 auto;
+  display: flex;
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  background: var(--chzzk-badge-moa-toast-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease;
+}
+.chzzk-badge-moa-toast-item:hover {
+  border-color: var(--chzzk-badge-moa-toast-accent);
+}
+.chzzk-badge-moa-toast-item:active {
+  transform: scale(0.99);
+}
+.chzzk-badge-moa-toast-item .chzzk-badge-moa-toast-message {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+/* 날짜 머리글: 카드 밖, 날짜가 바뀌는 곳마다.
+   (위에 고정하면 맨 위 카드의 닉네임을 가려서 고정하지 않는다.) */
+.chzzk-badge-moa-toast-date {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  display: flex;
+  margin: 0 0 -2px 2px;
+  pointer-events: none;
+}
+.chzzk-badge-moa-toast-date-text {
+  padding: 2px 8px;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-radius: 999px;
+  background: var(--chzzk-badge-moa-toast-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02, inherit));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chzzk-badge-moa-toast-capture-stage .chzzk-badge-moa-toast-date-text {
+  box-shadow: none;
+}
+.chzzk-badge-moa-toast-list-more {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0;
+  padding: 0 12px;
+  color: var(--chzzk-badge-moa-toast-accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chzzk-badge-moa-toast-panel-icon svg {
+  width: 15px;
+  height: 15px;
+}
+/* 캡처 메뉴: (가) 모아보기에서 골라 캡처 / (나) 카드 이미지로 */
+.chzzk-badge-moa-toast-capture-wrap {
+  display: inline-flex;
+}
+/* 메뉴는 머리줄 버튼 묶음의 오른쪽 끝에 맞춰 토스트 밖으로 넘치지 않게 한다. */
+.chzzk-badge-moa-toast-panel-actions {
+  position: relative;
+}
+.chzzk-badge-moa-toast-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 2;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--chzzk-badge-moa-toast-border);
+  border-radius: 12px;
+  background: var(--chzzk-badge-moa-toast-bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+.chzzk-badge-moa-toast-menu-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chzzk-badge-moa-toast-menu-item:hover:not(:disabled),
+.chzzk-badge-moa-toast-menu-item:focus-visible {
+  outline: none;
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+}
+.chzzk-badge-moa-toast-menu-item:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.chzzk-badge-moa-toast-menu-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+.chzzk-badge-moa-toast-menu-desc {
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+/* 카드 캡처 진행 상태: 머리줄 제목 자리에 스피너 → 체크(실패 ✕) */
+.chzzk-badge-moa-toast-panel-title.has-status > :not(.chzzk-badge-moa-toast-panel-status) {
+  display: none;
+}
+.chzzk-badge-moa-toast-panel-title.has-status {
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+}
+.chzzk-badge-moa-toast-panel-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+.chzzk-badge-moa-toast-panel-status .blind {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.chzzk-badge-moa-toast-status-spinner {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(127, 127, 127, 0.3);
+  border-top-color: var(--chzzk-badge-moa-toast-accent);
+  border-radius: 50%;
+  animation: chzzk-badge-moa-toast-spin 0.7s linear infinite;
+}
+@keyframes chzzk-badge-moa-toast-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.chzzk-badge-moa-toast-panel-status svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chzzk-badge-moa-toast-panel-status[data-variant="done"] svg {
+  stroke: var(--chzzk-badge-moa-toast-accent);
+}
+.chzzk-badge-moa-toast-panel-status[data-variant="error"] svg {
+  stroke: var(--chzzk-badge-moa-toast-warn);
+}
+.chzzk-badge-moa-toast-panel-status svg .ring {
+  stroke-dasharray: 57;
+  stroke-dashoffset: 57;
+  animation: chzzk-badge-moa-toast-draw 0.35s ease-out forwards;
+}
+.chzzk-badge-moa-toast-panel-status svg .mark {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: chzzk-badge-moa-toast-draw 0.25s ease-out 0.3s forwards;
+}
+@keyframes chzzk-badge-moa-toast-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chzzk-badge-moa-toast-status-spinner {
+    animation-duration: 1.6s;
+  }
+  .chzzk-badge-moa-toast-panel-status svg .ring,
+  .chzzk-badge-moa-toast-panel-status svg .mark {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+/* 카드 이미지 캡처용 무대(화면 밖) */
+.chzzk-badge-moa-toast-capture-stage {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  pointer-events: none;
+}
+.chzzk-badge-moa-toast-capture-surface {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+.chzzk-badge-moa-toast-capture-stage .chzzk-badge-moa-toast-item {
+  box-shadow: none;
+  transform: none;
+}
+/* 펼친 목록 뒤의 채팅창을 흐리게 덮는 막 */
+.chzzk-badge-moa-toast-backdrop {
+  position: fixed;
+  z-index: 2147482999;
+  /* 펼친 목록 아래 여유분 끝에서 자연스럽게 사라지게 */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  background: rgba(255, 255, 255, 0.45);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    visibility 0s linear 0.18s;
+}
+html.theme_dark .chzzk-badge-moa-toast-backdrop,
+html[data-theme="dark"] .chzzk-badge-moa-toast-backdrop,
+html[style*="color-scheme: dark"] .chzzk-badge-moa-toast-backdrop {
+  background: rgba(10, 11, 13, 0.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .chzzk-badge-moa-toast-backdrop {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  html.theme_dark .chzzk-badge-moa-toast-backdrop,
+  html[data-theme="dark"] .chzzk-badge-moa-toast-backdrop,
+  html[style*="color-scheme: dark"] .chzzk-badge-moa-toast-backdrop {
+    background: rgba(10, 11, 13, 0.82);
+  }
+}
+.chzzk-badge-moa-toast-backdrop.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.18s ease,
+    visibility 0s linear 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chzzk-badge-moa-toast-backdrop {
+    transition: none;
+  }
+}
+/* 펼친 카드의 특수 채팅(후원·구독·미션 등): 모아보기 팝업과 같은 색.
+   접힌 토스트는 칩 모양을 그대로 쓴다. */
+.chzzk-badge-moa-toast-item.is-typed {
+  border-color: transparent;
+  color: var(
+    --sem-color-content-neutral-primary-static,
+    var(--chzzk-badge-moa-c-content-neutral-primary-static, #fff)
+  );
+}
+.chzzk-badge-moa-toast-item.is-typed .chzzk-badge-moa-toast-nickname,
+.chzzk-badge-moa-toast-item.is-typed .chzzk-badge-moa-toast-message {
+  color: inherit !important;
+}
+.chzzk-badge-moa-toast-item.is-typed .chzzk-badge-moa-toast-time {
+  color: inherit;
+  opacity: 0.8;
+}
+.chzzk-badge-moa-toast-item.is-typed:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+.chzzk-badge-moa-toast-item.is-type-donation-brick {
+  background: var(--sem-color-surface-function-donation-brick, var(--chzzk-badge-moa-c-surface-function-donation-brick));
+}
+.chzzk-badge-moa-toast-item.is-type-donation-camel {
+  background: var(--sem-color-surface-function-donation-camel, var(--chzzk-badge-moa-c-surface-function-donation-camel));
+}
+.chzzk-badge-moa-toast-item.is-type-donation-green {
+  background: var(--sem-color-surface-function-donation-green, var(--chzzk-badge-moa-c-surface-function-donation-green));
+}
+.chzzk-badge-moa-toast-item.is-type-donation-cyan {
+  background: var(--sem-color-surface-function-donation-cyan, var(--chzzk-badge-moa-c-surface-function-donation-cyan));
+}
+.chzzk-badge-moa-toast-item.is-type-donation-violet {
+  background: var(--sem-color-surface-function-donation-dark-violet, var(--chzzk-badge-moa-c-surface-function-donation-dark-violet));
+}
+.chzzk-badge-moa-toast-item.is-type-donation-neutral {
+  background: var(--sem-color-surface-function-donation-neutral, var(--chzzk-badge-moa-c-surface-function-donation-neutral));
+}
+.chzzk-badge-moa-toast-item.is-type-subscription {
+  background: var(
+    --sem-color-surface-function-subscribe-tier1,
+    var(--chzzk-badge-moa-c-surface-function-subscribe-tier1)
+  );
+  border-color: rgba(166, 83, 209, 0.58);
+}
+/* 반투명 색(영상·미션·파티)은 카드 바탕 위에 겹쳐 칠한다. */
+.chzzk-badge-moa-toast-item.is-type-video {
+  background: linear-gradient(rgba(34, 140, 220, 0.26), rgba(34, 140, 220, 0.26))
+    var(--chzzk-badge-moa-toast-bg);
+}
+.chzzk-badge-moa-toast-item.is-type-mission,
+.chzzk-badge-moa-toast-item.is-type-mission-success {
+  background: linear-gradient(rgba(30, 179, 93, 0.26), rgba(30, 179, 93, 0.26))
+    var(--chzzk-badge-moa-toast-bg);
+}
+.chzzk-badge-moa-toast-item.is-type-mission-failed {
+  background: var(--ref-color-red-60, var(--chzzk-badge-moa-c-ref-color-red-60));
+}
+.chzzk-badge-moa-toast-item.is-type-party {
+  background: linear-gradient(rgba(197, 138, 42, 0.28), rgba(197, 138, 42, 0.28))
+    var(--chzzk-badge-moa-toast-bg);
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-brick
+  ) {
+  background: var(--sem-color-surface-function-donation-brick, var(--chzzk-badge-moa-c-surface-function-donation-brick));
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-camel
+  ) {
+  background: var(--sem-color-surface-function-donation-camel, var(--chzzk-badge-moa-c-surface-function-donation-camel));
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-green
+  ) {
+  background: var(--sem-color-surface-function-donation-green, var(--chzzk-badge-moa-c-surface-function-donation-green));
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-cyan
+  ) {
+  background: var(--sem-color-surface-function-donation-cyan, var(--chzzk-badge-moa-c-surface-function-donation-cyan));
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-violet
+  ) {
+  background: var(--sem-color-surface-function-donation-dark-violet, var(--chzzk-badge-moa-c-surface-function-donation-dark-violet));
+}
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success):has(
+    .chzzk-badge-moa-item-cheese-amount.is-donation-neutral
+  ) {
+  background: var(--sem-color-surface-function-donation-neutral, var(--chzzk-badge-moa-c-surface-function-donation-neutral));
+}
+/* 반투명 색 위에서는 라이트 모드에서도 읽히도록 기본 글자색을 쓴다
+   (후원이 붙어 진한 후원 색이 되면 흰 글자). */
+.chzzk-badge-moa-toast-item:is(.is-type-video, .is-type-mission, .is-type-mission-success, .is-type-party):not(:has(.chzzk-badge-moa-item-cheese-amount)) {
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+}
+/* 펼친 카드의 종류 태그·치즈 배지 */
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-tags {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  margin: 0 0 0 4px;
+  overflow: hidden;
+}
+.chzzk-badge-moa-toast-cheese {
+  margin-top: 2px;
+}
+/* 펼친 목록 높이 조절 손잡이(모아보기 팝업 아래 손잡이와 같은 모양) */
+.chzzk-badge-moa-toast-resizer {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 14px;
+  height: 14px;
+  /* 목록 아래 그림자 여백(-22px)을 지나 카드와 겹치지 않는 자리에 둔다. */
+  margin-top: 24px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.chzzk-badge-moa-toast-resizer::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%);
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+.chzzk-badge-moa-toast-resizer:hover::before,
+.chzzk-badge-moa-toast.is-resizing .chzzk-badge-moa-toast-resizer::before {
+  width: 44px;
+  background: var(--chzzk-badge-moa-toast-accent);
+}
+.chzzk-badge-moa-toast-resizer:focus-visible {
+  outline: none;
+}
+.chzzk-badge-moa-toast-resizer:focus-visible::before {
+  background: var(--chzzk-badge-moa-toast-accent);
+  box-shadow: 0 0 0 2px rgba(0, 168, 119, 0.35);
+}
+.chzzk-badge-moa-toast.is-resizing,
+.chzzk-badge-moa-toast.is-resizing * {
+  cursor: ns-resize !important;
+  user-select: none;
+}
+/* 채팅 시각(알림 목록 모드): 머리줄 오른쪽 끝 */
+.chzzk-badge-moa-toast-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chzzk-badge-moa-toast-item:focus-visible,
+.chzzk-badge-moa-toast-panel-btn:focus-visible,
+.chzzk-badge-moa-toast-panel-collapse:focus-visible,
+.chzzk-badge-moa-toast-body:focus-visible,
+.chzzk-badge-moa-toast-close:focus-visible {
+  outline: 2px solid var(--chzzk-badge-moa-toast-accent);
+  outline-offset: -2px;
+}
+/* 토스트 목록에서 고른 채팅: 모아보기 팝업에서 잠깐 강조한다. */
+.chzzk-badge-moa-item.chzzk-badge-moa-item-toast-focus {
+  animation: chzzk-badge-moa-toast-focus 1.8s ease-out;
+}
+@keyframes chzzk-badge-moa-toast-focus {
+  0%,
+  35% {
+    box-shadow: inset 0 0 0 2px #00a877;
+    background-color: rgba(0, 168, 119, 0.16);
+  }
+  100% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chzzk-badge-moa-item.chzzk-badge-moa-item-toast-focus {
+    animation: none;
+    box-shadow: inset 0 0 0 2px #00a877;
+  }
+}
+
+.chzzk-badge-moa-toast.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chzzk-badge-moa-toast,
+  .chzzk-badge-moa-toast.is-visible {
+    transform: none;
+    transition: none;
+  }
+}
+
+.chzzk-badge-moa-toast-body {
+  /* 카드가 줄바꿈(flex-wrap)되므로 기준 너비를 0 으로 두어 닫기 버튼이 밀려나지 않게 한다. */
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  padding: 9px 4px 9px 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-toast-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 6px 6px 0 0;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  cursor: pointer;
+}
+
+.chzzk-badge-moa-toast-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chzzk-badge-moa-toast-close:hover,
+.chzzk-badge-moa-toast-body:hover {
+  background: var(
+    --sem-color-surface-neutral-weak,
+    var(--chzzk-badge-moa-c-surface-neutral-weak)
+  );
+}
+
+.chzzk-badge-moa-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  line-height: 18px;
+}
+
+/* 요약은 닉네임과 문장을 한 흐름으로 두고, 길면 두 줄까지 보여 준다. */
+.chzzk-badge-moa-toast-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 18px;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.chzzk-badge-moa-toast-summary .chzzk-badge-moa-toast-badges {
+  display: inline-flex;
+  margin-right: 4px;
+  vertical-align: -3px;
+}
+
+.chzzk-badge-moa-toast-badges {
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.chzzk-badge-moa-toast .chzzk-badge-moa-badge,
+.chzzk-badge-moa-toast .chzzk-badge-moa-badge img,
+.chzzk-badge-moa-toast .chzzk-badge-moa-badge-fallback {
+  width: 16px;
+  height: 16px;
+}
+
+/* 닉네임 뒤 인증 마크 */
+/* 닉네임 뒤 인증 마크: 모아보기 팝업처럼 닉네임에 붙여(간격 3px) 둔다. */
+.chzzk-badge-moa-toast .chzzk-badge-moa-toast-mark {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
+/* 머리줄(배지·닉네임·인증 마크)은 모아보기 팝업 항목과 같은 크기·정렬로 맞춘다.
+   팝업: 역할 배지 18px, 닉네임 13px(높이 18px·줄 높이 19.5px), 인증 마크 14px, 간격 3px.
+   줄 높이를 상자보다 조금 크게 두면 한글이 마크 세로 가운데에 놓인다. */
+.chzzk-badge-moa-toast-head {
+  gap: 3px;
+}
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-badges .chzzk-badge-moa-badge,
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-badges .chzzk-badge-moa-badge img,
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-badges .chzzk-badge-moa-badge-fallback {
+  width: 18px;
+  height: 18px;
+}
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-nickname {
+  height: 18px;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-mark,
+.chzzk-badge-moa-toast-head .chzzk-badge-moa-toast-mark img {
+  width: 14px;
+  height: 14px;
+}
+
+.chzzk-badge-moa-toast-summary .chzzk-badge-moa-toast-mark {
+  display: inline-flex;
+  margin: 0 1px 0 3px;
+  vertical-align: -3px;
+}
+
+/* 최소 너비를 두면 짧은 닉네임("티뭉") 뒤에 빈칸이 생겨 인증 마크가 떨어져 보인다.
+   길면 줄어들며 말줄임한다. */
+.chzzk-badge-moa-toast-nickname {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.chzzk-badge-moa-toast-summary .chzzk-badge-moa-toast-nickname {
+  display: inline;
+  overflow: visible;
+  white-space: normal;
+}
+
+.chzzk-badge-moa-toast-summary-text {
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+}
+
+/* 본문은 3줄까지 보여 주고 넘치면 말줄임한다. */
+.chzzk-badge-moa-toast-message {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  color: var(--color-content-02, var(--chzzk-badge-moa-c-content-02));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.chzzk-badge-moa-toast-message img {
+  width: auto;
+  height: 20px;
+  vertical-align: middle;
+}
+
+/* 후원·구독·구독권 선물 등 특수 채팅은 본문 앞에 칩으로 표시한다. */
+.chzzk-badge-moa-toast-chip {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.22);
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-brick {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-brick);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-camel {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-camel);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-green {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-green);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-cyan {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-cyan);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-violet {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-dark-violet);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-donation-neutral {
+  background: var(--chzzk-badge-moa-c-surface-function-donation-neutral);
+  color: #fff;
+}
+
+.chzzk-badge-moa-toast-chip.is-subscription,
+.chzzk-badge-moa-toast-chip.is-mission,
+.chzzk-badge-moa-toast-chip.is-mission-success,
+.chzzk-badge-moa-toast-chip.is-party,
+.chzzk-badge-moa-toast-chip.is-video {
+  background: rgba(0, 201, 141, 0.16);
+  color: var(--chzzk-badge-moa-toast-accent);
+}
+
+.chzzk-badge-moa-toast-chip.is-mission-failed {
+  background: rgba(251, 146, 60, 0.18);
+  color: var(--chzzk-badge-moa-toast-warn);
+}
+
+/* === 구독권 선물 문구 (모아보기 팝업·토스트 공용) ===
+   채널 무작위: "메리꺼 구독권 3개"를 구독 태그와 같은 색으로.
+   특정 사람:   회색 바탕, 본문은 라이트 검정/다크 흰색, "ade1"·"베리 구독권"은 보라색. */
+.chzzk-badge-moa-gift-amount {
+  color: var(
+    --ref-color-brand-neon-65,
+    var(--chzzk-badge-moa-c-ref-color-brand-neon-65, #00b272)
+  );
+  font-weight: 700;
+}
+.chzzk-badge-moa-gift-name,
+.chzzk-badge-moa-gift-tier {
+  color: var(
+    --ref-color-violet-40,
+    var(--chzzk-badge-moa-c-ref-color-violet-40, #7a7aff)
+  );
+  font-weight: 700;
+}
+
+/* 특정 사람에게 준 선물: 모아보기 팝업 항목 */
+.chzzk-badge-moa-item.chzzk-badge-moa-item-gift-direct {
+  background: var(
+    --sem-color-surface-neutral-subtle,
+    var(--chzzk-badge-moa-c-surface-neutral-subtle)
+  );
+  border-color: transparent;
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+}
+.chzzk-badge-moa-item.chzzk-badge-moa-item-gift-direct
+  .chzzk-badge-moa-item-nickname,
+.chzzk-badge-moa-item.chzzk-badge-moa-item-gift-direct
+  .chzzk-badge-moa-item-message {
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01)) !important;
+}
+.chzzk-badge-moa-item.chzzk-badge-moa-item-gift-direct
+  .chzzk-badge-moa-item-time {
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03)) !important;
+}
+
+/* 특정 사람에게 준 선물: 펼친 토스트 카드 */
+.chzzk-badge-moa-toast-item.is-gift-direct {
+  border-color: var(--chzzk-badge-moa-toast-border);
+  background: var(
+    --sem-color-surface-neutral-subtle,
+    var(--chzzk-badge-moa-c-surface-neutral-subtle)
+  );
+  color: var(--color-content-01, var(--chzzk-badge-moa-c-content-01));
+}
+.chzzk-badge-moa-toast-item.is-gift-direct .chzzk-badge-moa-toast-time {
+  color: var(--color-content-03, var(--chzzk-badge-moa-c-content-03));
+  opacity: 1;
+}
+.chzzk-badge-moa-toast-item.is-gift-direct:hover {
+  border-color: var(--chzzk-badge-moa-toast-accent);
+}
+
+/* 일반 시청자 닉네임 가리기(스포일러): 누르면 보인다. */
+.chzzk-badge-moa-spoiler {
+  position: relative;
+  display: inline-block;
+  border-radius: 4px;
+  vertical-align: bottom;
+}
+.chzzk-badge-moa-spoiler:not(.is-revealed) {
+  cursor: pointer;
+  background: rgba(127, 127, 127, 0.28);
+  user-select: none;
+}
+.chzzk-badge-moa-spoiler:not(.is-revealed) .chzzk-badge-moa-spoiler-text {
+  filter: blur(5px);
+  opacity: 0.85;
+}
+.chzzk-badge-moa-spoiler:not(.is-revealed):hover {
+  background: rgba(127, 127, 127, 0.4);
+}
+.chzzk-badge-moa-spoiler:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.chzzk-badge-moa-spoiler .chzzk-badge-moa-spoiler-text {
+  display: inline-block;
+  padding: 0 2px;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+/* 연 뒤에는 일반 글자처럼 inline 으로 둔다. inline-block 은 캡처할 때 화면에서 잰
+   너비가 그대로 옮겨져, 글꼴 폭이 조금만 달라도 끝 글자가 잘린다("ade1" → "ade"). */
+.chzzk-badge-moa-spoiler.is-revealed,
+.chzzk-badge-moa-spoiler.is-revealed .chzzk-badge-moa-spoiler-text {
+  display: inline;
+  padding: 0;
+  border-radius: 0;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chzzk-badge-moa-spoiler .chzzk-badge-moa-spoiler-text {
+    transition: none;
+  }
+}
+
+/* 본문이 없는 채팅: "(내용 없음)" 대신 본문 줄을 숨긴다. */
+.chzzk-badge-moa-item .chzzk-badge-moa-item-message-body.is-empty,
+.chzzk-badge-moa-item > .chzzk-badge-moa-item-message.is-empty,
+.chzzk-badge-moa-capture-surface .chzzk-badge-moa-item > .chzzk-badge-moa-item-message.is-empty {
+  display: none !important;
+}
+
+/* 특정 사람에게 준 선물의 "구독권 선물" 태그: 회색 바탕에 어울리게
+   닉네임·구독권 강조와 같은 보라색 계열로 맞춘다. */
+.chzzk-badge-moa-item-gift-direct .chzzk-badge-moa-item-tag.is-subscription,
+.chzzk-badge-moa-toast-item.is-gift-direct .chzzk-badge-moa-item-tag.is-subscription {
+  color: var(
+    --ref-color-violet-40,
+    var(--chzzk-badge-moa-c-ref-color-violet-40, #7a7aff)
+  );
+  background-color: rgba(122, 122, 255, 0.14);
+}
+html.theme_dark .chzzk-badge-moa-item-gift-direct .chzzk-badge-moa-item-tag.is-subscription,
+html[data-theme="dark"] .chzzk-badge-moa-item-gift-direct .chzzk-badge-moa-item-tag.is-subscription,
+html.theme_dark .chzzk-badge-moa-toast-item.is-gift-direct .chzzk-badge-moa-item-tag.is-subscription,
+html[data-theme="dark"] .chzzk-badge-moa-toast-item.is-gift-direct .chzzk-badge-moa-item-tag.is-subscription {
+  background-color: rgba(122, 122, 255, 0.2);
 }

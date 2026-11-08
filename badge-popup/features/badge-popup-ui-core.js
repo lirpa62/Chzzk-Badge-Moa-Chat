@@ -234,6 +234,7 @@
     captureSelectButton.setAttribute("aria-pressed", "false");
     captureSelectButton.title = "캡처할 채팅 선택";
     setPopupActionButtonContent(captureSelectButton, "capture-select");
+    captureSelectButton.dataset.iconType = "capture-select";
 
     const captureDownloadButton = document.createElement("button");
     captureDownloadButton.type = "button";
@@ -247,6 +248,7 @@
     captureDownloadButton.hidden = true;
     captureDownloadButton.disabled = true;
     setPopupActionButtonContent(captureDownloadButton, "capture-download");
+    captureDownloadButton.dataset.iconType = "capture-download";
 
     const captureToggleAllButton = document.createElement("button");
     captureToggleAllButton.type = "button";
@@ -536,6 +538,8 @@
       count,
       popup,
       popupHead,
+      headBottom,
+      subActionWrap,
       filterToggleButton,
       filterBar,
       list,
@@ -563,6 +567,8 @@
       confirmSecondaryButton,
       confirmDeleteButton,
     };
+
+    attachHeadCompactObserver(state);
 
     applyPopupHeight();
     syncPillPositionForHeader();
@@ -684,6 +690,62 @@
     state.ui.livePillResizeObserver = observer;
   }
 
+  const HEAD_COMPACT_CLASS = "is-compact";
+
+  // 머리 아래 줄(전체 선택 + 보기 방식 + 필터 펴기)이 너비보다 길어지면 보기 방식
+  // 버튼의 글자를 숨기고 아이콘만 남긴다. 글자를 다시 보였을 때의 너비로 판단한다.
+  function updateHeadBottomCompact(state) {
+    const ui = state && state.ui;
+    const headBottom = ui && ui.headBottom;
+    const subActionWrap = ui && ui.subActionWrap;
+    if (!(headBottom instanceof HTMLElement)) return;
+    if (!(subActionWrap instanceof HTMLElement)) return;
+    const available = headBottom.clientWidth;
+    if (available <= 0) return; // 팝업이 닫혀 있으면 열릴 때 다시 잰다.
+
+    headBottom.classList.remove(HEAD_COMPACT_CLASS);
+    let required = subActionWrap.offsetWidth;
+    const toggleAll = ui.captureToggleAllButton;
+    if (toggleAll instanceof HTMLElement && !toggleAll.hidden) {
+      const toggleText = toggleAll.querySelector(
+        ".chzzk-badge-moa-popup-capture-toggle-all-text",
+      );
+      const truncated =
+        toggleText instanceof HTMLElement
+          ? Math.max(0, toggleText.scrollWidth - toggleText.clientWidth)
+          : 0;
+      const gap = parseFloat(getComputedStyle(headBottom).columnGap) || 0;
+      required += toggleAll.offsetWidth + truncated + gap;
+    }
+    headBottom.classList.toggle(HEAD_COMPACT_CLASS, required > available + 0.5);
+  }
+
+  function attachHeadCompactObserver(state) {
+    detachHeadCompactObserver(state);
+    const ui = state && state.ui;
+    if (!ui || typeof ResizeObserver !== "function") return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        updateHeadBottomCompact(state);
+      });
+    });
+    [ui.headBottom, ui.subActionWrap, ui.captureToggleAllButton].forEach(
+      (element) => {
+        if (element instanceof HTMLElement) observer.observe(element);
+      },
+    );
+    ui.headCompactObserver = observer;
+  }
+
+  function detachHeadCompactObserver(state) {
+    const observer = state.ui && state.ui.headCompactObserver;
+    if (observer) observer.disconnect();
+    if (state.ui) state.ui.headCompactObserver = null;
+  }
+
   function detachLivePillResizeObserver(state) {
     const observer = state.ui && state.ui.livePillResizeObserver;
     if (observer && typeof observer.disconnect === "function") {
@@ -800,6 +862,7 @@
     resolveConfirmDialog(false, { restoreFocus: false });
 
     detachLivePillResizeObserver(state);
+    detachHeadCompactObserver(state);
 
     if (state.ui.root && state.ui.root.parentNode) {
       state.ui.root.parentNode.removeChild(state.ui.root);
@@ -843,6 +906,9 @@
       captureSelectButton: null,
       captureDownloadButton: null,
       captureToggleAllButton: null,
+      headBottom: null,
+      subActionWrap: null,
+      headCompactObserver: null,
       captureProgressOverlay: null,
       captureProgressText: null,
       pinButton: null,
@@ -858,6 +924,44 @@
       livePillResizeObserver: null,
     };
   }
+
+  // 캡처 버튼 아이콘(Lucide v1.67.0, 라이선스는 THIRD_PARTY_NOTICES.md 참고).
+  // capture-select: camera, capture-exit: log-out,
+  // capture-download: image-down, capture-copy: clipboard-copy
+  const LUCIDE_ICON_SHAPES = {
+    "capture-select": [
+      [
+        "path",
+        {
+          d: "M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z",
+        },
+      ],
+      ["circle", { cx: "12", cy: "13", r: "3" }],
+    ],
+    "capture-exit": [
+      ["path", { d: "m16 17 5-5-5-5" }],
+      ["path", { d: "M21 12H9" }],
+      ["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" }],
+    ],
+    "capture-download": [
+      [
+        "path",
+        {
+          d: "M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21",
+        },
+      ],
+      ["path", { d: "m14 19 3 3v-5.5" }],
+      ["path", { d: "m17 22 3-3" }],
+      ["circle", { cx: "9", cy: "9", r: "2" }],
+    ],
+    "capture-copy": [
+      ["rect", { width: "8", height: "4", x: "8", y: "2", rx: "1", ry: "1" }],
+      ["path", { d: "M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" }],
+      ["path", { d: "M16 4h2a2 2 0 0 1 2 2v4" }],
+      ["path", { d: "M21 14H11" }],
+      ["path", { d: "m15 10-4 4 4 4" }],
+    ],
+  };
 
   function setPopupActionButtonContent(button, type) {
     if (!button) return;
@@ -895,24 +999,17 @@
       box.setAttribute("stroke-linecap", "round");
       box.setAttribute("stroke-linejoin", "round");
       svg.append(box);
-    } else if (type === "capture-select") {
-      const box = document.createElementNS(svgNs, "rect");
-      box.setAttribute("x", "4");
-      box.setAttribute("y", "4");
-      box.setAttribute("width", "16");
-      box.setAttribute("height", "16");
-      box.setAttribute("rx", "3");
-      const check = document.createElementNS(svgNs, "path");
-      check.setAttribute("d", "m8 12 2.5 2.5L16 9");
-      check.setAttribute("stroke-linecap", "round");
-      check.setAttribute("stroke-linejoin", "round");
-      svg.append(box, check);
-    } else if (type === "capture-download") {
-      const arrow = document.createElementNS(svgNs, "path");
-      arrow.setAttribute("d", "M12 4v11m0 0 4-4m-4 4-4-4M5 20h14");
-      arrow.setAttribute("stroke-linecap", "round");
-      arrow.setAttribute("stroke-linejoin", "round");
-      svg.append(arrow);
+    } else if (LUCIDE_ICON_SHAPES[type]) {
+      // lucide 아이콘은 둥근 선 끝/모서리를 쓴다.
+      svg.setAttribute("stroke-linecap", "round");
+      svg.setAttribute("stroke-linejoin", "round");
+      LUCIDE_ICON_SHAPES[type].forEach(([tagName, attributes]) => {
+        const shape = document.createElementNS(svgNs, tagName);
+        Object.entries(attributes).forEach(([name, value]) => {
+          shape.setAttribute(name, value);
+        });
+        svg.appendChild(shape);
+      });
     } else {
       svg.setAttribute("viewBox", "0 0 19 20");
       svg.removeAttribute("stroke");
