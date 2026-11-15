@@ -3981,7 +3981,8 @@ html.chzzk-badge-moa-chat-width-resize-enabled
 /* === 채팅 폰트/배지 크기 조절 (치지직 네이티브 방식: 단일 절대기준 × 배율) === */
 /* 우리 CSS는 임베디드 라이브/다시보기 채팅에서만 동작한다. 채팅 팝업에는 치지직
    네이티브 스케일이 있어 popup.js의 getEffectiveChatFontScale가 배율을 1 이하로 cap하고
-   -enabled 게이트를 끈다.
+   -enabled 게이트를 끈다. 임베디드 채팅에서도 치지직 "채팅 사이즈"(--chat-scale)가
+   100%보다 크면 배율을 1로 두어 네이티브 스케일에 양보한다.
    스코프는 채팅 aside(aside#aside-chatting / aside#vod-aside) + 채팅 행 클래스
    (_item_ / live_chatting_list_item / vod_chatting_item) 로 잡는다. [role="log"]
    같은 리스트 컨테이너에 의존하지 않는다 — 상단 고정 메시지가 있으면 [role="log"] 가

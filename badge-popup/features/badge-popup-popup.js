@@ -888,9 +888,120 @@
     );
   }
 
-  function getEffectiveChatFontScale(doc, chatFontScale) {
+  // 치지직 자체 "채팅 사이즈"(채팅창 더보기 메뉴, 100~170% 10% 단위). 라이브·다시보기
+  // 채팅이 localStorage "chatScale"(100~170 정수)을 함께 쓰고, 채팅 목록(_wrapper_)과
+  // 하단 고정 메시지(_floating_)에 인라인 --chat-scale(배율)을 건다. 100 보다 크면
+  // 행마다 _is_scaled_ 를 붙여 calc(기준px × --chat-scale)로 글자·배지·이모티콘을 키운다.
+  const NATIVE_CHAT_SCALE_SELECTOR =
+    ':is(aside#aside-chatting, aside#vod-aside) [style*="--chat-scale"]';
+  const NATIVE_CHAT_SCALE_STORAGE_KEY = "chatScale";
+
+  function parseNativeChatScaleElement(element) {
+    if (!(element instanceof HTMLElement)) return NaN;
+    const value = parseFloat(element.style.getPropertyValue("--chat-scale"));
+    return Number.isFinite(value) && value > 0 ? value : NaN;
+  }
+
+  function findNativeChatScaleElement(state, doc) {
+    const cached = state?.nativeChatScaleWatch?.element;
+    if (
+      cached instanceof HTMLElement &&
+      cached.isConnected &&
+      cached.ownerDocument === doc &&
+      Number.isFinite(parseNativeChatScaleElement(cached))
+    ) {
+      return cached;
+    }
+    const element = doc.querySelector(NATIVE_CHAT_SCALE_SELECTOR);
+    return element instanceof HTMLElement ? element : null;
+  }
+
+  function readStoredNativeChatScale(doc) {
+    try {
+      const storage = (doc.defaultView || window).localStorage;
+      const raw = storage ? storage.getItem(NATIVE_CHAT_SCALE_STORAGE_KEY) : null;
+      if (raw == null) return 1;
+      const percent = Number(JSON.parse(raw));
+      if (Number.isInteger(percent) && percent >= 100 && percent <= 170) {
+        return percent / 100;
+      }
+    } catch (error) {
+      // 접근 불가(저장소 차단 등)면 네이티브 배율이 없는 것으로 본다.
+    }
+    return 1;
+  }
+
+  // 채팅창이 그려져 있으면 실제로 적용된 --chat-scale 을, 아직 없으면(첫 로드 직후)
+  // 치지직이 읽을 저장값을 쓴다. 독립 채팅 팝업은 메뉴가 없고 값을 저장하지 않는다.
+  function readNativeChatScale(doc, element) {
+    const applied = parseNativeChatScaleElement(element);
+    if (Number.isFinite(applied)) return applied;
+    if (isStandaloneChatPopupDocument(doc)) return 1;
+    return readStoredNativeChatScale(doc);
+  }
+
+  // 네이티브 배율을 바꾸면 그 요소의 style 만 바뀌고 새 배지 채팅이 없으면 렌더도
+  // 없으므로, --chat-scale 요소를 직접 지켜보다가 값이 달라질 때 설정 클래스를 다시 건다.
+  function syncNativeChatScaleWatch(state, doc, element, onChange) {
+    if (!state) return;
+    const view = doc.defaultView || window;
+    let watch = state.nativeChatScaleWatch;
+    if (!watch) {
+      watch = state.nativeChatScaleWatch = {
+        element: null,
+        observer: null,
+        storageHandler: null,
+        view: null,
+        onChange: null,
+      };
+    }
+    watch.onChange = onChange;
+
+    if (watch.view !== view) {
+      if (watch.view && watch.storageHandler) {
+        watch.view.removeEventListener("storage", watch.storageHandler);
+      }
+      watch.view = view;
+      // 다른 탭에서 바꾼 값도 치지직이 이 탭에 반영하므로 함께 받는다.
+      watch.storageHandler = (event) => {
+        if (event && event.key !== NATIVE_CHAT_SCALE_STORAGE_KEY && event.key !== null) {
+          return;
+        }
+        if (typeof watch.onChange === "function") watch.onChange();
+      };
+      view.addEventListener("storage", watch.storageHandler);
+    }
+
+    if (watch.element === element) return;
+    if (watch.observer) {
+      watch.observer.disconnect();
+      watch.observer = null;
+    }
+    watch.element = element;
+    if (!(element instanceof HTMLElement) || typeof MutationObserver !== "function") {
+      return;
+    }
+    watch.observer = new MutationObserver(() => {
+      const next = readNativeChatScale(doc, element);
+      if (Math.abs(next - Number(state.nativeChatScale || 1)) < 0.001) return;
+      if (typeof watch.onChange === "function") watch.onChange();
+    });
+    watch.observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+  }
+
+  function isNativeChatScaleActive(nativeChatScale) {
+    return Number(nativeChatScale) > 1.001;
+  }
+
+  function getEffectiveChatFontScale(doc, chatFontScale, nativeChatScale = 1) {
     const numeric = Number(chatFontScale);
     if (!Number.isFinite(numeric)) return 1;
+    // 치지직 채팅 사이즈를 키웠으면 그쪽을 우선하고 우리 배율은 쉰다. 둘 다 걸면
+    // 우리 절대 px(!important)가 네이티브 크기를 덮어 줄높이·배지 크기가 어긋난다.
+    if (isNativeChatScaleActive(nativeChatScale)) return 1;
     if (isStandaloneChatPopupDocument(doc)) {
       return Math.min(1, numeric);
     }
@@ -1491,9 +1602,16 @@
       doc.documentElement instanceof HTMLElement ? doc.documentElement : null;
     const root = state?.ui?.root;
     const popup = state?.ui?.popup;
+    const nativeChatScaleElement = findNativeChatScaleElement(state, doc);
+    const nativeChatScale = readNativeChatScale(doc, nativeChatScaleElement);
+    state.nativeChatScale = nativeChatScale;
+    syncNativeChatScaleWatch(state, doc, nativeChatScaleElement, () =>
+      applySettingsClasses(state, deps),
+    );
     const chatFontScale = getEffectiveChatFontScale(
       doc,
       normalizeChatFontScaleFn(state.settings.chatFontScale),
+      nativeChatScale,
     );
     if (rootElement) {
       rootElement.classList.toggle(

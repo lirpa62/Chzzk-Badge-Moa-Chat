@@ -474,6 +474,7 @@ body {
   color: var(--muted-fg);
   font-size: 10px;
   line-height: 1.5;
+  word-break: keep-all;
 }
 
 .settings-tooltip {
@@ -816,6 +817,12 @@ body {
 
 .field-grid-2col .field-row {
   min-width: 0;
+}
+
+/* 라벨은 한 줄로 두고 남는 폭을 선택 상자가 나눠 쓴다(라벨이 두 줄로 접히지 않게). */
+.field-grid-2col .field-row > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .field-grid-2col .field-row select {

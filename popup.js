@@ -910,8 +910,16 @@
     const custom = select && select.__badgeMoaCustomSelect;
     if (!custom) return;
     const selected = select.selectedOptions && select.selectedOptions[0];
-    custom.value.textContent =
-      (selected && selected.textContent) || select.value || "선택";
+    // 좁은 2열 칸에서는 닫힌 상자에 짧은 표기(data-short)를 보여 주고, 펼친 목록에는
+    // 원래 문구를 그대로 둔다.
+    const fullText = (selected && selected.textContent) || select.value || "선택";
+    const shortText = selected && selected.dataset ? selected.dataset.short : "";
+    custom.value.textContent = shortText || fullText;
+    if (shortText) {
+      custom.trigger.title = fullText;
+    } else {
+      custom.trigger.removeAttribute("title");
+    }
     Array.from(custom.menu.querySelectorAll(".custom-select-option")).forEach(
       (item) => {
         const isSelected = item.dataset.value === select.value;
