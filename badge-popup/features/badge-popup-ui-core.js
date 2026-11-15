@@ -669,6 +669,14 @@
     return !!findVodHeaderTitleNode(header);
   }
 
+  // style 속성을 값이 바뀔 때만 쓴다. 같은 값을 다시 써도 속성 선택자 때문에
+  // 모아보기 목록 카드 전체의 스타일 재계산이 생긴다.
+  function setStyleVariable(element, name, value) {
+    if (!element || !element.style) return;
+    if (element.style.getPropertyValue(name) === value) return;
+    element.style.setProperty(name, value);
+  }
+
   function updateLivePillMaxWidth(state) {
     const { root, header } = state.ui;
     if (!root || !(header instanceof HTMLElement)) return;
@@ -677,7 +685,7 @@
     const pillLeft = 52;
     const availableWidth = Math.round(headerRect.width - pillLeft - 8);
     const maxWidth = Math.max(68, Math.min(150, availableWidth));
-    root.style.setProperty("--chzzk-vod-pill-max-width", `${maxWidth}px`);
+    setStyleVariable(root, "--chzzk-vod-pill-max-width", `${maxWidth}px`);
   }
 
   function attachLivePillResizeObserver(state) {
@@ -763,8 +771,9 @@
     const { root, header } = state.ui;
     if (!root || !header) return;
 
+    // 렌더마다 불리므로 class 는 바뀔 때만 쓴다(add/remove 는 값이 같아도 다시 쓴다).
     if (!isVodChatHeader(header)) {
-      root.classList.remove("is-vod-header");
+      root.classList.toggle("is-vod-header", false);
       root.style.removeProperty("--chzzk-vod-pill-left");
       root.style.removeProperty("--chzzk-vod-pill-top");
       attachLivePillResizeObserver(state);
@@ -774,7 +783,7 @@
 
     detachLivePillResizeObserver(state);
 
-    root.classList.add("is-vod-header");
+    root.classList.toggle("is-vod-header", true);
 
     const title = findVodHeaderTitleNode(header);
     if (!(title instanceof HTMLElement)) return;
@@ -836,9 +845,9 @@
     }
     maxWidth = Math.max(68, maxWidth);
 
-    root.style.setProperty("--chzzk-vod-pill-left", `${left}px`);
-    root.style.setProperty("--chzzk-vod-pill-top", `${top}px`);
-    root.style.setProperty("--chzzk-vod-pill-max-width", `${maxWidth}px`);
+    setStyleVariable(root, "--chzzk-vod-pill-left", `${left}px`);
+    setStyleVariable(root, "--chzzk-vod-pill-top", `${top}px`);
+    setStyleVariable(root, "--chzzk-vod-pill-max-width", `${maxWidth}px`);
   }
 
   function cleanupDetachedUi(state, deps = {}) {

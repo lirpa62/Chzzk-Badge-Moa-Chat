@@ -1260,7 +1260,8 @@
       resetChatAsideWidth(resizeState.aside);
     }
     if (doc.documentElement instanceof HTMLElement) {
-      doc.documentElement.classList.remove("chzzk-badge-moa-chat-resizing");
+      // 렌더마다 불리므로 바뀔 때만 쓴다(remove 는 값이 같아도 class 속성을 다시 쓴다).
+      doc.documentElement.classList.toggle("chzzk-badge-moa-chat-resizing", false);
     }
 
     resizeState.handle = null;
@@ -1551,8 +1552,11 @@
         "chzzk-badge-moa-chat-font-scale-enabled",
         Math.abs(Number(chatFontScale) - 1) > 0.001,
       );
-      rootElement.classList.add("chzzk-badge-moa-chat-font-scale-ready");
-      rootElement.style.setProperty(
+      // 값이 같아도 다시 쓰면 html 의 class/style 속성 선택자 때문에 페이지의
+      // 확장 요소 전체(모아보기 목록 포함) 스타일을 다시 계산하므로 바뀔 때만 쓴다.
+      rootElement.classList.toggle("chzzk-badge-moa-chat-font-scale-ready", true);
+      setStyleVariable(
+        rootElement,
         "--chzzk-badge-moa-chat-font-scale",
         String(chatFontScale),
       );
@@ -1578,11 +1582,18 @@
     const popupFontScale = String(
       normalizePopupFontScaleFn(state.settings.popupFontScale),
     );
-    root.style.setProperty("--chzzk-popup-font-scale", popupFontScale);
+    setStyleVariable(root, "--chzzk-popup-font-scale", popupFontScale);
     if (popup) {
-      popup.style.setProperty("--chzzk-popup-font-scale", popupFontScale);
+      setStyleVariable(popup, "--chzzk-popup-font-scale", popupFontScale);
     }
     syncPopupFontScaleControlFn();
+  }
+
+  // style 속성을 값이 바뀔 때만 쓴다(같은 값을 다시 써도 속성 선택자 무효화가 생긴다).
+  function setStyleVariable(element, name, value) {
+    if (!element || !element.style) return;
+    if (element.style.getPropertyValue(name) === value) return;
+    element.style.setProperty(name, value);
   }
 
   ns.popupApi = {

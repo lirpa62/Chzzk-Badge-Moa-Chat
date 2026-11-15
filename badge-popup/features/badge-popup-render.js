@@ -192,8 +192,12 @@
     pill.setAttribute("aria-label", "배지 채팅 모아보기 열기");
     pill.removeAttribute("title");
 
+    // classList.add/remove 는 값이 같아도 class 속성을 다시 써서, [class*=…] 선택자
+    // 때문에 모아보기 목록 전체의 스타일을 다시 계산하게 만든다. 바뀔 때만 쓰는
+    // toggle(이름, 참/거짓)을 쓴다.
     if (!Array.isArray(state.entries) || state.entries.length === 0) {
-      root.classList.remove("has-chat", "has-unseen");
+      root.classList.toggle("has-chat", false);
+      root.classList.toggle("has-unseen", false);
       pill.classList.remove("is-rotating");
       pill.classList.add("is-empty");
       applyPillRoleClassFn("");
@@ -204,13 +208,8 @@
       return;
     }
 
-    root.classList.add("has-chat");
-
-    if (state.unseenCount > 0) {
-      root.classList.add("has-unseen");
-    } else {
-      root.classList.remove("has-unseen");
-    }
+    root.classList.toggle("has-chat", true);
+    root.classList.toggle("has-unseen", state.unseenCount > 0);
 
     if (state.unseenCount <= 0) {
       resetPillCycleFn(true);
@@ -438,6 +437,112 @@
     }
   }
 
+  // ── 모아보기 목록 부분 갱신 ─────────────────────────────────────────────
+  // 마지막으로 그린 목록 정보(목록 요소에 붙여 둔다):
+  //   { signature, keys: 카드별 키[], items: 카드 요소[], lastDateKey }
+  const LIST_RENDER_CACHE = "__chzzkBadgeMoaListRender";
+
+  function clearRenderedList(list) {
+    list.innerHTML = "";
+    list[LIST_RENDER_CACHE] = null;
+  }
+
+  // 카드 모양을 바꾸는 설정(createEntryItem 이 읽는 값). 달라지면 전체를 다시 그린다.
+  // 닉네임 필터처럼 보일 채팅을 고르는 설정은 카드 키 목록으로 비교한다.
+  // 카드를 만들 때 새 설정을 읽게 되면 여기에도 넣어야 한다.
+  function buildListRenderSignature(state, options) {
+    const settings = state?.settings || {};
+    return [
+      String(state?.displayStyle || ""),
+      options.showPopupTime ? "1" : "0",
+      String(options.popupTimestampFormat || ""),
+      settings.useOriginalSpecialChatStyle === true ? "1" : "0",
+      settings.showPopupRoleBadgesOnly === true ? "1" : "0",
+    ].join("|");
+  }
+
+  // 카드 하나의 키. 채팅이 같아도 카드 모양이 달라지는 값(프로필 연결용 대체 해시,
+  // 구독권 선물 닉네임 공개 여부, 원본 스타일 HTML)을 함께 담아, 이미 그린 카드가
+  // 달라져야 하면 전체를 다시 그리게 한다. 채팅을 가리킬 수 없으면 "".
+  function getEntryRenderKey(state, entry, nicknameHashMap) {
+    let key = "";
+    if (Number.isFinite(entry?.sequence)) {
+      key = `seq:${entry.sequence}`;
+    } else {
+      const dedupeKey = String(entry?.dedupeKey || "").trim();
+      if (!dedupeKey) return "";
+      key = `dedupe:${dedupeKey}`;
+    }
+    if (!String(entry.authorUserIdHash || "").trim()) {
+      const nickname = String(entry.nickname || "").trim();
+      key += `|h:${nicknameHashMap.get(nickname) || ""}`;
+    }
+    const gift = entry.gift;
+    if (gift && typeof gift === "object") {
+      const receiverKnown = isGiftNicknameKnown(
+        state,
+        gift.receiverNickname,
+        gift,
+      );
+      const senderKnown = isGiftNicknameKnown(state, gift.senderNickname, gift);
+      key += `|g:${receiverKnown ? 1 : 0}${senderKnown ? 1 : 0}`;
+    }
+    const originalHtml = String(entry.originalChatHtml || "");
+    if (originalHtml) key += `|o:${originalHtml.length}`;
+    return key;
+  }
+
+  // 지난번 목록에서 앞쪽 일부가 빠지고 뒤에 새 채팅만 붙었으면 { dropCount } 를,
+  // 그 밖의 변화(필터·설정·삭제·순서 변경 등)면 null(전체 다시 그리기)을 돌려준다.
+  function planListUpdate(list, previous, signature, keys) {
+    if (!previous || previous.signature !== signature) return null;
+    const prevKeys = previous.keys;
+    const items = previous.items;
+    if (
+      !Array.isArray(prevKeys) ||
+      !Array.isArray(items) ||
+      prevKeys.length === 0 ||
+      items.length !== prevKeys.length ||
+      keys.length === 0 ||
+      keys.some((key) => !key)
+    ) {
+      return null;
+    }
+    // 다른 곳에서 목록을 비웠거나 바꿨으면 믿지 않는다.
+    if (
+      items[0].parentNode !== list ||
+      list.lastElementChild !== items[items.length - 1]
+    ) {
+      return null;
+    }
+    const dropCount = prevKeys.indexOf(keys[0]);
+    if (dropCount < 0) return null;
+    const keptCount = prevKeys.length - dropCount;
+    if (keys.length < keptCount) return null;
+    for (let index = 0; index < keptCount; index += 1) {
+      if (prevKeys[dropCount + index] !== keys[index]) return null;
+    }
+    return { dropCount };
+  }
+
+  // 위쪽 카드가 빠져도 보고 있던 카드가 제자리에 있도록 기준 카드를 기억한다.
+  function readListAnchor(list, items) {
+    const scrollTop = list.scrollTop;
+    // offsetTop 은 목록이 아니라 위치 기준 조상에서 잰 값일 수 있다.
+    const base = items[0] && items[0].offsetParent !== list ? list.offsetTop : 0;
+    for (const item of items) {
+      if (item.offsetTop - base + item.offsetHeight > scrollTop) {
+        return { item, offset: item.offsetTop - scrollTop };
+      }
+    }
+    return null;
+  }
+
+  function restoreListAnchor(list, anchor) {
+    if (!anchor || anchor.item.parentNode !== list) return;
+    list.scrollTop = anchor.item.offsetTop - anchor.offset;
+  }
+
   function renderList(state, scrollToBottom, deps = {}) {
     const list = state?.ui?.list;
     const empty = state?.ui?.empty;
@@ -508,9 +613,9 @@
     const preserveBottom = scrollToBottom === "preserve-bottom";
     const stickToBottom = preserveBottom || isNearBottomFn(list);
     const previousScrollTop = Number(list.scrollTop || 0);
-    list.innerHTML = "";
 
     if (!Array.isArray(state.entries) || state.entries.length === 0) {
+      clearRenderedList(list);
       renderNicknameFiltersFn([]);
       list.style.display = "none";
       empty.style.display = "flex";
@@ -525,6 +630,7 @@
 
     const visibleEntries = getVisibleEntriesByNicknameFn();
     if (!Array.isArray(visibleEntries) || visibleEntries.length === 0) {
+      clearRenderedList(list);
       list.style.display = "none";
       empty.style.display = "flex";
       empty.textContent = "선택한 닉네임의 배지 채팅 없음";
@@ -562,21 +668,8 @@
       return map;
     })();
 
-    const fragment = document.createDocumentFragment();
-    let lastDateKey = "";
-
-    for (
-      let entryIndex = 0;
-      entryIndex < visibleEntries.length;
-      entryIndex += 1
-    ) {
-      const entry = visibleEntries[entryIndex];
-      const dateKey = getDateKeyFn(entry.timestamp);
-      if (dateKey && dateKey !== lastDateKey) {
-        fragment.appendChild(createDateDividerFn(entry.timestamp));
-        lastDateKey = dateKey;
-      }
-
+    // 채팅 하나의 카드를 만든다(전체 다시 그리기·뒤에 덧붙이기 공용).
+    const createEntryItem = (entry, entryIndex) => {
       const item = document.createElement("article");
       item.className = "chzzk-badge-moa-item";
       const captureApi = window.__chzzkBadgeMoa?.captureApi;
@@ -595,8 +688,7 @@
       if (originalSnapshot) {
         item.classList.add("chzzk-badge-moa-item-original-chat");
         item.appendChild(originalSnapshot);
-        fragment.appendChild(item);
-        continue;
+        return item;
       }
       if (entry.badgeType) {
         item.classList.add(`chzzk-badge-moa-item-highlight-${entry.badgeType}`);
@@ -819,11 +911,91 @@
       }
 
       item.append(head, message);
-      fragment.appendChild(item);
-    }
+      return item;
+    };
 
-    list.appendChild(fragment);
-    syncPopupContentHeightFn();
+    // 카드와 날짜 구분선을 fragment 에 붙인다. 만든 카드와 마지막 날짜를 돌려준다.
+    const appendEntries = (fragment, entries, startIndex, startDateKey) => {
+      let lastDateKey = startDateKey;
+      const items = [];
+      for (let offset = 0; offset < entries.length; offset += 1) {
+        const entry = entries[offset];
+        const dateKey = getDateKeyFn(entry.timestamp);
+        if (dateKey && dateKey !== lastDateKey) {
+          fragment.appendChild(createDateDividerFn(entry.timestamp));
+          lastDateKey = dateKey;
+        }
+        const item = createEntryItem(entry, startIndex + offset);
+        fragment.appendChild(item);
+        items.push(item);
+      }
+      return { items, lastDateKey };
+    };
+
+    const renderKeys = visibleEntries.map((entry) =>
+      getEntryRenderKey(state, entry, nicknameHashMap),
+    );
+    const renderSignature = buildListRenderSignature(state, {
+      showPopupTime,
+      popupTimestampFormat,
+    });
+    const previousRender = list[LIST_RENDER_CACHE];
+    const update = planListUpdate(
+      list,
+      previousRender,
+      renderSignature,
+      renderKeys,
+    );
+
+    if (update) {
+      // 새 채팅이 뒤에 붙기만 했으면(앞쪽은 개수 제한으로 빠질 수 있다) 바뀐 카드만
+      // 고친다. 500개를 모두 다시 만들면 한 번에 수백 ms 가 걸려 영상·스크롤이 끊긴다.
+      const keptItems = previousRender.items.slice(update.dropCount);
+      const anchor =
+        update.dropCount > 0 && !(state.isOpen && stickToBottom)
+          ? readListAnchor(list, keptItems)
+          : null;
+      if (update.dropCount > 0) {
+        const firstKept = keptItems[0];
+        while (list.firstChild && list.firstChild !== firstKept) {
+          list.removeChild(list.firstChild);
+        }
+        // 맨 위 카드에는 항상 날짜 구분선을 둔다(전체 다시 그릴 때와 같게).
+        const firstEntry = visibleEntries[0];
+        if (getDateKeyFn(firstEntry.timestamp)) {
+          list.insertBefore(createDateDividerFn(firstEntry.timestamp), firstKept);
+        }
+      }
+      const addedEntries = visibleEntries.slice(keptItems.length);
+      const fragment = document.createDocumentFragment();
+      const added = appendEntries(
+        fragment,
+        addedEntries,
+        keptItems.length,
+        previousRender.lastDateKey,
+      );
+      list.appendChild(fragment);
+      list[LIST_RENDER_CACHE] = {
+        signature: renderSignature,
+        keys: renderKeys,
+        items: keptItems.concat(added.items),
+        lastDateKey: added.lastDateKey,
+      };
+      syncPopupContentHeightFn();
+      if (anchor) restoreListAnchor(list, anchor);
+    } else {
+      list.innerHTML = "";
+      const fragment = document.createDocumentFragment();
+      const rendered = appendEntries(fragment, visibleEntries, 0, "");
+      list.appendChild(fragment);
+      list[LIST_RENDER_CACHE] = {
+        signature: renderSignature,
+        keys: renderKeys,
+        items: rendered.items,
+        lastDateKey: rendered.lastDateKey,
+      };
+      syncPopupContentHeightFn();
+    }
 
     if (scrollToBottom === "latest-sequence") {
       const maxSeq = state.entries.reduce(
@@ -839,7 +1011,8 @@
       }
     } else if (scrollToBottom || (state.isOpen && stickToBottom)) {
       scrollListToBottom(list);
-    } else if (previousScrollTop > 0) {
+    } else if (!update && previousScrollTop > 0) {
+      // 부분 갱신은 스크롤 위치를 그대로 두거나 기준 카드로 맞췄다.
       const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
       list.scrollTop = Math.min(previousScrollTop, maxScrollTop);
     }

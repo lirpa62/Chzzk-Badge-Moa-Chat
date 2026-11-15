@@ -183,7 +183,11 @@
       capture.active && dragEnabled,
     );
     root?.classList.toggle("is-capture-busy", capture.busy);
-    if (list instanceof HTMLElement) {
+    if (
+      list instanceof HTMLElement &&
+      list.getAttribute("aria-busy") !== String(capture.busy)
+    ) {
+      // 같은 값을 다시 쓰면 목록 카드 전체의 스타일 재계산이 생긴다.
       list.setAttribute("aria-busy", String(capture.busy));
     }
     if (progressOverlay instanceof HTMLElement) {
@@ -453,7 +457,8 @@
     drag.started = false;
     drag.pointerId = null;
     drag.visitedKeys.clear();
-    state?.ui?.root?.classList.remove("is-capture-dragging");
+    // 목록을 그릴 때마다 불리므로 바뀔 때만 쓴다(remove 는 값이 같아도 다시 쓴다).
+    state?.ui?.root?.classList.toggle("is-capture-dragging", false);
     if (wasStarted && suppressClick) {
       drag.suppressClick = true;
       if (drag.suppressClickTimer) clearTimeout(drag.suppressClickTimer);
